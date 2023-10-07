@@ -5,6 +5,7 @@ upload_tmp_dir = "C:\WebSdk\tmp"
 upload_tmp_dir = ".\..\..\tmp"
 upload_max_filesize = 40M
 
+
 extension_dir = ".\ext"
 
 extension=bz2

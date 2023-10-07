@@ -1,0 +1,14 @@
+@echo off
+
+pushd "%~dp0.."
+    set lib=%cd%\
+    set sdk=%~dp0
+    set mariadb=%lib%mariadb\
+    set php81=%lib%\php\8.1\
+    set php82=%lib%\php\8.2\
+    set php74=%lib%\php\7.4\
+    set php56=%lib%\php\5.6\
+    set php=%php81%
+    
+popd
+

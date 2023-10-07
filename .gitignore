@@ -8,3 +8,4 @@
 **/*.sock
 lib/nodejs
 lib/nvm/*/
+.idea

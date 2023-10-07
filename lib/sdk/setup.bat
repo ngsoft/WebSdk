@@ -2,42 +2,37 @@
 
 goto main
 
+:addpath_sdk [%1 - param] (
+    call :addpath "%WEB_SDK%%~1"
+    exit /b
+)
+
 :addpath [%1 - param] (
-
-    echo $1 | findstr /c:":\" > NUL 2>&1
+    reg query HKCU\Environment /v PATH | findstr /C:"%~1" > NUL 2>&1
     if ERRORLEVEL 1 (
-        set p="%~1"
-    ) else (
-        set p=%WEB_SDK%%~1
-    )
-
-    reg query HKCU\Environment /v PATH | findstr /C:"%p%" > NUL 2>&1
-    if ERRORLEVEL 1 (
-        echo Adding %p% to PATH
-        regenv.exe set -nU -sa -x PATH "%p%"
+        echo Adding %~1 to PATH
+        regenv.exe set -nU -sa -x PATH "%~1"
     )
     exit /b
 )
 
 :install_nvm (
-    set p=%WEB_SDK%lib\nvm
+    set "NVM_HOME=%WEB_SDK%lib\nvm"
     set installed=false
-    reg query HKCU\Environment /v NVM_HOME 2> NUL | findstr /C:"%p%" > NUL 2>&1
+    reg query HKCU\Environment /v NVM_HOME 2> NUL | findstr /C:"%NVM_HOME%" > NUL 2>&1
     if ERRORLEVEL 1 (
         echo Installing NVM...
-        regenv.exe set -nU -x NVM_HOME "%p%"
-        set "NVM_HOME=%p%"
-        call :addpath "%p%"
+        regenv.exe set -nU -x NVM_HOME "%NVM_HOME%"
+        call :addpath "%NVM_HOME%"
         set installed=true
     )
 
-    set p=%WEB_SDK%lib\nodejs
-    reg query HKCU\Environment /v NVM_SYMLINK 2>NUL | findstr /C:"%p%" > NUL 2>&1
+    set "NVM_SYMLINK=%WEB_SDK%lib\nodejs"
+    reg query HKCU\Environment /v NVM_SYMLINK 2>NUL | findstr /C:"%NVM_SYMLINK%" > NUL 2>&1
     if ERRORLEVEL 1 (
         echo Installing NVM Node Path...
-        regenv.exe set -nU -x NVM_SYMLINK "%p%"
-        set "NVM_SYMLINK=%p%"
-        call :addpath "lib\nodejs"
+        regenv.exe set -nU -x NVM_SYMLINK "%NVM_SYMLINK%"
+        call :addpath "%NVM_SYMLINK%"
         set installed=true
     )
 
@@ -47,7 +42,6 @@ goto main
             .\nvm.exe use latest
         popd
     )
-    
     exit /b
 )
 
@@ -59,9 +53,8 @@ goto main
     pushd "%~dp0"
         call loadenv.bat
         call :install_nvm
-
         for %%f in (bin lib\mariadb\bin lib\php\8.1 lib\php\7.4 lib\php\8.2 lib\php\5.6 lib\pear) do (
-            call :addpath "%%f"
+            call :addpath_sdk "%%f"
         )
     popd
     @REM Load Setup Scripts

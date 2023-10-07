@@ -1,0 +1,13 @@
+@echo off
+setlocal
+call "%~dp0stop-cgi.bat" > NUL 2>&1
+call "%~dp0..\loadenv.bat"
+
+echo Starting PHP 8.2 FastCGI...
+"%SDK%daemonize.exe" "%php82%php-cgi.exe" -b 127.0.0.1:9802
+@REM echo Starting PHP 8.1 FastCGI...
+@REM "%SDK%daemonize.exe" "%php81%php-cgi.exe" -b 127.0.0.1:9801
+@REM echo Starting PHP 7.4 FastCGI...
+@REM "%SDK%daemonize.exe" "%php74%php-cgi.exe" -b 127.0.0.1:9704
+@REM echo Starting PHP 5.6 FastCGI...
+@REM "%SDK%daemonize.exe" "%php56%php-cgi.exe" -b 127.0.0.1:9506

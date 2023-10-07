@@ -4,7 +4,7 @@ post_max_size = 48M
 upload_tmp_dir = "C:\WebSdk\tmp"
 upload_tmp_dir = ".\..\..\tmp"
 upload_max_filesize = 40M
-
+include_path = "."
 
 extension_dir = ".\ext"
 
@@ -43,15 +43,15 @@ pdo_mysql.default_socket="MySQL"
 
 
 [Session]
-session.save_path = ".\..\..\tmp"
+session.save_path = "C:\WebSdk\tmp"
 
 
 [curl]
 ; wget https://curl.haxx.se/ca/cacert.pem
-curl.cainfo = ".\..\certs\cacert.pem"
+curl.cainfo = "C:\WebSdk\lib\certs\cacert.pem"
 
 [openssl]
-openssl.cafile = ".\..\certs\cacert.pem"
+openssl.cafile = "C:\WebSdk\lib\certs\cacert.pem"
 
 ; only when available
 ;[ast]

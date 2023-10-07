@@ -5,6 +5,7 @@ set WEB_SDK=C:\WebSdk\
 pushd "%~dp0.."
     set lib=%cd%\
     set sdk=%~dp0
+    set nvm=%lib%nvm\
     set mariadb=%lib%mariadb\
     set nginx=%lib%nginx\
     set php81=%lib%\php\8.1\

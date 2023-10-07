@@ -6,3 +6,5 @@
 **/*.wget*
 **/*.pid
 **/*.sock
+lib/nodejs
+lib/nvm/*/

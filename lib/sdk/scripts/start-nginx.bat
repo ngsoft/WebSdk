@@ -7,7 +7,6 @@ call "%~dp0..\loadenv.bat"
 pushd "%nginx%"
     echo Starting Nginx...
     "%SDK%daemonize.exe" .\nginx.exe
-    start "" "http://localhost/phpmyadmin"
 popd
 
 

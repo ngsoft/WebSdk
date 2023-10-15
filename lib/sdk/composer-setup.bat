@@ -83,7 +83,7 @@ call :add_env "%varname%" "%varpath%"
 if "%importconf%" == "true" (
     echo Running composer global install...
     %php%php.exe "%sdk%composer-setup.php"
-    %php%php.exe %sdk%composer.phar global install --ignore-platform-reqs
+    %php%php.exe %sdk%composer.phar global install
 )
 
 @REM Setup LTS Version

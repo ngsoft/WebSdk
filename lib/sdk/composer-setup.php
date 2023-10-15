@@ -12,6 +12,7 @@ if (is_file($file))
     $data['config']         = array_replace($data['config'], [
         'sort-packages'   => true,
         'process-timeout' => 0,
+        'platform-check'  => false,
     ]);
 
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

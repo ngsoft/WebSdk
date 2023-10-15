@@ -5,6 +5,7 @@
     "config": {
         "platform": {
             "php": "5.6.40"
-        }
+        },
+        "platform-check": false
     }
 }

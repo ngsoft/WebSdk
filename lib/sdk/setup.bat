@@ -54,24 +54,26 @@ goto main
 
 :main
 
-    setlocal enabledelayedexpansion
-    @REM Add Binaries to %PATH%
-    pushd "%~dp0"
-        call loadenv.bat
-        call :install_nvm
-        for %%f in (bin lib\mariadb\bin lib\php\8.1 lib\php\7.4 lib\php\8.2 lib\php\5.6 lib\pear lib\go\bin) do (
-            call :addpath_sdk "%%f"
-        )
-    popd
-    @REM Load Setup Scripts
-    pushd "%~dp0.."
-        @REM Install Certs
-        call certs\setup.bat
-        @REM Setup Database
-        call mariadb\setup.bat
-    popd
-
-
+setlocal enabledelayedexpansion
+@REM Add Binaries to %PATH%
+pushd "%~dp0"
+    call loadenv.bat
+    call :install_nvm
+    for %%f in (bin lib\mariadb\bin lib\php\8.1 lib\php\7.4 lib\php\8.2 lib\php\5.6 lib\pear lib\go\bin) do (
+        call :addpath_sdk "%%f"
+    )
+popd
+@REM Load Setup Scripts
+pushd "%~dp0.."
+    @REM Install Certs
+    call certs\setup.bat
+    @REM Setup Database
+    call mariadb\setup.bat
+popd
+@REM Setup Composer
+pushd "%~dp0"
+    call composer-setup.bat
+popd
 
 
 

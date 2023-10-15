@@ -38,6 +38,9 @@ magic_quotes_gpc=Off
 magic_quotes_runtime=Off
 magic_quotes_sybase=Off
 
+[Date]
+date.timezone = Europe/Paris
+
 [Pdo_mysql]
 pdo_mysql.default_socket="MySQL"
 

@@ -112,6 +112,17 @@ composer7.4 # va exécuter composer dans un environnement 7.4
 composer8.1
 composer8.2
 ```
+Vous pouvez aussi charger les librairies installées en utilisant `composer global require` :
+
+```php
+<?php
+
+// will load etc/composer-lts/vendor/autoload.php autoloader for php 5.6
+// and etc/composer/vendor/autoload.php for php >=7.0
+
+require_once 'composer_global.php';
+
+```
 
 Phan est aussi fourni pour faire une analyse du code :
 

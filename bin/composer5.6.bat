@@ -22,6 +22,4 @@ if "%COMPOSER_LTS_HOME%" == "" (
     set "COMPOSER_LTS_HOME=%etc%composer-lts"
 )
 set "COMPOSER_HOME=%COMPOSER_LTS_HOME%"
-echo "%COMPOSER_LTS_HOME%"
-echo "%COMPOSER_HOME%"
 "%php56%php.exe" "%sdk%composer-lts.phar" %*

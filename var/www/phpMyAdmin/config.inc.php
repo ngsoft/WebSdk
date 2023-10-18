@@ -117,8 +117,10 @@ $cfg['TempDir']                        = __DIR__ . '/data/temp';
  * uncomment the desired line:
  * default = 'en'
  */
-// $cfg['DefaultLang'] = 'en';
+$cfg['DefaultLang'] = 'en';
 // $cfg['DefaultLang'] = 'de';
+
+$cfg['DefaultConnectionCollation'] = 'utf8mb4_general_ci';
 
 /*
  * How many columns should be used for table display of a database?

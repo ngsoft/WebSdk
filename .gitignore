@@ -6,6 +6,7 @@
 **/*.wget*
 **/*.pid
 **/*.sock
+**/*.bak
 lib/nodejs
 lib/nvm/*/
 lib/go

@@ -75,5 +75,10 @@ pushd "%~dp0"
     call composer-setup.bat
 popd
 
+@REM Setup Python
+pushd "%~dp0"
+    call python-setup.bat
+popd
+
 
 

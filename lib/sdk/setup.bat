@@ -59,7 +59,7 @@ setlocal enabledelayedexpansion
 pushd "%~dp0"
     call loadenv.bat
     call :install_nvm
-    for %%f in (bin lib\mariadb\bin lib\php\8.1 lib\php\7.4 lib\php\8.2 lib\php\5.6 lib\pear lib\go\bin) do (
+    for %%f in (bin lib\mariadb\bin lib\php\8.1 lib\php\7.4 lib\php\8.2 lib\php\5.6 lib\pear) do (
         call :addpath_sdk "%%f"
     )
 popd
@@ -80,5 +80,8 @@ pushd "%~dp0"
     call python-setup.bat
 popd
 
-
+@REM Setup Go
+pushd "%~dp0"
+    call go-setup.bat
+popd
 

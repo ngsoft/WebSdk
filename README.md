@@ -20,6 +20,10 @@
 
 - [Phan](https://github.com/phan/phan)
 
+- [Python](https://www.python.org/downloads/)
+
+- [Go](https://go.dev/dl/)
+  
 ## Prérequis
 
 Si MySQL est déjà installé, veuillez exporter les bases de données que vous voulez conserver et désinstaller le
@@ -53,7 +57,7 @@ Veuillez vous procurer une copie de cette repo:
 git clone https://github.com/ngsoft/WebSdk.git --depth 1
 ```
 
-Déplacer le répertoire WebSdk à la racine de `C:\` et ensuite, installez l'environnement de développement en exécutant :
+Déplacer le répertoire WebSdk à la racine de `C:\` et ensuite, installez l'environnement de développement en exécutant en tant qu'administrateur:
 
 ```batch
 C:\WebSdk\setup.bat
@@ -65,10 +69,16 @@ Cela va installer:
 
 - Nvm + NodeJS (dernière version) + NPM
 
+- Python3 (pip + virtualenv)
+
+- Go (Téléchargement du zip et extraction)
+
 - Création d'une base de donnée MariaDB
 
 - Téléchargement de dernier certificats
   openssl/curl [curl - Extract CA Certs from Mozilla](https://curl.se/docs/caextract.html)
+
+- Composer (php 7.4 8.1 8.2), Composer LTS (php 5.6)
 
 Il vous est recommandé de redémarrer votre PC après cette opération.
 
@@ -100,7 +110,6 @@ pear # exécuté dans un environement php5.6
 pecl # exécuté dans un environement php5.6
 node -v
 npm -v
-yarn -v
 ```
 
 Composer à aussi des commandes liées à la version de php

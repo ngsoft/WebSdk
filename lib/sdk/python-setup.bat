@@ -14,6 +14,8 @@ goto main
             exit /b 1
         )
     )
+    @REM Prepend to system path as microsoft store has a python executable 
+    @REM that launch the store
     reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH | findstr /C:"%~1" > NUL 2>&1
     if ERRORLEVEL 1 (
         echo Adding %~1 to PATH

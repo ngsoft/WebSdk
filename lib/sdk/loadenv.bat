@@ -13,4 +13,5 @@ set "php56=%lib%php\5.6\"
 set "php=%php81%"
 set "etc=%WEB_SDK%etc\"
 set "py3=%lib%python\"
+set "go=%lib%go\"
 

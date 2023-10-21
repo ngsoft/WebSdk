@@ -32,19 +32,30 @@ call "%~dp0/loadenv.bat"
 @REM Install Python Environment
 echo Setting up python ...
 
-for %%f in (lib\python lib\python\Scripts) do (
+for %%f in (lib\python\venv\Scripts) do (
     call :addpath_sdk "%%f" false
 )
-
 
 pushd "%py3%"
     @REM Install PIP
     if not exist get-pip.py (
         %WEB_SDK%bin\wget.exe https://bootstrap.pypa.io/get-pip.py -O get-pip.py
     )
-    .\python.exe get-pip.py --no-warn-script-location
-    @REM Install VirtualEnv
-    .\python.exe -m pip install virtualenv pyinstaller --no-warn-script-location
+    if not exist venv\Scripts\python.exe (
+        .\python.exe get-pip.py --no-warn-script-location
+        @REM Install VirtualEnv
+        .\python.exe -m pip install virtualenv --no-warn-script-location
+        @REM Activate venv
+        .\python.exe -m virtualenv venv
+        del /Q /F .\venv\Scripts\activate.*
+        del /Q /F .\venv\Scripts\deactivate.*
+    )
+    @rem Install PIP + PyInstaller + Setup env
+    pushd venv\Scripts
+        .\python.exe -m pip install --upgrade pip
+        .\python.exe -m pip install --upgrade pyinstaller --no-warn-script-location
+    popd
+
 popd
 
 

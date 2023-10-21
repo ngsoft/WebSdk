@@ -1,7 +1,0 @@
-python312.zip
-.
-Lib
-Lib\plat-win
-Lib\site-packages
-# Uncomment to run site.main() automatically
-#import site

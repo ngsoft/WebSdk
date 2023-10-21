@@ -36,7 +36,7 @@ call "%~dp0/loadenv.bat"
 
 @REM Go Path
 echo Setting up go ...
-call :add_env GOROOT "%lib%go"
+setx GOROOT "%lib%go" > NUL 2>&1
 call :add_path "%%%%GOROOT%%%%\bin" false
 
 if not exist "%go%bin\go.exe" (

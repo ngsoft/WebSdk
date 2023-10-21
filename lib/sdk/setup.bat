@@ -26,10 +26,10 @@ goto main
     set "NVM_HOME=%WEB_SDK%lib\nvm"
     set "NVM_SYMLINK=%WEB_SDK%lib\nodejs"
     echo Installing NVM...
-    regenv.exe set -nU -x NVM_HOME "%NVM_HOME%"
+    setx NVM_HOME "%NVM_HOME%" > NUL 2>&1
     call :addpath "%%%%NVM_HOME%%%%" false
     echo Installing NVM Node Path...
-    regenv.exe set -nU -x NVM_SYMLINK "%NVM_SYMLINK%"
+    setx NVM_SYMLINK "%NVM_SYMLINK%" > NUL 2>&1
     call :addpath "%%%%NVM_SYMLINK%%%%" false
     if not exist "%NVM_SYMLINK%\node.exe" (
         pushd "%NVM_HOME%"

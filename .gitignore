@@ -7,6 +7,7 @@
 **/*.pid
 **/*.sock
 **/*.bak
+lib/python3
 lib/nodejs
 lib/nvm/*/
 lib/go

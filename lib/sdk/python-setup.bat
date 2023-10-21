@@ -44,7 +44,7 @@ pushd "%py3%"
     )
     .\python.exe get-pip.py --no-warn-script-location
     @REM Install VirtualEnv
-    .\python.exe -m pip install virtualenv --no-warn-script-location
+    .\python.exe -m pip install virtualenv pyinstaller --no-warn-script-location
 popd
 
 

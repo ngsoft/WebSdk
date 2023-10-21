@@ -24,26 +24,15 @@ goto main
 
 :install_nvm (
     set "NVM_HOME=%WEB_SDK%lib\nvm"
-    set installed=false
-    reg query HKCU\Environment /v NVM_HOME 2> NUL | findstr /C:"%NVM_HOME%" > NUL 2>&1
-    if ERRORLEVEL 1 (
-        echo Installing NVM...
-        regenv.exe set -nU -x NVM_HOME "%NVM_HOME%"
-        call :addpath "%NVM_HOME%"
-        set installed=true
-    )
-
     set "NVM_SYMLINK=%WEB_SDK%lib\nodejs"
-    reg query HKCU\Environment /v NVM_SYMLINK 2>NUL | findstr /C:"%NVM_SYMLINK%" > NUL 2>&1
-    if ERRORLEVEL 1 (
-        echo Installing NVM Node Path...
-        regenv.exe set -nU -x NVM_SYMLINK "%NVM_SYMLINK%"
-        call :addpath "%NVM_SYMLINK%" false
-        set installed=true
-    )
-
-    if not exist "%lib%nodejs\node.exe" (
-        pushd "%nvm%"
+    echo Installing NVM...
+    regenv.exe set -nU -x NVM_HOME "%NVM_HOME%"
+    call :addpath "%%%%NVM_HOME%%%%" false
+    echo Installing NVM Node Path...
+    regenv.exe set -nU -x NVM_SYMLINK "%NVM_SYMLINK%"
+    call :addpath "%%%%NVM_SYMLINK%%%%" false
+    if not exist "%NVM_SYMLINK%\node.exe" (
+        pushd "%NVM_HOME%"
             .\nvm.exe install latest
             .\nvm.exe use latest
         popd

@@ -85,6 +85,10 @@ if "%importconf%" == "true" (
     %php%php.exe "%sdk%composer-setup.php"
     %php%php.exe %sdk%composer.phar global install
 )
+@REM Install Adminer Autoloader
+pushd "%WEB_SDK%var"
+    %php%php.exe %sdk%composer.phar update
+popd
 
 @REM Setup LTS Version
 echo Setting up composer LTS for PHP 5.6 ...

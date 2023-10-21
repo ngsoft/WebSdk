@@ -10,4 +10,6 @@
 lib/nodejs
 lib/nvm/*/
 lib/go
+var/vendor
+var/composer.lock
 .idea

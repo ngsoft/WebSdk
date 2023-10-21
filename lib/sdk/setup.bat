@@ -42,7 +42,7 @@ goto main
         set installed=true
     )
 
-    if "%installed%" == "true" (
+    if not exist "%lib%nodejs\node.exe" (
         pushd "%nvm%"
             .\nvm.exe install latest
             .\nvm.exe use latest

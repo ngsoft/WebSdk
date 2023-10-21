@@ -35,7 +35,6 @@ for %%f in (lib\python\venv\Scripts) do (
     call :addpath_sdk "%%f" false
 )
 
-
 if not exist "%py3%python.exe" (
     pushd "%WEB_SDK%tmp"
         if not exist py.zip (
@@ -45,15 +44,18 @@ if not exist "%py3%python.exe" (
         echo Extract Python binaries
         md "%py3%" > NUL 2>&1
         powershell.exe -Command "Expand-Archive -Force -Path .\py.zip -DestinationPath %lib%python"
+        echo Lib\site-packages >> %py3%python312._pth
+        del /Q /F py.zip > NUL 2>&1
     popd
 )
 
 pushd "%py3%"
-    @REM Install PIP
-    if not exist get-pip.py (
-        %WEB_SDK%bin\wget.exe https://bootstrap.pypa.io/get-pip.py -O get-pip.py
-    )
-    if not exist venv\Scripts\python.exe (
+    
+    if not exist ".\venv\Scripts\python.exe" (
+        @REM Install PIP
+        if not exist get-pip.py (
+            %WEB_SDK%bin\wget.exe https://bootstrap.pypa.io/get-pip.py -O get-pip.py
+        )
         .\python.exe get-pip.py --no-warn-script-location
         @REM Install VirtualEnv
         .\python.exe -m pip install virtualenv --no-warn-script-location
@@ -64,7 +66,7 @@ pushd "%py3%"
     )
     @rem Install PIP + PyInstaller + Setup env
     pushd venv\Scripts
-        .\python.exe -m pip install --upgrade pip
+        .\python.exe -m pip install --upgrade pip --no-warn-script-location
         .\python.exe -m pip install --upgrade pyinstaller --no-warn-script-location
     popd
 

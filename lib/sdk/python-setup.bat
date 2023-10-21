@@ -26,7 +26,6 @@ goto main
 
 :main
 setlocal enabledelayedexpansion
-
 call "%~dp0/loadenv.bat"
 
 @REM Install Python Environment
@@ -34,6 +33,19 @@ echo Setting up python ...
 
 for %%f in (lib\python\venv\Scripts) do (
     call :addpath_sdk "%%f" false
+)
+
+
+if not exist "%py3%python.exe" (
+    pushd "%WEB_SDK%tmp"
+        if not exist py.zip (
+            echo Download Python 3.12 ...
+            %WEB_SDK%bin/wget.exe "https://www.python.org/ftp/python/3.12.0/python-3.12.0-embed-amd64.zip" -O py.zip
+        )
+        echo Extract Python binaries
+        md "%py3%" > NUL 2>&1
+        powershell.exe -Command "Expand-Archive -Force -Path .\py.zip -DestinationPath %lib%python"
+    popd
 )
 
 pushd "%py3%"

@@ -6,6 +6,8 @@ upload_tmp_dir = ".\..\..\tmp"
 upload_max_filesize = 40M
 include_path = "."
 
+realpath_cache_size = 5M
+
 extension_dir = ".\ext"
 
 extension=bz2

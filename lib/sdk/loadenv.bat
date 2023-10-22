@@ -1,6 +1,7 @@
 @echo off
 
 set "WEB_SDK=C:\WebSdk\"
+set "bin=%WEB_SDK%bin\"
 set "lib=%WEB_SDK%lib\"
 set "sdk=%lib%sdk\"
 set "nvm=%lib%nvm\"

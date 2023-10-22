@@ -83,11 +83,11 @@ call :add_env "%varname%" "%varpath%"
 if "%importconf%" == "true" (
     echo Running composer global install...
     %php%php.exe "%sdk%composer-setup.php"
-    %php%php.exe %sdk%composer.phar global install
+    %php%php.exe %bin%composer.phar global install
 )
 @REM Install Adminer Autoloader
 pushd "%WEB_SDK%var"
-    %php%php.exe %sdk%composer.phar update
+    %php%php.exe %bin%composer.phar update
 popd
 
 @REM Setup LTS Version

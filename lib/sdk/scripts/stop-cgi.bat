@@ -1,3 +1,3 @@
 @echo off
 echo Stopping PHP FastCGI...
-taskkill /F /IM php-cgi.exe > NUL 2>&1
+taskkill /F /IM php-cgi.exe  > NUL 2>&1

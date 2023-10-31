@@ -8,8 +8,7 @@ pushd "%~dp0..\lib\sdk"
     for %%f in (scripts\start-mariadb.bat scripts\start-cgi.bat scripts\start-nginx.bat) do (
         call "%%f"
     )
-    echo Openning http://localhost/phpmyadmin
-    start "" "http://localhost/phpmyadmin"
+    call %~dp0pma.bat
     echo =====================================
     echo.
 popd

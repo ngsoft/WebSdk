@@ -13,4 +13,5 @@ lib/nvm/*/
 lib/go
 var/vendor
 var/composer.lock
+var/www/phpMyAdmin
 .idea

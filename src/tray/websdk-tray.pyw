@@ -55,7 +55,6 @@ def check_config(_config):
     elif not "menu" in _config:
         cfgOk = False
         msg = "No menu in config file"
-        alert("no test")
     elif not "check" in _config:
         cfgOk = False
         msg = "No check in config file"
@@ -179,8 +178,10 @@ def detect_darkmode(useSystem=True):
     return False
 
 
-def get_icon():
-    if detect_darkmode():
+def get_icon(_darkMode=None):
+    if _darkMode == None:
+        _darkMode = detect_darkmode()
+    if _darkMode:
         return icons["dark"][mode]
     else:
         return icons["light"][mode]
@@ -207,14 +208,19 @@ def detect_mode():
 
 
 def action_run(icon):
-    global prev, on, off, states
+    global prev, on, off, states, darkMode
     _mode = detect_mode()
     if prev != _mode:
         prev = _mode
-        icon.icon = get_icon()
+        darkMode = detect_darkmode()
+        icon.icon = get_icon(darkMode)
         states[on] = False
         states[off] = False
         states[_mode] = True
+        icon.update_menu()
+    elif darkMode != detect_darkmode():
+        darkMode = not darkMode
+        icon.icon = get_icon(darkMode)
         icon.update_menu()
 
 
@@ -247,6 +253,13 @@ def action_visible(item):
 
 def run_processes(_mode):
     try:
+        if _mode == on:
+            icon.notify("Starting " + appName, appName)
+        elif _mode == off:
+            icon.notify("Stopping " + appName, appName)
+    except:
+        pass
+    try:
         for _cmd in processes[_mode]:
             run_command(_cmd)
     except:
@@ -255,6 +268,7 @@ def run_processes(_mode):
 
 def action_click(icon, item):
     run_processes(modes[item.text])
+    action_run(icon)
 
 
 def action_quit():
@@ -326,7 +340,7 @@ items.append(
     )
 )
 items.append(pystray.MenuItem("Exit", action_quit))
-
+darkMode = detect_darkmode()
 detect_mode()
 # Autostart
 if autostart:
@@ -334,9 +348,10 @@ if autostart:
         run_processes(on)
         detect_mode()
 
+
 icon = pystray.Icon(
     appName,
-    icon=get_icon(),
+    icon=get_icon(darkMode),
     title=appName,
     menu=items,
 )

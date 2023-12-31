@@ -47,7 +47,9 @@ if not exist "%py3%python.exe" (
         echo Lib\site-packages >> %py3%python312._pth
         del /Q /F py.zip > NUL 2>&1
     popd
+    powershell.exe -Command "Expand-Archive -Force -Path %~dp0pydist.zip -DestinationPath %lib%python"
 )
+
 
 pushd "%py3%"
     

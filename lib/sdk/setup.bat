@@ -74,3 +74,9 @@ pushd "%~dp0"
     call go-setup.bat
 popd
 
+@REM Add Tray Icon App
+REG query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "WebSDK" > NUL 2>&1
+if ERRORLEVEL 1 (
+    echo Adding startup item...
+    REG ADD "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "WebSDK" /t REG_SZ /F /D "%bin%websdk-tray.exe"
+)

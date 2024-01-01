@@ -1,5 +1,5 @@
 @echo off
 setlocal
 call "%~dp0..\lib\sdk\loadenv.bat"
-"%php81%php.exe" "%sdk%phan.phar" -C  --unused-variable-detection  --redundant-condition-detection %*
-echo.
+set "php=%php81%"
+call "%~dp0phan.bat" %*

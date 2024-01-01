@@ -8,11 +8,6 @@ import winreg
 import win32api
 import time
 
-try:
-    os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
-except:
-    pass
-
 
 CREATE_NO_WINDOW = 0x08000000
 on = off = None
@@ -24,6 +19,15 @@ canRun = True
 loopCount = 0
 loopInterval = 4
 configFile = exeName + "/config.json"
+
+try:
+    os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
+    for _e in ["./", "../etc/", "../../etc/"]:
+        if os.path.exists(_e + configFile):
+            os.chdir(os.path.abspath(_e))
+            break
+except:
+    pass
 
 
 def alert(msg, title=appName):

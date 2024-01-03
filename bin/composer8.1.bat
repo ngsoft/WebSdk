@@ -1,4 +1,5 @@
 @echo off
 setlocal
 call "%~dp0..\lib\sdk\loadenv.bat"
-"%php81%php.exe" "%~dp0composer.phar" %*
+set "php=%php81%"
+call %~dp0composer.bat %*

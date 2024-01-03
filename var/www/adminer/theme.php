@@ -189,7 +189,7 @@ class ThemeSwitcher
         return false;
     }
 
-    public function displayListAvailableThemes(): void
+    public static function displayListAvailableThemes(): void
     {
         echo "List of available Adminer Themes:" . PHP_EOL . PHP_EOL;
         foreach (self::getThemeList() as $index => $name) {
@@ -270,9 +270,11 @@ class ThemeSwitcher
     }
 
 
-    public static function runCommand()
+    public static function runCommand(): never
     {
-
+        self::displayListAvailableThemes();
+        self::readOptionFromCommandLine();
+        self::switchTheme();
 
         exit(0);
     }

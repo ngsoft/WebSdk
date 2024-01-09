@@ -8,13 +8,13 @@
 
 - [MariaDB.](https://mariadb.org/documentation/)
 
-- [Php](https://www.php.net/)    5.6/7.4/8.1/8.2
+- [Php](https://www.php.net/)    5.5/5.6/7.4/8.1/8.2/8.3
 
 - [PEAR](https://pear.php.net/) est disponible pour toutes les versions de php
 
-- [PhpMyadmin](https://www.phpmyadmin.net/)
+- [PhpMyadmin](https://www.phpmyadmin.net/) a dézipper
 
-- [Adminer](https://www.adminer.org/)
+- [Adminer](https://www.adminer.org/) avec themes
 
 - [Composer](https://getcomposer.org/)
 
@@ -78,7 +78,7 @@ Cela va installer:
 - Téléchargement de dernier certificats
   openssl/curl [curl - Extract CA Certs from Mozilla](https://curl.se/docs/caextract.html)
 
-- Composer (php 7.4 8.1 8.2), Composer LTS (php 5.6)
+- Composer (php 7.4 8.1 8.2 8.3), Composer LTS (php 5.5 5.6)
 
 Il vous est recommandé de redémarrer votre PC après cette opération.
 
@@ -88,10 +88,12 @@ Plusieurs versions de Php sont disponibles, donc pour exécuter une version spé
 le terminal:
 
 ```shell
+php5.5 -v
 php5.6 -v
 php7.4 -v
 php8.1 -v
 php8.2 -v
+php8.3 -v
 ```
 
 La version de php par défaut est la 8.1 car les extensions pecl ne sont pas encore disponibles pour la 8.2 sur Windows
@@ -116,17 +118,19 @@ Composer à aussi des commandes liées à la version de php
 
 ```shell
 composer # va exécuter composer8.1
+composer5.5 # va exécuter le version LTS de composer (php5.5)
 composer5.6 # va exécuter le version LTS de composer (php5.6)
 composer7.4 # va exécuter composer dans un environnement 7.4
 composer8.1
 composer8.2
+composer8.3
 ```
 Vous pouvez aussi charger les librairies installées en utilisant `composer global require` :
 
 ```php
 <?php
 
-// will load etc/composer-lts/vendor/autoload.php autoloader for php 5.6
+// will load etc/composer-lts/vendor/autoload.php autoloader for php < 7.0
 // and etc/composer/vendor/autoload.php for php >=7.0
 
 require_once 'composer_global.php';
@@ -139,6 +143,7 @@ Phan est aussi fourni pour faire une analyse du code :
 phan
 phan7.4
 phan8.1
+phan8.2
 ```
 
 ## Les commandes du SDK:
@@ -170,6 +175,8 @@ websdk-stop
 ```
 
 Cette commande va arrêter tous les services démarrés par `websdk-start`
+
+Une application a été développée en Python pour faciliter le démarrage du SDK (SysTray App)
 
 
 

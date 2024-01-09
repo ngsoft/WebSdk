@@ -19,6 +19,14 @@
             ]
         },
         {
+            "name": "adm",
+            "label": "Adminer",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/bin/adminer.bat"
+            ],
+            "visible": "on"
+        },
+        {
             "name": "pma",
             "label": "PhpMyAdmin",
             "exec": [
@@ -27,14 +35,6 @@
             "visible": [
                 "on"
             ]
-        },
-        {
-            "name": "adm",
-            "label": "Adminer",
-            "exec": [
-                "cmd.exe /C C:/WebSdk/bin/adminer.bat"
-            ],
-            "visible": "on"
         }
     ],
     "check": {

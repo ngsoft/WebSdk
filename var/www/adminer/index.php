@@ -1,5 +1,5 @@
 <?php
-
+ini_set('display_errors', 'Off');
 ini_set('memory_limit', '4096M');
 set_time_limit(600);
 

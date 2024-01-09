@@ -8,7 +8,7 @@ pushd "%~dp0..\lib\sdk"
     for %%f in (scripts\start-mariadb.bat scripts\start-cgi.bat scripts\start-nginx.bat) do (
         call "%%f"
     )
-    call %~dp0pma.bat
+    call %~dp0adminer.bat
     echo =====================================
     echo.
 popd

@@ -87,16 +87,16 @@ if "%importconf%" == "true" (
 )
 @REM Install Adminer Autoloader
 pushd "%WEB_SDK%var"
-    %php%php.exe %bin%composer.phar update
+    %php74%php.exe %bin%composer.phar update
 popd
 
 @REM Setup LTS Version
-echo Setting up composer LTS for PHP 5.6 ...
+echo Setting up composer LTS for PHP 5 ...
 call :set_config COMPOSER_LTS_HOME "%etc%composer-lts"
 call :add_env "%varname%" "%varpath%"
 set "COMPOSER_HOME=%varpath%"
 echo Running composer-lts global install...
-%php56%php.exe %sdk%composer-lts.phar global install
+%php55%php.exe %sdk%composer-lts.phar global install
 
 
 

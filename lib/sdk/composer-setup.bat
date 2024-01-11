@@ -85,10 +85,6 @@ if "%importconf%" == "true" (
     %php%php.exe "%sdk%composer-setup.php"
     %php%php.exe %bin%composer.phar global install
 )
-@REM Install Adminer Autoloader
-pushd "%WEB_SDK%var"
-    %php74%php.exe %bin%composer.phar update
-popd
 
 @REM Setup LTS Version
 echo Setting up composer LTS for PHP 5 ...
@@ -99,7 +95,10 @@ echo Running composer-lts global install...
 %php55%php.exe %sdk%composer-lts.phar global install
 
 
-
+@REM Install Adminer Autoloader
+pushd "%WEB_SDK%var"
+    %php55%php.exe %sdk%composer-lts.phar update
+popd
 
 
 

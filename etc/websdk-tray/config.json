@@ -35,6 +35,26 @@
             "visible": [
                 "on"
             ]
+        },
+        {
+            "name": "php7",
+            "label": "PHP 7.4",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/switch-php.bat 7.4"
+            ],
+            "visible": [
+                "nerver"
+            ]
+        },
+        {
+            "name": "php5",
+            "label": "PHP 5.5",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/switch-php.bat 5.5"
+            ],
+            "visible": [
+                "never"
+            ]
         }
     ],
     "check": {

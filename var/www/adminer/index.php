@@ -7,7 +7,10 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 function adminer_object()
 {
     return new AdminerPlugin([
+        new AdminerDisableJush(),
+        new AdminerAutocomplete(),
         new AdminerLoginIp(['127.0', '192.168', '::1']),
+
     ]);
 }
 

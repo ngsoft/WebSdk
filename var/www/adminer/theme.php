@@ -3,48 +3,54 @@
 
 class ThemeSwitcher
 {
-    public const THEMES_LOCATION = '%s/themes/';
-    public const BACKUP_LOCATION = '%s/themes/backup/';
-    public const GH_THEME_LIST = 'https://api.github.com/repos/vrana/adminer/contents/designs';
-    public const GH_THEME_DOWNLOAD = 'https://raw.githubusercontent.com/vrana/adminer/master/designs/%s/adminer.css';
+    const THEMES_LOCATION = '%s/themes/';
+    const BACKUP_LOCATION = '%s/themes/backup/';
+    const GH_THEME_LIST = 'https://api.github.com/repos/vrana/adminer/contents/designs';
+    const GH_THEME_DOWNLOAD = 'https://raw.githubusercontent.com/vrana/adminer/master/designs/%s/adminer.css';
 
-    public const PROMPT = 'Type the number of the theme you want to use: ';
-    public const THEME_FILE = 'adminer.css';
-    public static array $themeList = [];
+    const PROMPT = 'Type the number of the theme you want to use: ';
+    const THEME_FILE = 'adminer.css';
+    public static $themeList = [];
 
-    private static string $option = '';
+    private static $option = '';
 
-    public static function isRunningFromCommandLine(): bool
+    public static function isRunningFromCommandLine()
     {
         return (php_sapi_name() === 'cli');
     }
 
-    public static function isRunningOnWindows(): bool
+    public static function isRunningOnWindows()
     {
         return (PHP_OS == 'WINNT');
     }
 
-    public static function getBackupLocation(string $file = ''): string
+    public static function getBackupLocation($file = '')
     {
         static $location;
-        if (!is_dir($location ??= sprintf(self::BACKUP_LOCATION, __DIR__))) {
+
+        if (!isset($location)) {
+            $location = sprintf(self::BACKUP_LOCATION, __DIR__);
+        }
+        if (!is_dir($location)) {
             @mkdir($location, 0777, true);
         }
 
         if (empty($file)) {
             return $location;
         }
-        return $location . "{$file}.css";
+        return $location . "$file.css";
     }
 
-    public static function getThemeLocation(string $theme = ''): string
+    public static function getThemeLocation($theme = '')
     {
         static $location;
-        $location ??= sprintf(self::THEMES_LOCATION, __DIR__);
+
+        if (!isset($location)) {
+            $location = sprintf(self::THEMES_LOCATION, __DIR__);
+        }
         if (empty($theme)) {
             return $location;
         }
-
         $fileName = $theme . '.css';
 
         if (is_file($result = $location . $fileName)) {
@@ -60,7 +66,7 @@ class ThemeSwitcher
     /**
      * @return string[]
      */
-    public static function getThemeList(): array
+    public static function getThemeList()
     {
 
         if (empty(self::$themeList)) {
@@ -70,7 +76,8 @@ class ThemeSwitcher
             if (
                 $json = @file_get_contents(
                     self::GH_THEME_LIST,
-                    context: stream_context_create([
+                    false,
+                    stream_context_create([
                         'http' => [
                             'method' => 'GET',
                             'header' => [
@@ -113,17 +120,16 @@ class ThemeSwitcher
 
 
         return self::$themeList;
-
     }
 
 
-    public static function getLineEnding(): string
+    public static function getLineEnding()
     {
         return (self::isRunningFromCommandLine() ? PHP_EOL : '');
     }
 
 
-    public static function readOptionFromCommandLine(): string
+    public static function readOptionFromCommandLine()
     {
         if (self::isRunningOnWindows()) {
             echo self::PROMPT;
@@ -136,7 +142,7 @@ class ThemeSwitcher
     }
 
 
-    public static function makeBackup(): void
+    public static function makeBackup()
     {
         if (is_file($orig = __DIR__ . DIRECTORY_SEPARATOR . self::THEME_FILE)) {
 
@@ -145,30 +151,34 @@ class ThemeSwitcher
                 $orig,
                 $dest
             ) && @chmod($dest, 0777);
-
         }
     }
 
 
-    public static function getThemeName(int $index): ?string
+    public static function getThemeName($index)
     {
-        return self::getThemeList()[$index] ?? null;
+        $result = self::getThemeList();
+        if (!isset($result[$index])) {
+            return null;
+        }
+        return $result[$index];
     }
 
 
-    public static function getOption(): ?int
+    public static function getOption()
     {
         if (!is_numeric(self::$option)) {
             return null;
         }
-        return (int)self::$option;
+        return intval(self::$option);
     }
 
 
-    public static function downloadTheme(?int $index = null): bool
+    public static function downloadTheme($index = null)
     {
-        $index ??= self::getOption();
-
+        if (!isset($index)) {
+            $index = self::getOption();
+        }
 
         if (isset($index) && $name = self::getThemeName($index)) {
             self::makeBackup();
@@ -189,7 +199,7 @@ class ThemeSwitcher
         return false;
     }
 
-    public static function displayListAvailableThemes(): void
+    public static function displayListAvailableThemes()
     {
         echo "List of available Adminer Themes:" . PHP_EOL . PHP_EOL;
         foreach (self::getThemeList() as $index => $name) {
@@ -197,10 +207,9 @@ class ThemeSwitcher
         }
 
         echo PHP_EOL;
-
     }
 
-    public static function displayPageAvailableThemes(): void
+    public static function displayPageAvailableThemes()
     {
         $options = [];
 
@@ -213,18 +222,14 @@ class ThemeSwitcher
 
         $options = implode('', $options);
 
-        echo <<<HTML
-            <label for="option-select">Please Select a theme</label>
-            <select name="option" id="option-select" placeholder="Select a theme..." autocomplete="off">
+        echo "<label for=\"option-select\">Please Select a theme</label>
+            <select name=\"option\" id=\"option-select\" placeholder=\"Select a theme...\" autocomplete=\"off\">
                 {$options}
-            </select>
-        HTML;
-
-
+            </select>";
     }
 
 
-    public static function printResultOf(bool $download): void
+    public static function printResultOf($download)
     {
         if ($download) {
             echo 'Theme switched successfully!' . PHP_EOL;
@@ -236,7 +241,7 @@ class ThemeSwitcher
         }
     }
 
-    public static function printInvalidOptionErrorMessage(): void
+    public static function printInvalidOptionErrorMessage()
     {
         $errorMessage = static::$option . " is not a number from the options! Try again!";
         if (self::isRunningFromCommandLine()) {
@@ -247,7 +252,7 @@ class ThemeSwitcher
     }
 
 
-    public static function switchTheme(): bool
+    public static function switchTheme()
     {
 
         if (null === self::getOption()) {
@@ -256,11 +261,10 @@ class ThemeSwitcher
         }
         self::printResultOf($result = self::downloadTheme());
         return $result;
-
     }
 
 
-    public static function readOptionFromBrowser(): ?int
+    public static function readOptionFromBrowser()
     {
         if (isset($_GET['option'])) {
             self::$option = $_GET['option'];
@@ -270,7 +274,7 @@ class ThemeSwitcher
     }
 
 
-    public static function runCommand(): never
+    public static function runCommand()
     {
         self::displayListAvailableThemes();
         self::readOptionFromCommandLine();
@@ -278,7 +282,6 @@ class ThemeSwitcher
 
         exit(0);
     }
-
 }
 
 if (ThemeSwitcher::isRunningFromCommandLine()) {
@@ -290,7 +293,9 @@ if (!empty($_COOKIE['adminer_sid'])) {
     session_id($_COOKIE["adminer_sid"]);
     session_start();
 
-    foreach ($_SESSION['pwds'] ?? [] as $_) {
+    $l = isset($_SESSION['pwds']) ? $_SESSION['pwds'] : [];
+
+    foreach ($l as $_) {
         foreach ($_ as $__) {
             foreach ($__ as $___) {
                 foreach ($___ as $pass) {
@@ -308,11 +313,13 @@ if (!$loggedIn) {
     header('Location: ./');
     exit();
 }
-
-ThemeSwitcher::$themeList = $_SESSION['themes'] ?? [];
+if (isset($_SESSION['themes'])) {
+    ThemeSwitcher::$themeList = $_SESSION['themes'];
+}
 ?>
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
@@ -321,7 +328,6 @@ ThemeSwitcher::$themeList = $_SESSION['themes'] ?? [];
     <title>Adminer theme selector</title>
     <link rel="stylesheet" href="./<?= ThemeSwitcher::THEME_FILE ?>?<?= time() ?>">
     <style>
-
         form {
             width: 90%;
             max-width: 600px;
@@ -348,12 +354,12 @@ ThemeSwitcher::$themeList = $_SESSION['themes'] ?? [];
             }
 
         }
-
     </style>
 </head>
+
 <body>
 <div id="content">
-    <?php if (null !== ThemeSwitcher::readOptionFromBrowser()): ?>
+    <?php if (null !== ThemeSwitcher::readOptionFromBrowser()) : ?>
         <h2>Download Adminer Theme</h2>
         <p class="links">
             <a href="?">Go back</a>
@@ -369,7 +375,7 @@ ThemeSwitcher::$themeList = $_SESSION['themes'] ?? [];
             </fieldset>
         </form>
 
-    <?php else: ?>
+    <?php else : ?>
         <h2>List of available Adminer Themes</h2>
         <p class="links">
             <a href="./">Login to adminer</a>
@@ -396,4 +402,5 @@ ThemeSwitcher::$themeList = $_SESSION['themes'] ?? [];
     <?php endif; ?>
 </div>
 </body>
+
 </html>

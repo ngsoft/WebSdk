@@ -8,6 +8,7 @@
 **/*.sock
 **/*.bak
 lib/python
+lib/flutter
 lib/nodejs
 lib/nvm/*/
 lib/go

@@ -103,7 +103,7 @@ class ThemeSwitcher
             }
 
             foreach (scandir(self::getThemeLocation()) ?: [] as $file) {
-                if (str_ends_with($file, '.css')) {
+                if (mb_substr($file, -4) === '.css') {
                     $name = mb_substr($file, 0, -4);
                     $list[$name] = $name;
                 }

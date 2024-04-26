@@ -14,6 +14,8 @@ class ThemeSwitcher
 
     private static $option = '';
 
+    private static $theme = null;
+
     public static function isRunningFromCommandLine()
     {
         return (php_sapi_name() === 'cli');
@@ -123,6 +125,36 @@ class ThemeSwitcher
     }
 
 
+    public static function getThemeOptionGroups()
+    {
+        $groups = [
+            'Downloaded' => [],
+            'Available' => self::getThemeList()
+        ];
+
+        $downloaded = &$groups['Downloaded'];
+        $available = &$groups['Available'];
+
+        $dlList = [];
+        for ($i = count($available) - 1; $i >= 0; --$i) {
+            $mtime = @filemtime(self::getBackupLocation($name = $available[$i]));
+            if (0 < $mtime) {
+                if (!isset($dlList[$mtime])) {
+                    $dlList[$mtime] = [];
+                }
+                $dlList[$mtime][] = $name;
+                array_splice($available, $i, 1);
+            }
+        }
+
+        krsort($dlList);
+        foreach ($dlList as $themes) {
+            $downloaded = array_merge($downloaded, $themes);
+        }
+        return $groups;
+    }
+
+
     public static function getLineEnding()
     {
         return (self::isRunningFromCommandLine() ? PHP_EOL : '');
@@ -188,6 +220,8 @@ class ThemeSwitcher
                 if ($loc !== $bck) {
                     @file_put_contents($bck, $contents) && @chmod($bck, 0777);
                 }
+                // update mtime
+                @touch($bck);
 
                 if (@file_put_contents($file = __DIR__ . DIRECTORY_SEPARATOR . self::THEME_FILE, $contents)) {
                     @chmod($file, 0777);
@@ -212,11 +246,38 @@ class ThemeSwitcher
     public static function displayPageAvailableThemes()
     {
         $options = [];
-
         $options[] = '<option value="">Select a theme...</option>';
 
-        foreach (self::getThemeList() as $index => $name) {
-            $options[] = sprintf('<option value="%u">%s</option>', $index, $name);
+        $themeList = self::getThemeList();
+        $optGroups = self::getThemeOptionGroups();
+        $current = self::getSelectedTheme();
+        $groups = [];
+
+        foreach ($optGroups as $groupName => $themes) {
+            if (!isset($groups[$groupName])) {
+                $groups[$groupName] = [];
+            }
+
+            foreach ($themes as $name) {
+                $index = array_search($name, $themeList);
+                if (false === $index) {
+                    continue;
+                }
+                $groups[$groupName][$index] = $name;
+            }
+        }
+
+
+        foreach ($groups as $label => $themes) {
+            if (!count($themes)) {
+                continue;
+            }
+            $options[] = sprintf('<optgroup label="%s">', $label);
+            foreach ($themes as $index => $name) {
+                $disabled = "$index" === $current ? " disabled " : "";
+                $options[] = sprintf('<option value="%u"%s>%s</option>', $index, $disabled, $name);
+            }
+            $options[] = '</optgroup>';
         }
 
 
@@ -274,6 +335,30 @@ class ThemeSwitcher
     }
 
 
+    public static function getSelectedTheme()
+    {
+
+        if (!isset(self::$theme)) {
+            self::$theme = '';
+
+            if (is_file($orig = __DIR__ . DIRECTORY_SEPARATOR . self::THEME_FILE)) {
+                $crc = crc32(file_get_contents($orig));
+
+                foreach (self::getThemeList() as $index => $name) {
+                    if (is_file($path = self::getBackupLocation($name))) {
+                        if ($crc === crc32(@file_get_contents($path) ?: '')) {
+                            self::$theme = "$index";
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return self::$theme;
+    }
+
+
     public static function runCommand()
     {
         self::displayListAvailableThemes();
@@ -322,8 +407,7 @@ if (isset($_SESSION['themes'])) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Adminer theme selector</title>
     <link rel="stylesheet" href="./<?= ThemeSwitcher::THEME_FILE ?>?<?= time() ?>">
@@ -358,49 +442,48 @@ if (isset($_SESSION['themes'])) {
 </head>
 
 <body>
-<div id="content">
-    <?php if (null !== ThemeSwitcher::readOptionFromBrowser()) : ?>
-        <h2>Download Adminer Theme</h2>
-        <p class="links">
-            <a href="?">Go back</a>
-            <a href="./">Login to adminer</a>
-        </p>
-        <form>
-            <fieldset>
-                <legend>Download Result</legend>
-                <div>
-                    <?php $result = ThemeSwitcher::switchTheme(); ?>
-                </div>
+    <div id="content">
+        <?php if (null !== ThemeSwitcher::readOptionFromBrowser()) : ?>
+            <h2>Download Adminer Theme</h2>
+            <p class="links">
+                <a href="?">Go back</a>
+                <a href="./">Login to adminer</a>
+            </p>
+            <form>
+                <fieldset>
+                    <legend>Download Result</legend>
+                    <div>
+                        <?php $result = ThemeSwitcher::switchTheme(); ?>
+                    </div>
 
-            </fieldset>
-        </form>
+                </fieldset>
+            </form>
 
-    <?php else : ?>
-        <h2>List of available Adminer Themes</h2>
-        <p class="links">
-            <a href="./">Login to adminer</a>
-        </p>
-        <form method="GET" id="form-select-theme">
-            <fieldset>
-                <legend>Theme Selection</legend>
-                <?php ThemeSwitcher::displayPageAvailableThemes(); ?>
-                <div style="text-align: right;">
-                    <input type="submit" value="Select Theme" disabled>
-                </div>
-            </fieldset>
-        </form>
-        <script>
-            const
-                btn = document.querySelector('[type="submit"]'),
-                select = document.getElementById('option-select');
+        <?php else : ?>
+            <h2>List of available Adminer Themes</h2>
+            <p class="links">
+                <a href="./">Login to adminer</a>
+            </p>
+            <form method="GET" id="form-select-theme">
+                <fieldset>
+                    <legend>Theme Selection</legend>
+                    <?php ThemeSwitcher::displayPageAvailableThemes(); ?>
+                    <div style="text-align: right;">
+                        <input type="submit" value="Select Theme" disabled>
+                    </div>
+                </fieldset>
+            </form>
+            <script>
+                const
+                    btn = document.querySelector('[type="submit"]'),
+                    select = document.getElementById('option-select');
 
-
-            select.addEventListener('change', () => {
-                btn.disabled = null;
-            });
-        </script>
-    <?php endif; ?>
-</div>
+                select.addEventListener('change', () => {
+                    btn.disabled = !select.value ? true : null;
+                });
+            </script>
+        <?php endif; ?>
+    </div>
 </body>
 
 </html>

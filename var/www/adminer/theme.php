@@ -274,7 +274,7 @@ class ThemeSwitcher
             }
             $options[] = sprintf('<optgroup label="%s">', $label);
             foreach ($themes as $index => $name) {
-                $disabled = "$index" === $current ? " disabled " : "";
+                $disabled = "$index" === $current ? " selected disabled " : "";
                 $options[] = sprintf('<option value="%u"%s>%s</option>', $index, $disabled, $name);
             }
             $options[] = '</optgroup>';

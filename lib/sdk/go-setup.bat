@@ -38,12 +38,13 @@ call "%~dp0/loadenv.bat"
 echo Setting up go ...
 setx GOROOT "%lib%go" > NUL 2>&1
 call :add_path "%%%%GOROOT%%%%\bin" false
+call :add_path "%USERPROFILE%\go\bin" false
 
 if not exist "%go%bin\go.exe" (
     pushd "%WEB_SDK%tmp"
         if not exist go.zip (
             echo Downloading go 1.21.3
-            %WEB_SDK%bin\wget.exe "https://go.dev/dl/go1.21.3.windows-amd64.zip" -O go.zip
+            %WEB_SDK%bin\wget.exe "https://go.dev/dl/go1.22.3.windows-amd64.zip" -O go.zip
         )
         echo Extracting Go binaries...
         powershell.exe -Command "Expand-Archive -Force -Path .\go.zip -DestinationPath %WEB_SDK%lib"

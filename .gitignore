@@ -11,7 +11,7 @@ lib/python
 lib/flutter
 lib/nodejs
 lib/nvm/*/
-lib/go
+lib/go*
 var/vendor
 var/composer.lock
 var/www/phpMyAdmin

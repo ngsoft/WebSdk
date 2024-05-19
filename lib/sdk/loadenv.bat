@@ -3,10 +3,15 @@
 set "WEB_SDK=C:\WebSdk\"
 set "bin=%WEB_SDK%bin\"
 set "lib=%WEB_SDK%lib\"
+set "etc=%WEB_SDK%etc\"
 set "sdk=%lib%sdk\"
+@REM nodejs
 set "nvm=%lib%nvm\"
+@REM sql
 set "mariadb=%lib%mariadb\"
+@REM web
 set "nginx=%lib%nginx\"
+@REM php
 set "php81=%lib%php\8.1\"
 set "php82=%lib%php\8.2\"
 set "php83=%lib%php\8.3\"
@@ -14,7 +19,13 @@ set "php74=%lib%php\7.4\"
 set "php56=%lib%php\5.6\"
 set "php55=%lib%php\5.5\"
 set "php=%php81%"
-set "etc=%WEB_SDK%etc\"
-set "py3=%lib%python\"
+@REM python
+set "pyversion=3.12.3"
+set "py3=%lib%pyenv\versions\%pyversion%\"
+@REM go
+set "goversion=1.22.3"
+set "gvm=%lib%gvm\"
 set "go=%lib%go\"
+@REM 7zip
+set "unpack=%bin%7zr.exe"
 

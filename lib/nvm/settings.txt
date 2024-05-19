@@ -1,4 +1,4 @@
 root: C:\WebSdk\lib\nvm
-path: C:\PWebSdk\lib\nodejs
+path: C:\WebSdk\lib\nodejs
 arch: 64
 proxy: none

@@ -7,7 +7,7 @@
 **/*.pid
 **/*.sock
 **/*.bak
-lib/python
+lib/python*
 lib/flutter
 lib/nodejs
 lib/nvm/*/

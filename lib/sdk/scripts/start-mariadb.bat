@@ -5,10 +5,9 @@ pushd "%mariadb%"
     if not exist "databases\mysql" (
         echo.
         echo Setup for mariadb is not done
-        echo To run %WEB_SDK%setup.bat
+        echo running %mariadb%setup.bat
         echo.
-        pause
-        call %WEB_SDK%setup.bat
+        call %mariadb%setup.bat
     ) else (
         set starting=true
         call "%sdk%scripts\stop-mariadb.bat" > NUL

@@ -65,13 +65,13 @@ pushd "%~dp0"
 popd
 
 @REM Setup Python
-pushd "%~dp0"
-    call python-setup.bat
+pushd "%lib%pyenv"
+    call setup.bat
 popd
 
 @REM Setup Go
-pushd "%~dp0"
-    call go-setup.bat
+pushd "%gvm%"
+    call setup.bat
 popd
 
 @REM Add Tray Icon App

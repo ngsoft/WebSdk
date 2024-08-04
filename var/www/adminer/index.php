@@ -1,7 +1,5 @@
 <?php
-ini_set('display_errors', 'Off');
-// ini_set('memory_limit', '4096M');
-// set_time_limit(600);
+error_reporting(0);
 
 if (is_file(__DIR__ . '/../../vendor/autoload.php')) {
     require_once __DIR__ . '/../../vendor/autoload.php';

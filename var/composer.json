@@ -1,7 +1,7 @@
 {
     "autoload": {
         "require": {
-            "php": ">=7.4"
+            "php": ">=5.5"
         },
         "psr-4": {
             "": "www/adminer/plugins"

@@ -373,6 +373,8 @@ if (ThemeSwitcher::isRunningFromCommandLine()) {
     ThemeSwitcher::runCommand();
 }
 
+//$loggedIn = true;
+
 $loggedIn = false;
 if (!empty($_COOKIE['adminer_sid'])) {
     session_id($_COOKIE["adminer_sid"]);
@@ -380,13 +382,17 @@ if (!empty($_COOKIE['adminer_sid'])) {
 
     $l = isset($_SESSION['pwds']) ? $_SESSION['pwds'] : [];
 
+
     foreach ($l as $_) {
         foreach ($_ as $__) {
             foreach ($__ as $___) {
+                if (!$___) {
+                    continue;
+                }
                 foreach ($___ as $pass) {
                     if (is_string($pass)) {
                         $loggedIn = true;
-                        break 2;
+                        break 4;
                     }
                 }
             }
@@ -407,7 +413,8 @@ if (isset($_SESSION['themes'])) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Adminer theme selector</title>
     <link rel="stylesheet" href="./<?= ThemeSwitcher::THEME_FILE ?>?<?= time() ?>">
@@ -442,48 +449,48 @@ if (isset($_SESSION['themes'])) {
 </head>
 
 <body>
-    <div id="content">
-        <?php if (null !== ThemeSwitcher::readOptionFromBrowser()) : ?>
-            <h2>Download Adminer Theme</h2>
-            <p class="links">
-                <a href="?">Go back</a>
-                <a href="./">Login to adminer</a>
-            </p>
-            <form>
-                <fieldset>
-                    <legend>Download Result</legend>
-                    <div>
-                        <?php $result = ThemeSwitcher::switchTheme(); ?>
-                    </div>
+<div id="content">
+    <?php if (null !== ThemeSwitcher::readOptionFromBrowser()) : ?>
+        <h2>Download Adminer Theme</h2>
+        <p class="links">
+            <a href="?">Go back</a>
+            <a href="./">Login to adminer</a>
+        </p>
+        <form>
+            <fieldset>
+                <legend>Download Result</legend>
+                <div>
+                    <?php $result = ThemeSwitcher::switchTheme(); ?>
+                </div>
 
-                </fieldset>
-            </form>
+            </fieldset>
+        </form>
 
-        <?php else : ?>
-            <h2>List of available Adminer Themes</h2>
-            <p class="links">
-                <a href="./">Login to adminer</a>
-            </p>
-            <form method="GET" id="form-select-theme">
-                <fieldset>
-                    <legend>Theme Selection</legend>
-                    <?php ThemeSwitcher::displayPageAvailableThemes(); ?>
-                    <div style="text-align: right;">
-                        <input type="submit" value="Select Theme" disabled>
-                    </div>
-                </fieldset>
-            </form>
-            <script>
-                const
-                    btn = document.querySelector('[type="submit"]'),
-                    select = document.getElementById('option-select');
+    <?php else : ?>
+        <h2>List of available Adminer Themes</h2>
+        <p class="links">
+            <a href="./">Login to adminer</a>
+        </p>
+        <form method="GET" id="form-select-theme">
+            <fieldset>
+                <legend>Theme Selection</legend>
+                <?php ThemeSwitcher::displayPageAvailableThemes(); ?>
+                <div style="text-align: right;">
+                    <input type="submit" value="Select Theme" disabled>
+                </div>
+            </fieldset>
+        </form>
+        <script>
+            const
+                btn = document.querySelector('[type="submit"]'),
+                select = document.getElementById('option-select');
 
-                select.addEventListener('change', () => {
-                    btn.disabled = !select.value ? true : null;
-                });
-            </script>
-        <?php endif; ?>
-    </div>
+            select.addEventListener('change', () => {
+                btn.disabled = !select.value ? true : null;
+            });
+        </script>
+    <?php endif; ?>
+</div>
 </body>
 
 </html>

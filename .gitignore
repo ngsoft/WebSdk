@@ -17,3 +17,4 @@ var/composer.lock
 var/www/phpMyAdmin
 var/www/adminer/themes/backup
 .idea
+extra.*.conf

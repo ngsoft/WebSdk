@@ -158,7 +158,7 @@ class AdminerLoginServers
 
                 if (count($this->drivers) > 1) {
                     $availableDrivers = $ic;
-                    $html = '<select name="auth[driver]">';
+                    $html = '<select name="auth[driver]" style="width: 100%;">';
                     $html .= '<option value="">Select a Driver</option>';
                     foreach (array_keys($availableDrivers) as $value) {
                         if (empty($value)) {
@@ -181,7 +181,7 @@ class AdminerLoginServers
         if ($name == 'server') {
             if ($this->dynamic) {
                 $html = '<input type="text" value="" name="custom-server" style="display: none;" placeholder="localhost">';
-                $html .= '<select name="auth[server]">';
+                $html .= '<select name="auth[server]" style="width: 100%;">';
                 $html .= optionlist(array_keys($this->servers), SERVER);
                 $html .= '<option value="" id="addCustomServer">Add a Server</option>';
             } else {
@@ -193,7 +193,8 @@ class AdminerLoginServers
 
             ob_start(); ?>
             <script <?= nonce() ?> type="text/javascript">
-                document.querySelector(`[name="auth[driver]"]`).onchange = () => {};
+                document.querySelector(`[name="auth[driver]"]`).onchange = () => {
+                };
                 document.querySelectorAll('[name="auth[server]"]').forEach(el => {
                     el.addEventListener('change', e => {
                         if (el.options[el.selectedIndex].id === 'addCustomServer') {
@@ -204,7 +205,7 @@ class AdminerLoginServers
                     })
                 });
             </script>
-<?php $html .= ob_get_clean();
+            <?php $html .= ob_get_clean();
 
             return $heading . "$html\n";
         }

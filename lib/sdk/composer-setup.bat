@@ -96,9 +96,9 @@ echo Running composer-lts global install...
 
 
 @REM Install Adminer Autoloader
-pushd "%WEB_SDK%var"
-    %php55%php.exe %sdk%composer-lts.phar update
-popd
+@REM pushd "%WEB_SDK%var"
+@REM     %php55%php.exe %sdk%composer-lts.phar update
+@REM popd
 
 
 

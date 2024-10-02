@@ -19,6 +19,13 @@
             ]
         },
         {
+            "name": "apache",
+            "label": "Apache SSL",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/lib/apache/start.bat"
+            ]
+        },
+        {
             "name": "adm",
             "label": "Adminer",
             "exec": [

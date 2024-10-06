@@ -145,8 +145,8 @@ elseif (!$loggedIn) :?>
         </div>
 
         <div class="my-2 d-none" data-type="custom">
-            <label for="themeType" class="px-1 pb-2 fw-bold">Choose Theme Variant</label>
-            <select class="form-select" id="themeType" name="nameCustom">
+            <label for="nameCustom" class="px-1 pb-2 fw-bold">Choose Theme Variant</label>
+            <select class="form-select" id="nameCustom" name="nameCustom">
                 <option value="">Choose variant</option>
                 <?php foreach ($customThemes as $val => $label) : ?>
                     <option <?= renderArgs(["selected" => $currentData["theme"] === $val, "value" => $val]) ?>>
@@ -200,7 +200,9 @@ elseif (!$loggedIn) :?>
     <script>
         const
             themeTypeSelect = document.getElementById("themeType"),
-            btn = document.getElementById("submitForm");
+            btn = document.getElementById("submitForm"),
+            admSelect = document.getElementById("option-select"),
+            customSelect = document.getElementById("nameCustom");
 
         function changeType(value) {
             document.querySelectorAll('[data-type]').forEach(elem => {
@@ -212,7 +214,7 @@ elseif (!$loggedIn) :?>
                 }
 
                 btn.disabled = true;
-                if (value === "none") {
+                if (value === "none" || (value === "adminer" && admSelect.value) || (value === "custom" && customSelect.value)) {
                     btn.disabled = null;
                 }
             });

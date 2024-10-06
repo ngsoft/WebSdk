@@ -1,40 +1,36 @@
 <?php
 error_reporting(0);
-
-
-/**
- * Basic PSR-4 autoloader
- */
-spl_autoload_register(function ($className) {
-    $path = [
-        ['', __DIR__ . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR]
-    ];
-    $filename = str_replace("\\", '/', $className);
-    foreach ($path as list($prefix, $root)) {
-        $len = strlen($prefix);
-        $checkPrefix = substr($className, 0, $len);
-        if ($prefix === $checkPrefix) {
-            $filepath = $root . substr($filename, $len) . '.php';
-            if (is_file($filepath)) {
-                require_once $filepath;
-            }
-        }
-    }
-});
-
-
+require_once __DIR__ . "/autoloader.php";
 function adminer_object()
 {
 
+    if (isset($_SESSION["themeData"])) {
+        $themeData = $_SESSION["themeData"];
+    } else {
+        $themeData = $_SESSION["themeData"] = ThemeSwitcher::loadJsonData();
+    }
 
-    return new AdminerPlugin([
+
+    $select = $themeData["select"];
+    $dark = $themeData["dark"];
+    $theme = $themeData["theme"];
+    $type = $themeData["type"];
+
+    $plugins = [
         new AdminerDisableJush(),
         new AdminerAutocomplete(),
         new AdminerLoginIp(['127.0', '192.168', '::1']),
         new AdminerLoginServers([], ['mysql'], __DIR__ . "/../../../tmp/adminer-servers"),
-        new AdminerBootstrapSelect(),
-//        new AdminerTheme("default-blue")
-    ]);
+    ];
+
+    if ($type === "custom") {
+        $plugins[] = new AdminerTheme($theme);
+    } elseif ($select) {
+        $plugins[] = new AdminerBootstrapSelect($theme, $dark);
+    }
+
+
+    return new AdminerPlugin($plugins);
 }
 
 

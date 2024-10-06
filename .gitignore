@@ -21,3 +21,4 @@ extra.*.conf
 apache
 *.cache
 adminer.css
+adminer.json

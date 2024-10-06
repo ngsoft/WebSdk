@@ -31,6 +31,8 @@ class AdminerTheme
     {
         define("PMTN_ADMINER_THEME", true);
 
+        AdminerBootstrapSelect::$enabled = false;
+
         $this->basePath = $basePath;
 
         $this->themeName = isset($_GET["username"]) && isset($_GET["server"]) && isset($themes[$_GET["server"]])
@@ -84,8 +86,8 @@ class AdminerTheme
                 document.addEventListener("DOMContentLoaded", init, false);
 
                 function init() {
-                    var menu = document.getElementById("menu");
-                    var button = menu.getElementsByTagName("h1")[0];
+                    let menu = document.getElementById("menu"),
+                        button = menu.getElementsByTagName("h1")[0];
                     if (!menu || !button) {
                         return;
                     }

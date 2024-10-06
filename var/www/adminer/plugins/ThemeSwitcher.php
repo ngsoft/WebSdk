@@ -133,6 +133,7 @@ class ThemeSwitcher
             "type" => "none",
             "select" => false,
             "dark" => false,
+            "fix" => false
         ];
 
 
@@ -145,11 +146,15 @@ class ThemeSwitcher
                 }
             }
         }
+
+        if (!$data["select"]) {
+            $data["dark"] = $data["fix"] = false;
+        }
         return $data;
 
     }
 
-    public static function saveJsonData($file = "adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false)
+    public static function saveJsonData($file = "adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false, $fix = false)
     {
 
         $data = [
@@ -157,6 +162,7 @@ class ThemeSwitcher
             "type" => $type,
             "select" => $useBootstrapSelect,
             "dark" => $darkMode,
+            "fix" => $fix,
         ];
         $file = self::getAdminerLocation() . DIRECTORY_SEPARATOR . $file;
 

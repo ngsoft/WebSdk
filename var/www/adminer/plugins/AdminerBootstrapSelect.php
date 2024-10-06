@@ -6,10 +6,11 @@ class AdminerBootstrapSelect
     public static $enabled = true;
 
     protected $dark;
+    protected $fix;
 
     protected $theme = "";
 
-    public function __construct($theme = "", $dark = false)
+    public function __construct($theme = "", $dark = false, $fix = false)
     {
         if (is_bool($theme)) {
             list($theme, $dark) = [$dark, $theme];
@@ -19,6 +20,7 @@ class AdminerBootstrapSelect
         }
         $this->dark = $dark;
         $this->theme = $theme;
+        $this->fix = $fix;
 
     }
 
@@ -38,6 +40,9 @@ class AdminerBootstrapSelect
             <?php endif; ?>
             <?php if(!empty($this->theme)): ?>
             document.documentElement.dataset.adminerTheme = `<?= $this->theme ?>`;
+            <?php endif;
+            if($this->fix): ?>
+            document.documentElement.dataset.fix = `true`;
             <?php endif; ?>
         </script>
         <?php

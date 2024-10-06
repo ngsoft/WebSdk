@@ -15,6 +15,7 @@ function adminer_object()
     $dark = $themeData["dark"];
     $theme = $themeData["theme"];
     $type = $themeData["type"];
+    $fix = $themeData["fix"];
 
     $plugins = [
         new AdminerDisableJush(),
@@ -26,7 +27,7 @@ function adminer_object()
     if ($type === "custom") {
         $plugins[] = new AdminerTheme($theme);
     } elseif ($select) {
-        $plugins[] = new AdminerBootstrapSelect($theme, $dark);
+        $plugins[] = new AdminerBootstrapSelect($theme, $dark, $fix);
     }
 
 

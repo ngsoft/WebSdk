@@ -160,21 +160,26 @@ elseif (!$loggedIn) :?>
             <?php ThemeSwitcher::displayPageAvailableThemes() ?>
         </div>
 
-        <div class="my-2 d-none" data-type="none,adminer">
-            <div class="form-check form-switch">
+        <div class="my-2 px-2 d-none" data-type="none,adminer">
+            <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["select"]]) ?>
                        type="checkbox"
                        role="switch" id="bsSelectOn" name="bsSelectOn">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectOn">Use Bootstrap Select
                     plugin</label>
             </div>
-            <div class="form-check form-switch">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["fix"]]) ?>
+                       type="checkbox"
+                       role="switch" id="bsSelectFix" name="bsSelectFix">
+                <label class="form-check-label cursor-pointer fw-bold" for="bsSelectFix">Fix input sizes</label>
+            </div>
+
+            <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["dark"]]) ?>
                        type="checkbox"
                        role="switch" id="bsSelectDark" name="bsSelectDark">
-                <label class="form-check-label cursor-pointer fw-bold" for="bsSelectDark">Bootstrap Select plugin uses
-                    dark
-                    mode</label>
+                <label class="form-check-label cursor-pointer fw-bold" for="bsSelectDark">Theme is dark</label>
             </div>
 
 
@@ -234,6 +239,8 @@ $ok = false;
 $type = $_GET['type'];
 $select = isset($_GET["bsSelectOn"]);
 $dark = isset($_GET["bsSelectDark"]);
+$fix = isset($_GET["bsSelectFix"]);
+
 $theme = "none";
 if ($type === "custom") {
     if (isset($customThemes[$_GET["nameCustom"]])) {
@@ -250,7 +257,11 @@ if ($type === "custom") {
 } else if ($type === "none") {
     $ok = true;
 }
-if ($ok && $ok = ThemeSwitcher::saveJsonData("adminer.json", $type, $theme, $select, $dark)) {
+
+if (!$select || $type === "custom") {
+    $select = $fix = $dark = false;
+}
+if ($ok && $ok = ThemeSwitcher::saveJsonData("adminer.json", $type, $theme, $select, $dark, $fix)) {
 
     switch ($type) {
         case "none":

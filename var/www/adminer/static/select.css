@@ -409,7 +409,7 @@ textarea.form-control-lg {
     }
 }
 
-.form-select:focus, input:focus {
+.form-select:focus, [data-fix] input:focus {
     border-color: #86b7fe;
     outline: 0;
     box-shadow: 0 0 0 0.125rem rgba(13, 110, 253, 0.25);
@@ -456,10 +456,10 @@ textarea.form-control-lg {
     border-radius: 0;
 }
 
-input:not([type]), input[type="color"], input[type="email"],
-input[type="number"], input[type="password"],
-input[type="tel"], input[type="url"],
-input[type="text"], input[type="search"] {
+[data-fix] input:not([type]), [data-fix] input[type="color"], [data-fix] input[type="email"],
+[data-fix] input[type="number"], [data-fix] input[type="password"],
+[data-fix] input[type="tel"], [data-fix] input[type="url"],
+[data-fix] input[type="text"], [data-fix] input[type="search"] {
     padding-top: 4px !important;
     padding-bottom: 4px !important;
     padding-left: 2px !important;
@@ -477,7 +477,7 @@ input[type="text"], input[type="search"] {
     vertical-align: baseline;
 }
 
-input[type="number"] {
+[data-fix] input[type="number"] {
     min-width: 56px;
 }
 

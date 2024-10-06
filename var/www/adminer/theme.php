@@ -223,6 +223,8 @@ class ThemeSwitcher
                 // update mtime
                 @touch($bck);
 
+                $contents = sprintf("/**\n * selectedTheme: \"%s\"\n */\n%s", $name, $contents);
+
                 if (@file_put_contents($file = __DIR__ . DIRECTORY_SEPARATOR . self::THEME_FILE, $contents)) {
                     @chmod($file, 0777);
                     return true;

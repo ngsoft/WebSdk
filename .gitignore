@@ -19,3 +19,5 @@ var/www/adminer/themes/backup
 .idea
 extra.*.conf
 apache
+*.cache
+adminer.css

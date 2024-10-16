@@ -14,7 +14,7 @@ lib/nvm/*/
 lib/go*
 var/vendor
 var/composer.lock
-var/www/phpMyAdmin
+phpMyAdmin
 var/www/adminer/themes/backup
 .idea
 extra.*.conf

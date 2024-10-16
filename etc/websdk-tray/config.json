@@ -23,6 +23,15 @@
             "label": "Apache SSL",
             "exec": [
                 "cmd.exe /C C:/WebSdk/lib/apache/start.bat"
+            ],
+            "off": [
+                "taskkill.exe /f /IM httpd.exe"
+            ],
+            "visible": [
+                "C:/WebSdk/lib/apache"
+            ],
+            "check": [
+                "httpd.exe"
             ]
         },
         {
@@ -31,7 +40,10 @@
             "exec": [
                 "cmd.exe /C C:/WebSdk/bin/adminer.bat"
             ],
-            "visible": "on"
+            "visible": [
+                "on",
+                "c:/WebSdk/var/www/adminer"
+            ]
         },
         {
             "name": "pma",
@@ -40,27 +52,28 @@
                 "cmd.exe /C C:/WebSdk/bin/pma.bat"
             ],
             "visible": [
-                "on"
+                "on",
+                "c:/WebSdk/var/www/PhpMyAdmin"
             ]
         },
         {
             "name": "php7",
-            "label": "PHP 7.4",
+            "label": "PHP 7.4 Runtime",
             "exec": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/switch-php.bat 7.4"
             ],
             "visible": [
-                "nerver"
+                "no"
             ]
         },
         {
             "name": "php5",
-            "label": "PHP 5.5",
+            "label": "PHP 5.5 Runtime",
             "exec": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/switch-php.bat 5.5"
             ],
             "visible": [
-                "never"
+                "no"
             ]
         }
     ],

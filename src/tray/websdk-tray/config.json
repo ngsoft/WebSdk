@@ -19,13 +19,19 @@
             ]
         },
         {
-            "name": "pma",
-            "label": "PhpMyAdmin",
+            "name": "apache",
+            "label": "Apache SSL",
             "exec": [
-                "cmd.exe /C C:/WebSdk/bin/pma.bat"
+                "cmd.exe /C C:/WebSdk/lib/apache/start.bat"
+            ],
+            "off": [
+                "taskkill.exe /f /IM httpd.exe"
             ],
             "visible": [
-                "on"
+                "C:/WebSdk/lib/apache"
+            ],
+            "check": [
+                "httpd.exe"
             ]
         },
         {
@@ -34,7 +40,21 @@
             "exec": [
                 "cmd.exe /C C:/WebSdk/bin/adminer.bat"
             ],
-            "visible": "on"
+            "visible": [
+                "on",
+                "c:/WebSdk/var/www/adminer"
+            ]
+        },
+        {
+            "name": "pma",
+            "label": "PhpMyAdmin",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/bin/pma.bat"
+            ],
+            "visible": [
+                "on",
+                "c:/WebSdk/var/www/PhpMyAdmin"
+            ]
         }
     ],
     "check": {

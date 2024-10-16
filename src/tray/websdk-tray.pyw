@@ -106,6 +106,32 @@ def check_config(_config):
                     + " in config file"
                 )
                 break
+            if "check" in _item:
+                if isinstance(_item["check"], list) == False:
+                    cfgOk = False
+                    msg = (
+                        "check is not a list in menu item named "
+                        + _item["name"]
+                        + " in config file"
+                    )
+                    break
+            if "off" in _item:
+                if isinstance(_item["off"], list) == False:
+                    cfgOk = False
+                    msg = (
+                        "off is not a list in menu item named "
+                        + _item["name"]
+                        + " in config file"
+                    )
+                    break
+                if not "check" in _item:
+                    cfgOk = False
+                    msg = (
+                        "off is present but not check in menu item named "
+                        + _item["name"]
+                        + " in config file"
+                    )
+                    break
             if not "exec" in _item:
                 cfgOk = False
                 msg = (
@@ -242,6 +268,10 @@ def action_setup(icon):
 
 
 def action_checked(item):
+
+    if modes[item.text] in runChecks:
+        return check_process_list(runChecks[modes[item.text]])
+
     try:
         return mode == modes[item.text]
     except:
@@ -249,29 +279,58 @@ def action_checked(item):
 
 
 def action_visible(item):
-    try:
-        return mode in visibility[modes[item.text]]
-    except:
+
+    if not modes[item.text] in visibility:
         return True
+
+    cnt = 0
+    max = len(visibility[modes[item.text]])
+    for val in visibility[modes[item.text]]:
+        if val in names:
+            if mode == val:
+                cnt += 1
+        elif process_exists(val):
+            cnt += 1
+        elif os.path.exists(val):
+            cnt += 1
+    return cnt == max
 
 
 def run_processes(_mode):
+    if _mode == on:
+        notify("Starting " + appName)
+    elif _mode == off:
+        icon.notify("Stopping " + appName)
+
+    run_process_list(processes[_mode])
+
+
+def run_process_list(processList):
     try:
-        if _mode == on:
-            icon.notify("Starting " + appName, appName)
-        elif _mode == off:
-            icon.notify("Stopping " + appName, appName)
-    except:
-        pass
-    try:
-        for _cmd in processes[_mode]:
+        for _cmd in processList:
             run_command(_cmd)
     except:
         pass
 
 
+def notify(msg):
+    try:
+        icon.notify(msg, appName)
+    except:
+        pass
+
+
 def action_click(icon, item):
-    run_processes(modes[item.text])
+    if modes[item.text] in stopRun:
+        if item.checked:
+            notify("Stopping " + item.text)
+            run_process_list(stopRun[modes[item.text]])
+        else:
+            notify("Starting " + item.text)
+            run_process_list(processes[modes[item.text]])
+    else:
+        run_processes(modes[item.text])
+
     action_run(icon)
 
 
@@ -296,6 +355,9 @@ items = list()
 processes = dict()
 icons = dict()
 modes = dict()
+names = list()
+runChecks = dict()
+stopRun = dict()
 visibility = dict()
 checks = list(config["check"]["process"])
 checksModes = list()
@@ -314,10 +376,18 @@ for _itemName in config["check"]["items"]:
 
 for _item in config["menu"]:
     _name = _item["name"]
+    names.append(_name)
     _label = _item["label"]
     states[_name] = False
     modes[_label] = _name
     processes[_name] = list(_item["exec"])
+
+    if "check" in _item:
+        runChecks[_name] = _item["check"]
+
+    if "off" in _item:
+        stopRun[_name] = _item["off"]
+
     if "visible" in _item:
         if isinstance(_item["visible"], list):
             visibility[_name] = list(_item["visible"])
@@ -328,6 +398,8 @@ for _item in config["menu"]:
                 "Invalid visible param for menu item named " + _name + " in config file"
             )
             action_quit()
+    # else:
+    #     visibility[_name] = checksModes
 
     items.append(
         pystray.MenuItem(

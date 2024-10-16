@@ -300,7 +300,7 @@ def run_processes(_mode):
     if _mode == on:
         notify("Starting " + appName)
     elif _mode == off:
-        icon.notify("Stopping " + appName)
+        notify("Stopping " + appName)
 
     run_process_list(processes[_mode])
 

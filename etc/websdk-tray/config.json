@@ -98,5 +98,5 @@
             "off": "light/icon_off.png"
         }
     },
-    "autostart": true
+    "autostart": false
 }

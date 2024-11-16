@@ -48,7 +48,7 @@ setlocal enabledelayedexpansion
 pushd "%~dp0"
     call loadenv.bat
     call :install_nvm
-    for %%f in (bin lib\mariadb\bin lib\php\8.1 lib\php\7.4 lib\php\8.3 lib\php\8.2 lib\php\5.6 lib\php\5.5 lib\pear) do (
+    for %%f in (bin lib\mariadb\bin lib\php\8.2 lib\php\8.1 lib\php\7.4 lib\php\8.3 lib\php\5.6 lib\php\5.5 lib\pear) do (
         call :addpath_sdk "%%f"
     )
 popd

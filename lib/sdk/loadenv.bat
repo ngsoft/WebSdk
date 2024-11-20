@@ -23,7 +23,7 @@ set "php=%php81%"
 set "pyversion=3.12.3"
 set "py3=%lib%pyenv\versions\%pyversion%\"
 @REM go
-set "goversion=1.22.3"
+set "goversion=1.23.3"
 set "gvm=%lib%gvm\"
 set "go=%lib%go\"
 @REM 7zip

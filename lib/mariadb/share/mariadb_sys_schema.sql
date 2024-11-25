@@ -13,11 +13,16 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
-SET NAMES utf8;
+SET NAMES utf8 COLLATE utf8_general_ci;
 SET @sql_log_bin = @@sql_log_bin;
 SET sql_log_bin = 0;
 
-CREATE DATABASE IF NOT EXISTS sys DEFAULT CHARACTER SET utf8;
+CREATE DATABASE IF NOT EXISTS sys DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci;
+
+-- If the database had existed, let's recreate its db.opt:
+-- * to fix it if it contained unexpected charset/collation values
+-- * to create it if it was removed in a mistake
+ALTER DATABASE sys CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci;
 
 USE sys;
 
@@ -56,8 +61,9 @@ VIEW version (
   sys_version,
   mysql_version
 ) AS 
-SELECT '1.5.1' AS sys_version, 
+SELECT '1.5.2' AS sys_version,
         version() AS mysql_version;
+
 -- Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
 --
 -- This program is free software; you can redistribute it and/or modify
@@ -2895,6 +2901,84 @@ VIEW schema_redundant_indexes (
       )
     );
 
+--
+-- View: privileges_by_table_by_level
+--
+-- Shows granted privileges broken down by the table on which they allow access
+-- and the level on which they were granted:
+-- - user_privileges
+-- - schema_privileges
+-- - table_privileges
+--
+-- mysql> select * from sys.privileges_by_table_by_level;
+-- +--------------+------------+--------------------+----------------+--------+
+-- | TABLE_SCHEMA | TABLE_NAME | GRANTEE            | PRIVILEGE_TYPE | LEVEL  |
+-- +--------------+------------+--------------------+----------------+--------+
+-- | test         | v1         | 'oleg'@'localhost' | SELECT         | GLOBAL |
+-- | test         | t1         | 'oleg'@'localhost' | SELECT         | GLOBAL |
+-- | test         | v1         | 'oleg'@'localhost' | INSERT         | GLOBAL |
+-- | test         | t1         | 'oleg'@'localhost' | INSERT         | GLOBAL |
+-- | test         | v1         | 'oleg'@'localhost' | UPDATE         | GLOBAL |
+-- | test         | v1         | 'PUBLIC'@''        | SELECT         | SCHEMA |
+-- | test         | t1         | 'PUBLIC'@''        | SELECT         | SCHEMA |
+-- | test         | v1         | 'PUBLIC'@''        | INSERT         | SCHEMA |
+-- | test         | t1         | 'PUBLIC'@''        | INSERT         | SCHEMA |
+-- | test         | v1         | 'PUBLIC'@''        | UPDATE         | SCHEMA |
+-- | test         | t1         | 'PUBLIC'@''        | UPDATE         | SCHEMA |
+-- | test         | v1         | 'PUBLIC'@''        | DELETE HISTORY | SCHEMA |
+-- | test         | t1         | 'PUBLIC'@''        | DELETE HISTORY | SCHEMA |
+-- | test         | t1         | 'oleg'@'%'         | SELECT         | TABLE  |
+-- | test         | t1         | 'oleg'@'%'         | UPDATE         | TABLE  |
+-- | test         | v1         | 'oleg'@'%'         | SELECT         | TABLE  |
+-- +--------------+------------+--------------------+----------------+--------+
+
+CREATE OR REPLACE
+  ALGORITHM = TEMPTABLE
+  DEFINER = 'mariadb.sys'@'localhost'
+  SQL SECURITY INVOKER
+VIEW privileges_by_table_by_level (
+  TABLE_SCHEMA,
+  TABLE_NAME,
+  GRANTEE,
+  PRIVILEGE,
+  LEVEL
+) AS
+SELECT t.TABLE_SCHEMA,
+       t.TABLE_NAME,
+       privs.GRANTEE,
+       privs.PRIVILEGE_TYPE,
+       privs.LEVEL
+FROM INFORMATION_SCHEMA.TABLES AS t
+JOIN ( SELECT NULL AS TABLE_SCHEMA,
+              NULL AS TABLE_NAME,
+              GRANTEE,
+              PRIVILEGE_TYPE,
+             'GLOBAL' LEVEL
+           FROM INFORMATION_SCHEMA.USER_PRIVILEGES
+         UNION
+       SELECT TABLE_SCHEMA,
+              NULL AS TABLE_NAME,
+              GRANTEE,
+              PRIVILEGE_TYPE,
+              'SCHEMA' LEVEL
+           FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES
+         UNION
+       SELECT TABLE_SCHEMA,
+              TABLE_NAME,
+              GRANTEE,
+              PRIVILEGE_TYPE,
+              'TABLE' LEVEL
+           FROM INFORMATION_SCHEMA.TABLE_PRIVILEGES
+       ) privs
+    ON (t.TABLE_SCHEMA = privs.TABLE_SCHEMA OR privs.TABLE_SCHEMA IS NULL)
+   AND (t.TABLE_NAME = privs.TABLE_NAME OR privs.TABLE_NAME IS NULL)
+   AND privs.PRIVILEGE_TYPE IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE',
+                                'CREATE', 'ALTER', 'DROP', 'INDEX',
+                                'REFERENCES', 'TRIGGER', 'GRANT OPTION',
+                                'SHOW VIEW', 'DELETE HISTORY')
+WHERE t.TABLE_SCHEMA NOT IN ('sys', 'mysql','information_schema',
+                             'performance_schema');
+
 -- Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
 --
 -- This program is free software; you can redistribute it and/or modify
@@ -3081,7 +3165,7 @@ SELECT IF(id IS NULL,
 -- +---------------------+-------+---------------+-------------+-------------+-------------+-----------+----------------+
 -- | root@localhost      | 11580 | 18.01 s       | 429.78 ns   | 1.12 ms     | 181.07 ms   |        25 |              6 |
 -- | main                |  1358 | 1.31 s        | 475.02 ns   | 2.27 ms     | 350.70 ms   |         1 |           NULL |
--- | page_cleaner_thread |   654 | 147.44 ms     | 588.12 ns   | 225.44 us   | 46.41 ms    |        18 |           NULL |
+-- | page_cleaner        |   654 | 147.44 ms     | 588.12 ns   | 225.44 us   | 46.41 ms    |        18 |           NULL |
 -- | io_write_thread     |   131 | 107.75 ms     | 8.60 us     | 822.55 us   | 27.69 ms    |         8 |           NULL |
 -- | io_write_thread     |    46 | 47.07 ms      | 10.64 us    | 1.02 ms     | 16.90 ms    |         9 |           NULL |
 -- | io_write_thread     |    71 | 46.99 ms      | 9.11 us     | 661.81 us   | 17.04 ms    |        11 |           NULL |
@@ -3152,7 +3236,7 @@ SELECT IF(processlist_id IS NULL,
 -- +---------------------+-------+----------------+-------------+-----------------+--------------+-----------+----------------+
 -- | root@localhost      | 11587 | 18007539905680 |      429780 | 1120831681.6667 | 181065665560 |        25 |              6 |
 -- | main                |  1358 |  1309001741320 |      475020 | 2269581997.8000 | 350700491310 |         1 |           NULL |
--- | page_cleaner_thread |   654 |   147435455960 |      588120 |  225436198.0000 |  46412043990 |        18 |           NULL |
+-- | page_cleaner        |   654 |   147435455960 |      588120 |  225436198.0000 |  46412043990 |        18 |           NULL |
 -- | io_write_thread     |   131 |   107754483070 |     8603140 |  822553303.0000 |  27691592500 |         8 |           NULL |
 -- | io_write_thread     |    46 |    47074926860 |    10642710 | 1023367631.0000 |  16899745070 |         9 |           NULL |
 -- | io_write_thread     |    71 |    46988801210 |     9108320 |  661814075.0000 |  17042760020 |        11 |           NULL |
@@ -9034,7 +9118,9 @@ BEGIN
     DECLARE v_table VARCHAR(64);
     DECLARE v_views_created INT DEFAULT 0;
     DECLARE v_table_exists ENUM('', 'BASE TABLE', 'VIEW', 'TEMPORARY') DEFAULT '';
-    DECLARE v_temp_table TEXT;
+
+    DECLARE db_doesnt_exist CONDITION FOR SQLSTATE '42000';
+    DECLARE db_name_exists CONDITION FOR SQLSTATE 'HY000';
 
     DECLARE c_table_names CURSOR FOR 
         SELECT TABLE_NAME 
@@ -9078,37 +9164,25 @@ BEGIN
         IF v_done THEN
             LEAVE c_table_names;
         END IF;
-
-    -- Check does temporary table shadows the base table. If it is so, terminate.
+    -- Check the table type, don't support temporary since cannot create the view
         CALL sys.table_exists(in_db_name, v_table, v_table_exists);
-        IF (v_table_exists = 'TEMPORARY') THEN
-            SET v_temp_table =
-            CONCAT(
-                'Table',
-                 sys.quote_identifier(in_db_name),
-                 '.',
-                 sys.quote_identifier(v_table),
-                 'shadows base table. View cannot be created! Terminating!');
-             SIGNAL SQLSTATE 'HY000'
-                 SET MESSAGE_TEXT = v_temp_table;
-             LEAVE c_table_names;
+        IF (v_table_exists <> 'TEMPORARY') THEN
+            SET @create_view_stmt = CONCAT(
+                'CREATE SQL SECURITY INVOKER VIEW ',
+                sys.quote_identifier(in_synonym),
+                '.',
+                sys.quote_identifier(v_table),
+                ' AS SELECT * FROM ',
+                sys.quote_identifier(in_db_name),
+                '.',
+                sys.quote_identifier(v_table)
+            );
+            PREPARE create_view_stmt FROM @create_view_stmt;
+            EXECUTE create_view_stmt;
+            DEALLOCATE PREPARE create_view_stmt;
+
+            SET v_views_created = v_views_created + 1;
         END IF;
-
-        SET @create_view_stmt = CONCAT(
-            'CREATE SQL SECURITY INVOKER VIEW ',
-            sys.quote_identifier(in_synonym),
-            '.',
-            sys.quote_identifier(v_table),
-            ' AS SELECT * FROM ',
-            sys.quote_identifier(in_db_name),
-            '.',
-            sys.quote_identifier(v_table)
-        );
-        PREPARE create_view_stmt FROM @create_view_stmt;
-        EXECUTE create_view_stmt;
-        DEALLOCATE PREPARE create_view_stmt;
-
-        SET v_views_created = v_views_created + 1;
     END LOOP;
     CLOSE c_table_names;
 
@@ -9324,9 +9398,9 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE diagnostics (
     READS SQL DATA
 BEGIN
     DECLARE v_start, v_runtime, v_iter_start, v_sleep DECIMAL(20,2) DEFAULT 0.0;
-    DECLARE v_has_innodb, v_has_ndb, v_has_ps, v_has_replication, v_has_ps_replication VARCHAR(8) CHARSET utf8 DEFAULT 'NO';
+    DECLARE v_has_innodb, v_has_ndb, v_has_ps, v_has_replication, v_has_ps_replication VARCHAR(8) CHARSET utf8 COLLATE utf8_general_ci DEFAULT 'NO';
     DECLARE v_this_thread_enabled, v_has_ps_vars, v_has_metrics ENUM('YES', 'NO');
-    DECLARE v_table_name, v_banner VARCHAR(64) CHARSET utf8;
+    DECLARE v_table_name, v_banner VARCHAR(64) CHARSET utf8 COLLATE utf8_general_ci;
     DECLARE v_sql_status_summary_select, v_sql_status_summary_delta, v_sql_status_summary_from, v_no_delta_names TEXT;
     DECLARE v_output_time, v_output_time_prev DECIMAL(20,3) UNSIGNED;
     DECLARE v_output_count, v_count, v_old_group_concat_max_len INT UNSIGNED DEFAULT 0;
@@ -9902,7 +9976,7 @@ BEGIN
   Type VARCHAR(100) NOT NULL,
   Enabled ENUM(''YES'', ''NO'', ''PARTIAL'') NOT NULL,
   PRIMARY KEY (Type, Variable_name)
-) ENGINE = InnoDB DEFAULT CHARSET=utf8'));
+) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci'));
 
         IF (v_has_metrics) THEN
             SET @sys.diagnostics.sql = CONCAT(
@@ -12591,7 +12665,7 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE ps_setup_show_enabled (
              | innodb/io_read_thread           | BACKGROUND  |
              | innodb/io_write_thread          | BACKGROUND  |
              | innodb/io_write_thread          | BACKGROUND  |
-             | innodb/page_cleaner_thread      | BACKGROUND  |
+             | innodb/page_cleaner             | BACKGROUND  |
              | innodb/srv_lock_timeout_thread  | BACKGROUND  |
              | innodb/srv_error_monitor_thread | BACKGROUND  |
              | innodb/srv_monitor_thread       | BACKGROUND  |
@@ -13612,7 +13686,7 @@ DELIMITER $$
 
 CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE table_exists (
         IN in_db VARCHAR(64), IN in_table VARCHAR(64),
-        OUT out_exists ENUM('', 'BASE TABLE', 'VIEW', 'TEMPORARY', 'SEQUENCE', 'SYSTEM VIEW')
+        OUT out_exists ENUM('', 'BASE TABLE', 'VIEW', 'TEMPORARY', 'SEQUENCE', 'SYSTEM VIEW', 'TEMPORARY SEQUENCE')
     )
     COMMENT '
              Description
@@ -13632,36 +13706,44 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE table_exists (
              in_table (VARCHAR(64)):
                The name of the table to check the existence of.
 
-             out_exists ENUM('''', ''BASE TABLE'', ''VIEW'', ''TEMPORARY''):
+             out_exists ENUM('''', ''BASE TABLE'', ''VIEW'', ''TEMPORARY'', ''SEQUENCE'', ''SYSTEM VIEW'', ''TEMPORARY SEQUENCE''):
                The return value: whether the table exists. The value is one of:
-                 * ''''             - the table does not exist neither as a base table, view, sequence nor temporary table.
-                 * ''BASE TABLE''   - the table name exists as a permanent base table table.
-                 * ''VIEW''         - the table name exists as a view.
-                 * ''TEMPORARY''    - the table name exists as a temporary table.
-                 * ''SEQUENCE''     - the table name exists as a sequence.
-                 * ''SYSTEM VIEW''  - the table name exists as a system view.
+                 * ''''                    - the table does not exist neither as a base table, view, sequence nor temporary table/sequence.
+                 * ''BASE TABLE''          - the table name exists as a permanent base table table.
+                 * ''VIEW''                - the table name exists as a view.
+                 * ''TEMPORARY''           - the table name exists as a temporary table.
+                 * ''SEQUENCE''            - the table name exists as a sequence.
+                 * ''SYSTEM VIEW''         - the table name exists as a system view.
+                 * ''TEMPORARY SEQUENCE''  - the table name exists as a temporary sequence.
 
              Example
              --------
 
-             mysql> CREATE DATABASE db1;
+             MariaDB [sys]> CREATE DATABASE db1;
              Query OK, 1 row affected (0.07 sec)
 
-             mysql> use db1;
+             MariaDB [sys]> use db1;
              Database changed
-             mysql> CREATE TABLE t1 (id INT PRIMARY KEY);
+
+             MariaDB [sys]> CREATE TABLE t1 (id INT PRIMARY KEY);
              Query OK, 0 rows affected (0.08 sec)
-             
-             mysql> CREATE TABLE t2 (id INT PRIMARY KEY);
+
+             MariaDB [sys]> CREATE TABLE t2 (id INT PRIMARY KEY);
              Query OK, 0 rows affected (0.08 sec)
-             
-             mysql> CREATE view v_t1 AS SELECT * FROM t1;
+
+             MariaDB [sys]> CREATE view v_t1 AS SELECT * FROM t1;
              Query OK, 0 rows affected (0.00 sec)
-             
-             mysql> CREATE TEMPORARY TABLE t1 (id INT PRIMARY KEY);
+
+             MariaDB [sys]> CREATE TEMPORARY TABLE t1 (id INT PRIMARY KEY);
              Query OK, 0 rows affected (0.00 sec)
-             
-             mysql> CALL sys.table_exists(''db1'', ''t1'', @exists); SELECT @exists;
+
+             MariaDB [sys]> CREATE SEQUENCE s;
+             Query OK, 0 rows affected (0.00 sec)
+
+             MariaDB [sys]> CREATE TEMPORARY SEQUENCE s_temp;
+             Query OK, 0 rows affected (0.00 sec)
+
+             MariaDB [sys]> CALL sys.table_exists(''db1'', ''t1'', @exists); SELECT @exists;
              Query OK, 0 rows affected (0.00 sec)
 
              +------------+
@@ -13671,7 +13753,7 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE table_exists (
              +------------+
              1 row in set (0.00 sec)
              
-             mysql> CALL sys.table_exists(''db1'', ''t2'', @exists); SELECT @exists;
+             MariaDB [sys]> CALL sys.table_exists(''db1'', ''t2'', @exists); SELECT @exists;
              Query OK, 0 rows affected (0.00 sec)
              
              +------------+
@@ -13681,7 +13763,7 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE table_exists (
              +------------+
              1 row in set (0.01 sec)
 
-             mysql> CALL sys.table_exists(''db1'', ''v_t1'', @exists); SELECT @exists;
+             MariaDB [sys]> CALL sys.table_exists(''db1'', ''v_t1'', @exists); SELECT @exists;
              Query OK, 0 rows affected (0.00 sec)
 
              +---------+
@@ -13711,7 +13793,7 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE table_exists (
              +-------------+
              1 row in set (0.001 sec)
 
-             mysql> CALL sys.table_exists(''db1'', ''t3'', @exists); SELECT @exists;
+             MariaDB [sys]> CALL sys.table_exists(''db1'', ''t3'', @exists); SELECT @exists;
              Query OK, 0 rows affected (0.01 sec)
 
              +---------+
@@ -13720,6 +13802,16 @@ CREATE DEFINER='mariadb.sys'@'localhost' PROCEDURE table_exists (
              |         |
              +---------+
              1 row in set (0.00 sec)
+
+             MariaDB [sys]> CALL table_exists(''db1'', ''s_temp'', @exists); SELECT @exists;
+             Query OK, 0 rows affected (0.003 sec)
+
+             +--------------------+
+             | @exists            |
+             +--------------------+
+             | TEMPORARY SEQUENCE |
+             +--------------------+
+             1 row in set (0.001 sec)
             '
     SQL SECURITY INVOKER
     NOT DETERMINISTIC
@@ -13728,65 +13820,29 @@ BEGIN
     DECLARE v_error BOOLEAN DEFAULT FALSE;
     DECLARE db_quoted VARCHAR(64);
     DECLARE table_quoted VARCHAR(64);
-    DECLARE v_table_type VARCHAR(16) DEFAULT '';
-    DECLARE v_system_db BOOLEAN
-        DEFAULT LOWER(in_db) IN ('information_schema', 'performance_schema');
+    DECLARE v_table_type VARCHAR(30) DEFAULT '';
     DECLARE CONTINUE HANDLER FOR 1050 SET v_error = TRUE;
     DECLARE CONTINUE HANDLER FOR 1146 SET v_error = TRUE;
 
-    SET out_exists = '';
-    SET db_quoted = sys.quote_identifier(in_db);
-    SET table_quoted = sys.quote_identifier(in_table);
+    -- First check do we have multiple rows, what can happen if temporary table
+    -- and/or sequence is shadowing base table for example.
+    -- In such scenario return temporary.
+    SET v_table_type = (SELECT GROUP_CONCAT(TABLE_TYPE) FROM information_schema.TABLES WHERE
+                            TABLE_SCHEMA = in_db AND TABLE_NAME = in_table);
 
-    -- Verify whether the table name exists as a normal table
-    IF (EXISTS(SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = in_db AND TABLE_NAME = in_table)) THEN
-        -- Unfortunately the only way to determine whether there is also a temporary table is to try to create
-        -- a temporary table with the same name. If it succeeds the table didn't exist as a temporary table.
-        IF v_system_db = FALSE THEN
-            SET @sys.tmp.table_exists.SQL = CONCAT('CREATE TEMPORARY TABLE ',
-                                                    db_quoted,
-                                                    '.',
-                                                    table_quoted,
-                                                    '(id INT PRIMARY KEY)');
-            PREPARE stmt_create_table FROM @sys.tmp.table_exists.SQL;
-            EXECUTE stmt_create_table;
-            DEALLOCATE PREPARE stmt_create_table;
-
-            -- The temporary table was created, i.e. it didn't exist. Remove it again so we don't leave garbage around.
-            SET @sys.tmp.table_exists.SQL = CONCAT('DROP TEMPORARY TABLE ',
-                                                                db_quoted,
-                                                                '.',
-                                                                table_quoted);
-            PREPARE stmt_drop_table FROM @sys.tmp.table_exists.SQL;
-            EXECUTE stmt_drop_table;
-            DEALLOCATE PREPARE stmt_drop_table;
-        END IF;
-        IF (v_error) THEN
-            SET out_exists = 'TEMPORARY';
-        ELSE
-            SET v_table_type = (SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = in_db AND TABLE_NAME = in_table);
-            -- Don't fail on table_type='SYSTEM VERSIONED'
-            -- but return 'BASE TABLE' for compatibility with existing tooling
-            IF v_table_type = 'SYSTEM VERSIONED' THEN
-                SET out_exists = 'BASE TABLE';
-            ELSE
-                SET out_exists = v_table_type;
-            END IF;
-        END IF;
+    IF v_table_type LIKE '%,%' THEN
+        SET out_exists = 'TEMPORARY';
     ELSE
-        -- Check whether a temporary table exists with the same name.
-        -- If it does it's possible to SELECT from the table without causing an error.
-        -- If it does not exist even a PREPARE using the table will fail.
-        IF v_system_db = FALSE THEN
-            SET @sys.tmp.table_exists.SQL = CONCAT('SELECT COUNT(*) FROM ',
-                                                            db_quoted,
-                                                            '.',
-                                                            table_quoted);
-            PREPARE stmt_select FROM @sys.tmp.table_exists.SQL;
-            IF (NOT v_error) THEN
-                DEALLOCATE PREPARE stmt_select;
-                SET out_exists = 'TEMPORARY';
-            END IF;
+        IF v_table_type is NULL
+        THEN
+            SET v_table_type='';
+        END IF;
+        -- Don't fail on table_type='SYSTEM VERSIONED'
+        -- but return 'BASE TABLE' for compatibility with existing tooling
+        IF v_table_type = 'SYSTEM VERSIONED' THEN
+            SET out_exists = 'BASE TABLE';
+        ELSE
+            SET out_exists = v_table_type;
         END IF;
     END IF;
 END$$

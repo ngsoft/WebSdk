@@ -133,11 +133,6 @@ public:
   Storage_engine_name(const LEX_CSTRING &name)
    :m_storage_engine_name(name)
   { }
-  Storage_engine_name(const LEX_STRING &name)
-  {
-    m_storage_engine_name.str= name.str;
-    m_storage_engine_name.length= name.length;
-  }
   bool resolve_storage_engine_with_error(THD *thd,
                                          handlerton **ha,
                                          bool tmp_table);
@@ -316,16 +311,16 @@ public:
     @param thd  global context the processed statement
     @returns false on success, true on error
   */
-  virtual bool prepare(THD *thd);
+  bool prepare(THD *thd) override;
 
   /**
     Execute the processed statement once
     @param thd  global context the processed statement
     @returns false on success, true on error
   */
-  virtual bool execute(THD *thd);
+  bool execute(THD *thd) override;
 
-  virtual bool is_dml() const { return true; }
+  bool is_dml() const override { return true; }
 
   select_result *get_result() { return result; }
 
@@ -402,44 +397,24 @@ protected:
 };
 
 
-class Sql_cmd_show_slave_status: public Sql_cmd
-{
-protected:
-  bool show_all_slaves_status;
-public:
-  Sql_cmd_show_slave_status()
-    :show_all_slaves_status(false)
-  {}
-
-  Sql_cmd_show_slave_status(bool status_all)
-    :show_all_slaves_status(status_all)
-  {}
-
-  enum_sql_command sql_command_code() const { return SQLCOM_SHOW_SLAVE_STAT; }
-
-  bool execute(THD *thd);
-  bool is_show_all_slaves_stat() { return show_all_slaves_status; }
-};
-
-
 class Sql_cmd_create_table_like: public Sql_cmd,
                                  public Storage_engine_name
 {
 public:
-  Storage_engine_name *option_storage_engine_name() { return this; }
-  bool execute(THD *thd);
+  Storage_engine_name *option_storage_engine_name() override { return this; }
+  bool execute(THD *thd) override;
 };
 
 class Sql_cmd_create_table: public Sql_cmd_create_table_like
 {
 public:
-  enum_sql_command sql_command_code() const { return SQLCOM_CREATE_TABLE; }
+  enum_sql_command sql_command_code() const override { return SQLCOM_CREATE_TABLE; }
 };
 
 class Sql_cmd_create_sequence: public Sql_cmd_create_table_like
 {
 public:
-  enum_sql_command sql_command_code() const { return SQLCOM_CREATE_SEQUENCE; }
+  enum_sql_command sql_command_code() const override { return SQLCOM_CREATE_SEQUENCE; }
 };
 
 
@@ -463,9 +438,9 @@ public:
     @param thd the current thread.
     @return false on success.
   */
-  bool execute(THD *thd);
+  bool execute(THD *thd) override;
 
-  virtual enum_sql_command sql_command_code() const
+  enum_sql_command sql_command_code() const override
   {
     return SQLCOM_CALL;
   }

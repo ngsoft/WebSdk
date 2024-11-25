@@ -537,10 +537,9 @@ public:
   class Iterator;
   using value_type= T;
   using iterator= Iterator;
-  using const_iterator= const Iterator;
 
-  Iterator begin() const { return Iterator(first); }
-  Iterator end() const { return Iterator(); }
+  iterator begin() const { return iterator(first); }
+  iterator end() const { return iterator(); }
 
   class Iterator
   {
@@ -561,7 +560,7 @@ public:
       return *this;
     }
 
-    T operator++(int)
+    Iterator operator++(int)
     {
       Iterator tmp(*this);
       operator++();
@@ -799,7 +798,9 @@ public:
 class base_ilist_iterator
 {
   base_ilist *list;
-  struct ilink **el,*current;
+  struct ilink **el;
+protected:
+  struct ilink *current;
 public:
   base_ilist_iterator(base_ilist &list_par) :list(&list_par),
     el(&list_par.first),current(0) {}
@@ -810,6 +811,13 @@ public:
     if (current == &list->last) return 0;
     el= &current->next;
     return current;
+  }
+  /* Unlink element returned by last next() call */
+  inline void unlink(void)
+  {
+    struct ilink **tmp= current->prev;
+    current->unlink();
+    el= tmp;
   }
 };
 
@@ -840,6 +848,13 @@ template <class T> class I_List_iterator :public base_ilist_iterator
 public:
   I_List_iterator(I_List<T> &a) : base_ilist_iterator(a) {}
   inline T* operator++(int) { return (T*) base_ilist_iterator::next(); }
+  /* Remove element returned by last next() call */
+  inline void remove(void)
+  {
+    unlink();
+    delete (T*) current;
+    current= 0;                                 // Safety
+  }
 };
 
 /**

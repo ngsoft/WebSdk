@@ -34,6 +34,12 @@ struct TABLE_LIST;
 typedef struct st_mysql_field MYSQL_FIELD;
 typedef struct st_mysql_rows MYSQL_ROWS;
 
+struct unit_results_desc
+{
+  ulonglong generated_id;
+  ulonglong affected_rows;
+};
+
 class Protocol
 {
 protected:
@@ -99,7 +105,7 @@ public:
   bool send_result_set_row(List<Item> *row_items);
 
   bool store(I_List<i_string> *str_list);
-  bool store(I_List<i_string_pair> *str_list);
+
   bool store_string_or_null(const char *from, CHARSET_INFO *cs);
   bool store_warning(const char *from, size_t length);
   String *storage_packet() { return packet; }
@@ -229,9 +235,9 @@ public:
 #ifdef EMBEDDED_LIBRARY
   void remove_last_row() override;
 #endif
-  virtual bool store_field_metadata(const THD *thd, const Send_field &field,
-                                    CHARSET_INFO *charset_for_protocol,
-                                    uint pos);
+  bool store_field_metadata(const THD *thd, const Send_field &field,
+                            CHARSET_INFO *charset_for_protocol,
+                            uint pos);
   bool store_item_metadata(THD *thd, Item *item, uint pos);
   bool store_field_metadata_for_list_fields(const THD *thd, Field *field,
                                             const TABLE_LIST *table_list,

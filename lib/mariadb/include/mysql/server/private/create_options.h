@@ -28,9 +28,24 @@ enum { ENGINE_OPTION_MAX_LENGTH=32767 };
 
 class engine_option_value: public Sql_alloc
 {
+public:
+ class Name: public Lex_ident_ci
+ {
  public:
-  LEX_CSTRING name;
-  LEX_CSTRING value;
+   using Lex_ident_ci::Lex_ident_ci;
+ };
+ class Value: public Lex_cstring
+ {
+ public:
+   using Lex_cstring::Lex_cstring;
+   bool streq(const LEX_CSTRING &rhs) const
+   {
+     return my_charset_utf8mb3_general1400_as_ci.streq(*this, rhs);
+   }
+ };
+ public:
+  Name name;
+  Value value;
   engine_option_value *next;    ///< parser puts them in a FIFO linked list
   bool parsed;                  ///< to detect unrecognized options
   bool quoted_value;            ///< option=VAL vs. option='VAL'
@@ -40,18 +55,20 @@ class engine_option_value: public Sql_alloc
     next(NULL), parsed(src->parsed), quoted_value(src->quoted_value)
   {
   }
-  engine_option_value(LEX_CSTRING &name_arg, LEX_CSTRING &value_arg,
+  engine_option_value(const Name &name_arg,
+                      const Value &value_arg,
                       bool quoted) :
     name(name_arg), value(value_arg),
     next(NULL), parsed(false), quoted_value(quoted)
   {
   }
-  engine_option_value(LEX_CSTRING &name_arg):
+  engine_option_value(const Name &name_arg):
     name(name_arg), value(null_clex_str),
     next(NULL), parsed(false), quoted_value(false)
   {
   }
-  engine_option_value(LEX_CSTRING &name_arg, ulonglong value_arg,
+  engine_option_value(const Name &name_arg,
+                      ulonglong value_arg,
                       MEM_ROOT *root) :
     name(name_arg), next(NULL), parsed(false), quoted_value(false)
   {
@@ -78,10 +95,14 @@ bool parse_engine_table_options(THD *thd, handlerton *ht, TABLE_SHARE *share);
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 bool parse_engine_part_options(THD *thd, TABLE *table);
 #endif
-bool parse_option_list(THD* thd, handlerton *hton, void *option_struct,
+bool parse_option_list(THD* thd, void *option_struct,
                        engine_option_value **option_list,
                        ha_create_table_option *rules,
                        bool suppress_warning, MEM_ROOT *root);
+bool extend_option_list(THD* thd, handlerton *hton, bool create,
+                        engine_option_value **option_list,
+                        ha_create_table_option *rules);
+
 bool engine_table_options_frm_read(const uchar *buff, size_t length,
                                    TABLE_SHARE *share);
 bool merge_engine_options(engine_option_value *source,

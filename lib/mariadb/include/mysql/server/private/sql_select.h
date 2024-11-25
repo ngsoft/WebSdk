@@ -34,6 +34,8 @@
 #include "opt_range.h"                /* SQL_SELECT, QUICK_SELECT_I */
 #include "filesort.h"
 
+#include "cset_narrowing.h"
+
 typedef struct st_join_table JOIN_TAB;
 /* Values in optimize */
 #define KEY_OPTIMIZE_EXISTS		1U
@@ -590,7 +592,7 @@ typedef struct st_join_table {
   /* True if the plan requires a rowid filter and it's not built yet */
   bool need_to_build_rowid_filter;
 
-  void build_range_rowid_filter();
+  bool build_range_rowid_filter();
   void clear_range_rowid_filter();
 
   void cleanup();
@@ -819,13 +821,13 @@ class Duplicate_weedout_picker : public Semi_join_strategy_picker
   
   bool is_used;
 public:
-  void set_empty()
+  void set_empty() override
   {
     dupsweedout_tables= 0;
     first_dupsweedout_table= MAX_TABLES;
     is_used= FALSE;
   }
-  void set_from_prev(POSITION *prev);
+  void set_from_prev(POSITION *prev) override;
   
   bool check_qep(JOIN *join,
                  uint idx,
@@ -835,9 +837,9 @@ public:
                  double *read_time,
                  table_map *handled_fanout,
                  sj_strategy_enum *stratey,
-                 POSITION *loose_scan_pos);
+                 POSITION *loose_scan_pos) override;
 
-  void mark_used() { is_used= TRUE; }
+  void mark_used() override { is_used= TRUE; }
   friend void fix_semijoin_strategies_for_picked_join_order(JOIN *join);
 };
 
@@ -865,13 +867,13 @@ class Firstmatch_picker : public Semi_join_strategy_picker
   bool in_firstmatch_prefix() { return (first_firstmatch_table != MAX_TABLES); }
   void invalidate_firstmatch_prefix() { first_firstmatch_table= MAX_TABLES; }
 public:
-  void set_empty()
+  void set_empty() override
   {
     invalidate_firstmatch_prefix();
     is_used= FALSE;
   }
 
-  void set_from_prev(POSITION *prev);
+  void set_from_prev(POSITION *prev) override;
   bool check_qep(JOIN *join,
                  uint idx,
                  table_map remaining_tables, 
@@ -880,9 +882,9 @@ public:
                  double *read_time,
                  table_map *handled_fanout,
                  sj_strategy_enum *strategy,
-                 POSITION *loose_scan_pos);
+                 POSITION *loose_scan_pos) override;
 
-  void mark_used() { is_used= TRUE; }
+  void mark_used() override { is_used= TRUE; }
   friend void fix_semijoin_strategies_for_picked_join_order(JOIN *join);
 };
 
@@ -908,13 +910,13 @@ public:
   uint loosescan_parts; /* Number of keyparts to be kept distinct */
   
   bool is_used;
-  void set_empty()
+  void set_empty() override
   {
     first_loosescan_table= MAX_TABLES; 
     is_used= FALSE;
   }
 
-  void set_from_prev(POSITION *prev);
+  void set_from_prev(POSITION *prev) override;
   bool check_qep(JOIN *join,
                  uint idx,
                  table_map remaining_tables, 
@@ -923,8 +925,8 @@ public:
                  double *read_time,
                  table_map *handled_fanout,
                  sj_strategy_enum *strategy,
-                 POSITION *loose_scan_pos);
-  void mark_used() { is_used= TRUE; }
+                 POSITION *loose_scan_pos) override;
+  void mark_used() override { is_used= TRUE; }
 
   friend class Loose_scan_opt;
   friend void best_access_path(JOIN      *join,
@@ -956,13 +958,13 @@ class Sj_materialization_picker : public Semi_join_strategy_picker
   table_map sjm_scan_need_tables;
 
 public:
-  void set_empty()
+  void set_empty() override
   {
     sjm_scan_need_tables= 0;
     sjm_scan_last_inner= 0;
     is_used= FALSE;
   }
-  void set_from_prev(POSITION *prev);
+  void set_from_prev(POSITION *prev) override;
   bool check_qep(JOIN *join,
                  uint idx,
                  table_map remaining_tables, 
@@ -971,8 +973,8 @@ public:
                  double *read_time,
                  table_map *handled_fanout,
                  sj_strategy_enum *strategy,
-                 POSITION *loose_scan_pos);
-  void mark_used() { is_used= TRUE; }
+                 POSITION *loose_scan_pos) override;
+  void mark_used() override { is_used= TRUE; }
 
   friend void fix_semijoin_strategies_for_picked_join_order(JOIN *join);
 };
@@ -1293,6 +1295,20 @@ public:
     passing 1st non-const table to filesort(). NULL means no such table exists.
   */
   TABLE    *sort_by_table;
+
+  /*
+    If true, there is ORDER BY x LIMIT n clause and for certain join orders, it
+    is possible to short-cut the join execution, i.e. stop it as soon as n
+    output rows were produced. See join_limit_shortcut_is_applicable().
+  */
+  bool    limit_shortcut_applicable;
+
+  /*
+    Used during join optimization: if true, we're building a join order that
+    will short-cut join execution as soon as #LIMIT rows are produced.
+  */
+  bool    limit_optimization_mode;
+
   /* 
     Number of tables in the join. 
     (In MySQL, it is named 'tables' and is also the number of elements in 
@@ -1389,7 +1405,7 @@ public:
   table_map eq_ref_tables;
 
   table_map allowed_top_level_tables;
-  ha_rows  send_records,found_records,join_examined_rows, accepted_rows;
+  ha_rows  send_records,found_records, accepted_rows;
 
   /*
     LIMIT for the JOIN operation. When not using aggregation or DISITNCT, this 
@@ -1609,7 +1625,7 @@ public:
 
     Then, ORDER/GROUP BY and Window Function code add columns that need to
     be saved to be available in the post-group-by context. These extra columns
-    are added to the front, because this->all_fields points to the suffix of
+    are added to the front, because this->fields_list points to the suffix of
     this list.
   */
   List<Item> all_fields;
@@ -1955,6 +1971,8 @@ private:
   bool add_fields_for_current_rowid(JOIN_TAB *cur, List<Item> *fields);
   void free_pushdown_handlers(List<TABLE_LIST>& join_list);
   void init_join_cache_and_keyread();
+  bool prepare_sum_aggregators(THD *thd,Item_sum **func_ptr,
+                               bool need_distinct);
   bool transform_in_predicates_into_equalities(THD *thd);
   bool transform_date_conds_into_sargable();
   bool transform_all_conds_and_on_exprs(THD *thd,
@@ -2036,7 +2054,14 @@ public:
   {
     enum_check_fields org_count_cuted_fields= thd->count_cuted_fields;
     Use_relaxed_field_copy urfc(to_field->table->in_use);
+
+    /* If needed, perform CharsetNarrowing for making ref access lookup keys. */
+    Utf8_narrow do_narrow(to_field, do_cset_narrowing);
+
     store_key_result result= copy_inner();
+
+    do_narrow.stop();
+
     thd->count_cuted_fields= org_count_cuted_fields;
     return result;
   }
@@ -2045,6 +2070,12 @@ public:
   Field *to_field;				// Store data here
   uchar *null_ptr;
   uchar err;
+
+  /*
+    This is set to true if we need to do Charset Narrowing when making a lookup
+    key.
+  */
+  bool do_cset_narrowing= false;
 
   virtual enum store_key_result copy_inner()=0;
 };
@@ -2065,6 +2096,7 @@ class store_key_field: public store_key
     if (to_field)
     {
       copy_field.set(to_field,from_field,0);
+      setup_charset_narrowing();
     }
   }  
 
@@ -2075,6 +2107,15 @@ class store_key_field: public store_key
   {
     copy_field.set(to_field, fld_item->field, 0);
     field_name= fld_item->full_name();
+    setup_charset_narrowing();
+  }
+
+  /* Setup CharsetNarrowing if necessary */
+  void setup_charset_narrowing()
+  {
+    do_cset_narrowing=
+      Utf8_narrow::should_do_narrowing(copy_field.to_field,
+                                            copy_field.from_field->charset());
   }
 
  protected: 
@@ -2115,14 +2156,19 @@ public:
     :store_key(thd, to_field_arg, ptr,
 	       null_ptr_arg ? null_ptr_arg : item_arg->maybe_null() ?
 	       &err : (uchar*) 0, length), item(item_arg), use_value(val)
-  {}
+  {
+    /* Setup CharsetNarrowing to be done if necessary */
+    do_cset_narrowing=
+      Utf8_narrow::should_do_narrowing(to_field,
+                                       item->collation.collation);
+  }
   store_key_item(store_key &arg, Item *new_item, bool val)
     :store_key(arg), item(new_item), use_value(val)
   {}
 
 
   enum Type type() const override { return ITEM_STORE_KEY; }
-  const char *name() const  override { return "func"; }
+  const char *name() const override { return "func"; }
 
  protected:  
   enum store_key_result copy_inner() override
@@ -2175,7 +2221,7 @@ public:
   {}
 
   enum Type type() const override { return CONST_ITEM_STORE_KEY; }
-  const char *name() const  override { return "const"; }
+  const char *name() const override { return "const"; }
   bool store_key_is_const() override { return true; }
 
 protected:  
@@ -2503,7 +2549,7 @@ Item_equal *find_item_equal(COND_EQUAL *cond_equal, Field *field,
 extern bool test_if_ref(Item *, 
                  Item_field *left_item,Item *right_item);
 
-inline bool optimizer_flag(THD *thd, ulonglong flag)
+inline bool optimizer_flag(const THD *thd, ulonglong flag)
 { 
   return (thd->variables.optimizer_switch & flag);
 }
@@ -2663,5 +2709,16 @@ void propagate_new_equalities(THD *thd, Item *cond,
                               COND_EQUAL *inherited,
                               bool *is_simplifiable_cond);
 
+template<typename T> T prev_bits(T n_bits)
+{
+  if (!n_bits)
+    return 0;
+  T tmp= ((T)1 << (n_bits - 1));
+  return (tmp - 1) | tmp;
+}
+// A wrapper for the above function:
+#define PREV_BITS(type, A) prev_bits<type>(A)
+
 bool dbug_user_var_equals_str(THD *thd, const char *name, const char *value);
+
 #endif /* SQL_SELECT_INCLUDED */

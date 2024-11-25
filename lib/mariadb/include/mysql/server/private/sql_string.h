@@ -55,48 +55,6 @@ inline uint32 copy_and_convert(char *to, size_t to_length, CHARSET_INFO *to_cs,
 }
 
 
-class String_copy_status: protected MY_STRCOPY_STATUS
-{
-public:
-  const char *source_end_pos() const
-  { return m_source_end_pos; }
-  const char *well_formed_error_pos() const
-  { return m_well_formed_error_pos; }
-};
-
-
-class Well_formed_prefix_status: public String_copy_status
-{
-public:
-  Well_formed_prefix_status(CHARSET_INFO *cs,
-                            const char *str, const char *end, size_t nchars)
-  { cs->well_formed_char_length(str, end, nchars, this); }
-};
-
-
-class Well_formed_prefix: public Well_formed_prefix_status
-{
-  const char *m_str; // The beginning of the string
-public:
-  Well_formed_prefix(CHARSET_INFO *cs, const char *str, const char *end,
-                     size_t nchars)
-   :Well_formed_prefix_status(cs, str, end, nchars), m_str(str)
-  { }
-  Well_formed_prefix(CHARSET_INFO *cs, const char *str, size_t length,
-                     size_t nchars)
-   :Well_formed_prefix_status(cs, str, str + length, nchars), m_str(str)
-  { }
-  Well_formed_prefix(CHARSET_INFO *cs, const char *str, size_t length)
-   :Well_formed_prefix_status(cs, str, str + length, length), m_str(str)
-  { }
-  Well_formed_prefix(CHARSET_INFO *cs, LEX_CSTRING str, size_t nchars)
-   :Well_formed_prefix_status(cs, str.str, str.str + str.length, nchars),
-    m_str(str.str)
-  { }
-  size_t length() const { return m_source_end_pos - m_str; }
-};
-
-
 class String_copier: public String_copy_status,
                      protected MY_STRCONV_STATUS
 {
@@ -446,6 +404,19 @@ public:
     float8store(Ptr + str_length, *d);
     str_length += 8;
   }
+  /*
+    Append a wide character.
+    The caller must have allocated at least cs->mbmaxlen bytes.
+  */
+  int q_append_wc(my_wc_t wc, CHARSET_INFO *cs)
+  {
+    int mblen;
+    if ((mblen= cs->cset->wc_mb(cs, wc,
+                                (uchar *) end(),
+                                (uchar *) end() + cs->mbmaxlen)) > 0)
+      str_length+= (uint32) mblen;
+    return mblen;
+  }
   void q_append(const char *data, size_t data_len)
   {
     ASSERT_LENGTH(data_len);
@@ -572,7 +543,7 @@ public:
     LEX_CSTRING tmp= {Ptr, str_length};
     return tmp;
   }
-  inline LEX_CSTRING *get_value(LEX_CSTRING *res)
+  inline LEX_CSTRING *get_value(LEX_CSTRING *res) const
   {
     res->str=    Ptr;
     res->length= str_length;
@@ -1017,6 +988,24 @@ public:
     set_charset(tocs);
     return false;
   }
+  bool copy_casedn(CHARSET_INFO *cs, const LEX_CSTRING &str)
+  {
+    size_t nbytes= str.length * cs->casedn_multiply();
+    DBUG_ASSERT(nbytes + 1 <= UINT_MAX32);
+    if (alloc(nbytes))
+      return true;
+    str_length= (uint32) cs->casedn_z(str.str, str.length, Ptr, nbytes + 1);
+    return false;
+  }
+  bool copy_caseup(CHARSET_INFO *cs, const LEX_CSTRING &str)
+  {
+    size_t nbytes= str.length * cs->caseup_multiply();
+    DBUG_ASSERT(nbytes + 1 <= UINT_MAX32);
+    if (alloc(nbytes))
+      return true;
+    str_length= (uint32) cs->caseup_z(str.str, str.length, Ptr, nbytes + 1);
+    return false;
+  }
   // Append without character set conversion
   bool append(const String &s)
   {
@@ -1052,13 +1041,6 @@ public:
   }
 
   // Append with optional character set conversion from ASCII (e.g. to UCS2)
-  bool append(const LEX_STRING *ls)
-  {
-    DBUG_ASSERT(ls->length < UINT_MAX32 &&
-                ((ls->length == 0 && !ls->str) ||
-                 ls->length == strlen(ls->str)));
-    return append(ls->str, (uint32) ls->length);
-  }
   bool append(const LEX_CSTRING *ls)
   {
     DBUG_ASSERT(ls->length < UINT_MAX32 &&
@@ -1082,8 +1064,6 @@ public:
       (quot && append(quot));
   }
   bool append(const char *s, size_t size);
-  bool append_with_prefill(const char *s, uint32 arg_length,
-			   uint32 full_length, char fill_char);
   bool append_parenthesized(long nr, int radix= 10);
 
   // Append with optional character set conversion from cs to charset()
@@ -1091,6 +1071,31 @@ public:
   bool append(const LEX_CSTRING &s, CHARSET_INFO *cs)
   {
     return append(s.str, s.length, cs);
+  }
+
+  // Append a wide character
+  bool append_wc(my_wc_t wc)
+  {
+    if (reserve(mbmaxlen()))
+      return true;
+    int mblen= q_append_wc(wc, charset());
+    if (mblen > 0)
+      return false;
+    else if (mblen == MY_CS_ILUNI && wc != '?')
+      return q_append_wc('?', charset()) <= 0;
+    return true;
+  }
+
+  // Append a number with zero prefilling
+  bool append_zerofill(uint num, uint width)
+  {
+    static const char zeros[15]= "00000000000000";
+    char intbuff[15];
+    uint length= (uint) (int10_to_str(num, intbuff, 10) - intbuff);
+    if (length < width &&
+        append(zeros, width - length, &my_charset_latin1))
+      return true;
+    return append(intbuff, length, &my_charset_latin1);
   }
 
   /*
@@ -1150,6 +1155,43 @@ public:
       print(to);
     else
       print_with_conversion(to, cs);
+  }
+
+  static my_wc_t escaped_wc_for_single_quote(my_wc_t ch)
+  {
+    switch (ch) {
+    case '\\':   return '\\';
+    case '\0':   return '0';
+    case '\'':   return '\'';
+    case '\b':   return 'b';
+    case '\t':   return 't';
+    case '\n':   return 'n';
+    case '\r':   return 'r';
+    case '\032': return 'Z';
+    }
+    return 0;
+  }
+
+  // Append for single quote using mb_wc/wc_mb Unicode conversion
+  bool append_for_single_quote_using_mb_wc(const char *str, size_t length,
+                                           CHARSET_INFO *cs);
+
+  // Append for single quote with optional mb_wc/wc_mb conversion
+  bool append_for_single_quote_opt_convert(const char *str,
+                                           size_t length,
+                                           CHARSET_INFO *cs)
+  {
+    return charset() == &my_charset_bin || cs == &my_charset_bin  ||
+           my_charset_same(charset(), cs) ?
+           append_for_single_quote(str, length) :
+           append_for_single_quote_using_mb_wc(str, length, cs);
+  }
+
+  bool append_for_single_quote_opt_convert(const String &str)
+  {
+    return append_for_single_quote_opt_convert(str.ptr(),
+                                               str.length(),
+                                               str.charset());
   }
 
   bool append_for_single_quote(const char *st, size_t len);

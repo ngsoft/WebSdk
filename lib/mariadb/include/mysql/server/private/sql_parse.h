@@ -50,7 +50,7 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
 bool check_fk_parent_table_access(THD *thd,
                                   HA_CREATE_INFO *create_info,
                                   Alter_info *alter_info,
-                                  const char* create_db);
+                                  const LEX_CSTRING &create_db);
 
 bool parse_sql(THD *thd, Parser_state *parser_state,
                Object_creation_ctx *creation_ctx, bool do_pfs_digest=false);
@@ -129,7 +129,7 @@ bool check_stack_overrun(THD *thd, long margin, uchar *dummy);
 
 /* Variables */
 
-extern const LEX_CSTRING any_db;
+extern const Lex_ident_db_normalized any_db;
 extern uint sql_command_flags[];
 extern uint server_command_flags[];
 extern const LEX_CSTRING command_name[];

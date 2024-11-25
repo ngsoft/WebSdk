@@ -20,6 +20,7 @@
 #include <my_sys.h>                             // pthread_mutex_t
 #include "m_string.h"                           // LEX_CUSTRING
 #include "lex_charset.h"
+#include "lex_ident.h"
 
 #define ERROR_INJECT(code) \
   ((DBUG_IF("crash_" code) && (DBUG_SUICIDE(), 0)) || \
@@ -126,9 +127,9 @@ bool add_keyword_to_query(THD *thd, String *result, const LEX_CSTRING *keyword,
 */
 #define C_CREATE_SELECT(X)        ((X) > 0 ? (X) : 0)
 #define C_ORDINARY_CREATE         0
-#define C_ALTER_TABLE            -1
-#define C_ALTER_TABLE_FRM_ONLY   -2
-#define C_ASSISTED_DISCOVERY     -3
+#define C_ASSISTED_DISCOVERY     -1
+#define C_ALTER_TABLE            -2
+#define C_ALTER_TABLE_FRM_ONLY   -3
 
 int mysql_create_table_no_lock(THD *thd,
                                DDL_LOG_STATE *ddl_log_state,
@@ -164,10 +165,11 @@ bool mysql_compare_tables(TABLE *table,
                           HA_CREATE_INFO *create_info,
                           bool *metadata_equal);
 bool mysql_recreate_table(THD *thd, TABLE_LIST *table_list,
-                          class Recreate_info *recreate_info, bool table_copy);
+                          class Recreate_info *recreate_info,
+                          bool table_copy);
 bool mysql_rename_table(handlerton *base, const LEX_CSTRING *old_db,
                         const LEX_CSTRING *old_name, const LEX_CSTRING *new_db,
-                        const LEX_CSTRING *new_name, LEX_CUSTRING *id,
+                        const LEX_CSTRING *new_name, const LEX_CUSTRING *id,
                         uint flags);
 bool mysql_backup_table(THD* thd, TABLE_LIST* table_list);
 bool mysql_restore_table(THD* thd, TABLE_LIST* table_list);
@@ -212,12 +214,8 @@ uint explain_filename(THD* thd, const char *from, char *to, uint to_length,
                       enum_explain_filename_mode explain_mode);
 
 
-extern MYSQL_PLUGIN_IMPORT const LEX_CSTRING primary_key_name;
+extern MYSQL_PLUGIN_IMPORT const Lex_ident_column primary_key_name;
 
 bool check_engine(THD *, const char *, const char *, HA_CREATE_INFO *);
-
-#ifdef WITH_WSREP
-bool wsrep_check_sequence(THD* thd, const class sequence_definition *seq);
-#endif
 
 #endif /* SQL_TABLE_INCLUDED */

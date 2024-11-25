@@ -72,6 +72,7 @@
 /* #undef HAVE_SYS_IOCTL_H */
 /* #undef HAVE_SYS_MALLOC_H */
 /* #undef HAVE_SYS_MMAN_H */
+/* #undef HAVE_SYS_MNTENT_H */
 /* #undef HAVE_SYS_NDIR_H */
 /* #undef HAVE_SYS_PTE_H */
 /* #undef HAVE_SYS_PTEM_H */
@@ -126,7 +127,6 @@
 /* Functions we may want to use. */
 /* #undef HAVE_ACCEPT4 */
 #define HAVE_ACCESS 1
-/* #undef HAVE_ALARM */
 #define HAVE_ALLOCA 1
 /* #undef HAVE_BFILL */
 /* #undef HAVE_INDEX */
@@ -150,7 +150,6 @@
 #define HAVE_GETCWD 1
 /* #undef HAVE_GETHOSTBYADDR_R */
 /* #undef HAVE_GETHRTIME */
-/* #undef HAVE_GETPAGESIZE */
 /* #undef HAVE_GETPAGESIZES */
 /* #undef HAVE_GETPASS */
 /* #undef HAVE_GETPASSPHRASE */
@@ -195,6 +194,7 @@
 /* #undef HAVE_PTHREAD_ATTR_GETSTACKSIZE */
 /* #undef HAVE_PTHREAD_ATTR_SETSCOPE */
 /* #undef HAVE_PTHREAD_ATTR_SETSTACKSIZE */
+/* #undef HAVE_PTHREAD_GETATTR_NP */
 /* #undef HAVE_PTHREAD_CONDATTR_CREATE */
 /* #undef HAVE_PTHREAD_GETAFFINITY_NP */
 /* #undef HAVE_PTHREAD_KEY_DELETE */
@@ -232,7 +232,6 @@
 #define HAVE_STRTOUL 1
 #define HAVE_STRTOULL 1
 #define HAVE_TELL 1
-/* #undef HAVE_THR_SETCONCURRENCY */
 /* #undef HAVE_THR_YIELD */
 #define HAVE_TIME 1
 /* #undef HAVE_TIMES */
@@ -255,6 +254,7 @@
 /* #undef HAVE_SOCKADDR_IN6_SIN6_LEN */
 #define STRUCT_TIMESPEC_HAS_TV_SEC 1
 #define STRUCT_TIMESPEC_HAS_TV_NSEC 1
+/* #undef STRUCT_TM_HAS_TM_GMTOFF */
 
 /* this means that valgrind headers and macros are available */
 /* #undef HAVE_VALGRIND_MEMCHECK_H */
@@ -377,14 +377,13 @@
 /* #undef HAVE_SVR3_SIGNALS */
 /* #undef HAVE_V7_SIGNALS */
 #define HAVE_ERR_remove_thread_state 1
-#define HAVE_X509_check_host 1
+/* #undef HAVE_X509_check_host */
 
 /* #undef HAVE_SOLARIS_STYLE_GETHOST */
 
 /* #undef HAVE_GCC_C11_ATOMICS */
 /* #undef HAVE_SOLARIS_ATOMIC */
 #define NO_FCNTL_NONBLOCK 1
-#define NO_ALARM 1
 
 /* #undef _LARGE_FILES */
 #define _LARGEFILE_SOURCE 1
@@ -448,8 +447,8 @@
 #define USE_SYMDIR 1
 
 /* Character sets and collations */
-#define MYSQL_DEFAULT_CHARSET_NAME "latin1"
-#define MYSQL_DEFAULT_COLLATION_NAME "latin1_swedish_ci"
+#define MYSQL_DEFAULT_CHARSET_NAME "utf8mb4"
+#define MYSQL_DEFAULT_COLLATION_NAME "utf8mb4_uca1400_ai_ci"
 
 #define USE_MB
 #define USE_MB_IDENT
@@ -497,8 +496,10 @@
 #define HAVE_CHARSET_utf32 1
 #define HAVE_UCA_COLLATIONS 1
 #define HAVE_COMPRESS 1
-/* #undef HAVE_EncryptAes128Ctr */
+#define HAVE_EncryptAes128Ctr 1
 /* #undef HAVE_EncryptAes128Gcm */
+#define HAVE_des 1
+#define HAVE_hkdf 1
 
 /*
   Stuff that always need to be defined (compile breaks without it)
@@ -518,29 +519,29 @@
 #define WITH_ARIA_STORAGE_ENGINE 1
 #define USE_ARIA_FOR_TMP_TABLES 1
 
-#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 11.1"
+#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 11.6"
 #define SHAREDIR "share"
-#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 11.1"
-#define MYSQL_DATADIR "C:/Program Files/MariaDB 11.1/data"
-#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 11.1"
-#define PLUGINDIR "C:/Program Files/MariaDB 11.1/lib/plugin"
+#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 11.6"
+#define MYSQL_DATADIR "C:/Program Files/MariaDB 11.6/data"
+#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 11.6"
+#define PLUGINDIR "C:/Program Files/MariaDB 11.6/lib/plugin"
 /* #undef DEFAULT_SYSCONFDIR */
 #define DEFAULT_TMPDIR P_tmpdir
 
 /* #undef SO_EXT */
 
 #define MYSQL_VERSION_MAJOR 11
-#define MYSQL_VERSION_MINOR 1
+#define MYSQL_VERSION_MINOR 6
 #define MYSQL_VERSION_PATCH 2
 #define MYSQL_VERSION_EXTRA ""
 
 #define PACKAGE "mysql"
 #define PACKAGE_BUGREPORT ""
 #define PACKAGE_NAME "MySQL Server"
-#define PACKAGE_STRING "MySQL Server 11.1.2"
+#define PACKAGE_STRING "MySQL Server 11.6.2"
 #define PACKAGE_TARNAME "mysql"
-#define PACKAGE_VERSION "11.1.2"
-#define VERSION "11.1.2"
+#define PACKAGE_VERSION "11.6.2"
+#define VERSION "11.6.2"
 #define PROTOCOL_VERSION 10
 #define PCRE2_CODE_UNIT_WIDTH 8
 

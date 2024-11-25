@@ -782,7 +782,7 @@ inline unsigned long long my_double2ulonglong(double d)
 #define INT_MAX64       0x7FFFFFFFFFFFFFFFLL
 #define INT_MIN32       (~0x7FFFFFFFL)
 #define INT_MAX32       0x7FFFFFFFL
-#define UINT_MAX32      0xFFFFFFFFL
+#define UINT_MAX32      0xFFFFFFFFUL
 #define INT_MIN24       (~0x007FFFFF)
 #define INT_MAX24       0x007FFFFF
 #define UINT_MAX24      0x00FFFFFF
@@ -835,7 +835,6 @@ typedef long long	my_ptrdiff_t;
 #define ALIGN_PTR(A, t) ((t*) MY_ALIGN((A), sizeof(double)))
 #define ADD_TO_PTR(ptr,size,type) (type) ((uchar*) (ptr)+size)
 #define PTR_BYTE_DIFF(A,B) (my_ptrdiff_t) ((uchar*) (A) - (uchar*) (B))
-#define PREV_BITS(type,A)	((type) (((type) 1 << (A)) -1))
 
 /*
   Custom version of standard offsetof() macro which can be used to get
@@ -974,6 +973,7 @@ typedef struct st_mysql_lex_string LEX_STRING;
 #define SOCKET_ECONNRESET WSAECONNRESET
 #define SOCKET_ENFILE	ENFILE
 #define SOCKET_EMFILE	EMFILE
+#define SOCKET_CLOSED   EIO
 #else /* Unix */
 #define socket_errno	errno
 #define closesocket(A)	close(A)
@@ -983,6 +983,7 @@ typedef struct st_mysql_lex_string LEX_STRING;
 #define SOCKET_EADDRINUSE EADDRINUSE
 #define SOCKET_ETIMEDOUT ETIMEDOUT
 #define SOCKET_ECONNRESET ECONNRESET
+#define SOCKET_CLOSED   EIO
 #define SOCKET_ENFILE	ENFILE
 #define SOCKET_EMFILE	EMFILE
 #endif

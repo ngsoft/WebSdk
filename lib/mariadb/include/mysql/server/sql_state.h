@@ -244,6 +244,7 @@
 { ER_INVALID_ARGUMENT_FOR_LOGARITHM       ,"2201E", "" },
 { ER_GIS_INVALID_DATA                     ,"22023", "" },
 { ER_USER_LOCK_WRONG_NAME                 ,"42000", "" },
+{ ER_SECURE_TRANSPORT_REQUIRED            ,"08004", "" },
 { ER_UNUSED_26                            ,"0A000", "" },
 { ER_CONSTRAINT_FAILED                    ,"23000", "" },
 { ER_EXPRESSION_REFERS_TO_UNINIT_FIELD    ,"01000", "" },

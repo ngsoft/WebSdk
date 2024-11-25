@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2000, 2016, Oracle and/or its affiliates.
-   Copyright (c) 2009, 2022, MariaDB Corporation.
+   Copyright (c) 2009, 2024, MariaDB Corporation.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -24,6 +24,8 @@
 #include "dur_prop.h"
 #include <waiting_threads.h>
 #include "sql_const.h"
+#include "lex_ident.h"
+#include "sql_used.h"
 #include <mysql/plugin_audit.h>
 #include "log.h"
 #include "rpl_tblmap.h"
@@ -71,6 +73,7 @@ void set_thd_stage_info(void *thd,
 #include "wsrep_on.h"
 #ifdef WITH_WSREP
 #include <inttypes.h>
+#include <ilist.h>
 /* wsrep-lib */
 #include "wsrep_client_service.h"
 #include "wsrep_client_state.h"
@@ -146,7 +149,9 @@ enum enum_binlog_row_image {
   /** Whenever possible, before and after image contain all columns except blobs. */
   BINLOG_ROW_IMAGE_NOBLOB= 1,
   /** All columns in both before and after image. */
-  BINLOG_ROW_IMAGE_FULL= 2
+  BINLOG_ROW_IMAGE_FULL= 2,
+  /** All columns in before image, but only updated columns in after image */
+  BINLOG_ROW_IMAGE_FULL_NODUP= 3
 };
 
 
@@ -194,12 +199,19 @@ enum enum_binlog_row_image {
 
 
 /* Bits for different old style modes */
-#define OLD_MODE_NO_DUP_KEY_WARNINGS_WITH_IGNORE	(1 << 0)
-#define OLD_MODE_NO_PROGRESS_INFO			(1 << 1)
+#define OLD_MODE_NO_DUP_KEY_WARNINGS_WITH_IGNORE        (1 << 0)
+#define OLD_MODE_NO_PROGRESS_INFO                       (1 << 1)
 #define OLD_MODE_ZERO_DATE_TIME_CAST                    (1 << 2)
 #define OLD_MODE_UTF8_IS_UTF8MB3      (1 << 3)
 #define OLD_MODE_IGNORE_INDEX_ONLY_FOR_JOIN          (1 << 4)
 #define OLD_MODE_COMPAT_5_1_CHECKSUM    (1 << 5)
+#define OLD_MODE_NO_NULL_COLLATION_IDS  (1 << 6)
+#define OLD_MODE_LOCK_ALTER_TABLE_COPY  (1 << 7)
+#define OLD_MODE_OLD_FLUSH_STATUS       (1 << 8)
+
+#define OLD_MODE_DEFAULT_VALUE          OLD_MODE_UTF8_IS_UTF8MB3
+
+void old_mode_deprecated_warnings(ulonglong v);
 
 extern char internal_table_name[2];
 extern char empty_c_string[1];
@@ -216,6 +228,7 @@ extern "C" const char *thd_client_ip(MYSQL_THD thd);
 extern "C" LEX_CSTRING *thd_current_db(MYSQL_THD thd);
 extern "C" int thd_current_status(MYSQL_THD thd);
 extern "C" enum enum_server_command thd_current_command(MYSQL_THD thd);
+extern "C" int thd_double_innodb_cardinality(MYSQL_THD thd);
 
 /**
   @class CSET_STRING
@@ -280,9 +293,8 @@ typedef struct st_user_var_events
   user_var_entry *user_var_event;
   char *value;
   size_t length;
-  Item_result type;
+  const Type_handler *th;
   uint charset_number;
-  bool unsigned_flag;
 } BINLOG_USER_VAR_EVENT;
 
 /*
@@ -320,7 +332,7 @@ typedef struct st_copy_info {
 
 class Key_part_spec :public Sql_alloc {
 public:
-  Lex_ident field_name;
+  Lex_ident_column field_name;
   uint length;
   bool generated, asc;
   Key_part_spec(const LEX_CSTRING *name, uint len, bool gen= false)
@@ -355,13 +367,15 @@ public:
 class Alter_drop :public Sql_alloc {
 public:
   enum drop_type { KEY, COLUMN, FOREIGN_KEY, CHECK_CONSTRAINT, PERIOD };
-  const char *name;
+  Lex_ident_column name;
   enum drop_type type;
   bool drop_if_exists;
-  Alter_drop(enum drop_type par_type,const char *par_name, bool par_exists)
+  Alter_drop(enum drop_type par_type,
+             const LEX_CSTRING &par_name,
+             bool par_exists)
     :name(par_name), type(par_type), drop_if_exists(par_exists)
   {
-    DBUG_ASSERT(par_name != NULL);
+    DBUG_ASSERT(par_name.str != NULL);
   }
   /**
     Used to make a clone of this object for ALTER/CREATE TABLE
@@ -406,8 +420,8 @@ public:
 class Alter_rename_key : public Sql_alloc
 {
 public:
-  LEX_CSTRING old_name;
-  LEX_CSTRING new_name;
+  const Lex_ident_column old_name;
+  const Lex_ident_column new_name;
   bool alter_if_exists;
 
   Alter_rename_key(LEX_CSTRING old_name_arg, LEX_CSTRING new_name_arg, bool exists)
@@ -423,13 +437,14 @@ public:
 class Alter_index_ignorability: public Sql_alloc
 {
 public:
-  Alter_index_ignorability(const char *name, bool is_ignored, bool if_exists) :
+  Alter_index_ignorability(const LEX_CSTRING &name,
+                           bool is_ignored, bool if_exists) :
     m_name(name), m_is_ignored(is_ignored), m_if_exists(if_exists)
   {
-    assert(name != NULL);
+    DBUG_ASSERT(name.str != NULL);
   }
 
-  const char *name() const { return m_name; }
+  const Lex_ident_column &name() const { return m_name; }
   bool if_exists() const { return m_if_exists; }
 
   /* The ignorability after the operation is performed. */
@@ -438,7 +453,7 @@ public:
     { return new (mem_root) Alter_index_ignorability(*this); }
 
 private:
-  const char *m_name;
+  const Lex_ident_column m_name;
   bool m_is_ignored;
   bool m_if_exists;
 };
@@ -446,17 +461,18 @@ private:
 
 class Key :public Sql_alloc, public DDL_options {
 public:
-  enum Keytype { PRIMARY, UNIQUE, MULTIPLE, FULLTEXT, SPATIAL, FOREIGN_KEY};
+  enum Keytype { PRIMARY, UNIQUE, MULTIPLE, FULLTEXT, SPATIAL, FOREIGN_KEY,
+                 IGNORE_KEY};
   enum Keytype type;
   KEY_CREATE_INFO key_create_info;
   List<Key_part_spec> columns;
-  LEX_CSTRING name;
+  Lex_ident_column name;
   engine_option_value *option_list;
   bool generated;
   bool invisible;
   bool without_overlaps;
   bool old;
-  Lex_ident period;
+  Lex_ident_column period;
 
   Key(enum Keytype type_par, const LEX_CSTRING *name_arg,
       ha_key_alg algorithm_arg, bool generated_arg, DDL_options_st ddl_options)
@@ -519,7 +535,7 @@ public:
     Used to make a clone of this object for ALTER/CREATE TABLE
     @sa comment for Key_part_spec::clone
   */
-  virtual Key *clone(MEM_ROOT *mem_root) const
+  Key *clone(MEM_ROOT *mem_root) const override
   { return new (mem_root) Foreign_key(*this, mem_root); }
   /* Used to validate foreign key options */
   bool validate(List<Create_field> &table_fields);
@@ -655,6 +671,15 @@ enum killed_type
   KILL_TYPE_QUERY
 };
 
+#define SECONDS_TO_WAIT_FOR_KILL 2
+#define SECONDS_TO_WAIT_FOR_DUMP_THREAD_KILL 10
+#if !defined(_WIN32) && defined(HAVE_SELECT)
+/* my_sleep() can wait for sub second times */
+#define WAIT_FOR_KILL_TRY_TIMES 20
+#else
+#define WAIT_FOR_KILL_TRY_TIMES 2
+#endif
+
 #include "sql_lex.h"				/* Must be here */
 
 class Delayed_insert;
@@ -700,6 +725,7 @@ typedef struct system_variables
   ulonglong log_slow_verbosity; 
   ulonglong log_slow_disabled_statements;
   ulonglong log_disabled_statements;
+  ulonglong note_verbosity;
   ulonglong bulk_insert_buff_size;
   ulonglong join_buff_size;
   ulonglong sortbuff_size;
@@ -713,6 +739,7 @@ typedef struct system_variables
   */
   ulonglong slave_skip_counter;
   ulonglong max_relay_log_size;
+  ulonglong max_tmp_space_usage;
 
   double optimizer_where_cost, optimizer_scan_setup_cost;
   double long_query_time_double, max_statement_time_double;
@@ -744,7 +771,6 @@ typedef struct system_variables
   ulong max_length_for_sort_data;
   ulong max_recursive_iterations;
   ulong max_sort_length;
-  ulong max_tmp_tables;
   ulong max_insert_delayed_threads;
   ulong min_examined_row_limit;
   ulong net_buffer_length;
@@ -754,11 +780,15 @@ typedef struct system_variables
   ulong net_wait_timeout;
   ulong net_write_timeout;
   ulong optimizer_extra_pruning_depth;
+  ulonglong optimizer_join_limit_pref_ratio;
   ulong optimizer_prune_level;
   ulong optimizer_search_depth;
   ulong optimizer_selectivity_sampling_limit;
   ulong optimizer_use_condition_selectivity;
+  ulong optimizer_max_sel_arg_weight;
+  ulong optimizer_max_sel_args;
   ulong optimizer_trace_max_mem_size;
+  ulong optimizer_adjust_secondary_key_costs;
   ulong use_stat_tables;
   ulong histogram_size;
   ulong histogram_type;
@@ -779,6 +809,8 @@ typedef struct system_variables
   ulong trans_alloc_block_size;
   ulong trans_prealloc_size;
   ulong log_warnings;
+  ulong block_encryption_mode;
+  ulong log_slow_max_warnings;
   /* Flags for slow log filtering */
   ulong log_slow_rate_limit; 
   ulong binlog_format; ///< binlog format for this thd (see enum_binlog_format)
@@ -788,11 +820,10 @@ typedef struct system_variables
   ulong query_cache_type;
   ulong tx_isolation;
   ulong updatable_views_with_limit;
-  ulong alter_algorithm;
+  ulong alter_algorithm_unused;
   ulong server_id;
   ulong session_track_transaction_info;
   ulong threadpool_priority;
-  ulong optimizer_max_sel_arg_weight;
   ulong vers_alter_history;
 
   /* deadlock detection */
@@ -841,7 +872,6 @@ typedef struct system_variables
   my_bool column_compression_zlib_wrap;
   my_bool sysdate_is_now;
   my_bool wsrep_on;
-  my_bool wsrep_causal_reads;
   my_bool wsrep_dirty_reads;
   my_bool pseudo_slave_mode;
   my_bool session_track_schema;
@@ -876,6 +906,7 @@ typedef struct system_variables
 
   Time_zone *time_zone;
   char *session_track_system_variables;
+  char *redirect_url;
 
   /* Some wsrep variables */
   ulonglong wsrep_trx_fragment_size;
@@ -886,6 +917,8 @@ typedef struct system_variables
 
   vers_asof_timestamp_t vers_asof_timestamp;
   my_bool binlog_alter_two_phase;
+
+  Charset_collation_map_st character_set_collations;
 } SV;
 
 /**
@@ -919,6 +952,7 @@ typedef struct system_status_var
   ulong ha_read_first_count;
   ulong ha_read_last_count;
   ulong ha_read_key_count;
+  ulong ha_read_key_miss;
   ulong ha_read_next_count;
   ulong ha_read_prev_count;
   ulong ha_read_retry_count;
@@ -1029,12 +1063,18 @@ typedef struct system_status_var
   double last_query_cost;
   double cpu_time, busy_time;
   uint32 threads_running;
-  /* Don't initialize */
+
+  /* Following variables are not cleared by FLUSH STATUS */
+  ulonglong max_tmp_space_used;
   /* Memory used for thread local storage */
   int64 max_local_memory_used;
+  /* Don't copy variables back to THD after this in show status */
+  ulonglong tmp_space_used;
+  /* Don't reset variables after this */
   volatile int64 local_memory_used;
   /* Memory allocated for global usage */
   volatile int64 global_memory_used;
+  time_t flush_status_time;
 } STATUS_VAR;
 
 /*
@@ -1044,12 +1084,22 @@ typedef struct system_status_var
 */
 
 #define last_system_status_var questions
-#define last_cleared_system_status_var local_memory_used
+
+/* Parameters to set_status_var_init() */
+
+#define STATUS_OFFSET(A) offsetof(STATUS_VAR,A)
+/* Clear as part of flush */
+#define clear_for_flush_status      STATUS_OFFSET(tmp_space_used)
+/* Clear as part of startup */
+#define clear_for_new_connection         STATUS_OFFSET(local_memory_used)
+/* Full initialization. Note that global_memory_used is updated early! */
+#define clear_for_server_start  STATUS_OFFSET(global_memory_used)
+#define last_restored_status_var        clear_for_flush_status
+
 
 /** Number of contiguous global status variables */
-constexpr int COUNT_GLOBAL_STATUS_VARS= int(offsetof(STATUS_VAR,
-                                                     last_system_status_var) /
-                                            sizeof(ulong)) + 1;
+constexpr int COUNT_GLOBAL_STATUS_VARS=
+  int(STATUS_OFFSET(last_system_status_var) /sizeof(ulong)) + 1;
 
 /*
   Global status variables
@@ -1177,11 +1227,21 @@ public:
     Prepared statement: STMT_INITIALIZED -> STMT_PREPARED -> STMT_EXECUTED.
     Stored procedure:   STMT_INITIALIZED_FOR_SP -> STMT_EXECUTED.
     Other statements:   STMT_CONVENTIONAL_EXECUTION never changes.
+
+    Special case for stored procedure arguments: STMT_SP_QUERY_ARGUMENTS
+                        This state never changes and used for objects
+                        whose lifetime is whole duration of function call
+                        (sp_rcontext, it's tables and items. etc). Such objects
+                        should be deallocated after every execution of a stored
+                        routine. Caller's arena/memroot can't be used for
+                        placing such objects since memory allocated on caller's
+                        arena not freed until termination of user's session.
   */
   enum enum_state
   {
     STMT_INITIALIZED= 0, STMT_INITIALIZED_FOR_SP= 1, STMT_PREPARED= 2,
-    STMT_CONVENTIONAL_EXECUTION= 3, STMT_EXECUTED= 4, STMT_ERROR= -1
+    STMT_CONVENTIONAL_EXECUTION= 3, STMT_EXECUTED= 4,
+    STMT_SP_QUERY_ARGUMENTS= 5, STMT_ERROR= -1
   };
 
   enum_state state;
@@ -1215,26 +1275,234 @@ public:
   inline bool is_conventional() const
   { return state == STMT_CONVENTIONAL_EXECUTION; }
 
-  inline void* alloc(size_t size) { return alloc_root(mem_root,size); }
-  inline void* calloc(size_t size)
+  inline void* alloc(size_t size) const { return alloc_root(mem_root,size); }
+  inline void* calloc(size_t size) const
   {
     void *ptr;
     if (likely((ptr=alloc_root(mem_root,size))))
       bzero(ptr, size);
     return ptr;
   }
-  inline char *strdup(const char *str)
+  inline char *strdup(const char *str) const
   { return strdup_root(mem_root,str); }
-  inline char *strmake(const char *str, size_t size)
+  inline char *strmake(const char *str, size_t size) const
   { return strmake_root(mem_root,str,size); }
-  inline void *memdup(const void *str, size_t size)
+  inline LEX_CSTRING strcat(const LEX_CSTRING &a, const LEX_CSTRING &b) const
+  {
+    char *buf= (char*)alloc(a.length + b.length + 1);
+    if (unlikely(!buf))
+      return null_clex_str;
+    memcpy(buf, a.str, a.length);
+    memcpy(buf + a.length, b.str, b.length);
+    buf[a.length + b.length] = 0;
+    return {buf, a.length + b.length};
+  }
+  inline void *memdup(const void *str, size_t size) const
   { return memdup_root(mem_root,str,size); }
-  inline void *memdup_w_gap(const void *str, size_t size, size_t gap)
+  inline void *memdup_w_gap(const void *str, size_t size, size_t gap) const
   {
     void *ptr;
     if (likely((ptr= alloc_root(mem_root,size+gap))))
       memcpy(ptr,str,size);
     return ptr;
+  }
+
+  /*
+    Methods to copy a string to the memory root
+    and return the value as a LEX_CSTRING.
+  */
+  LEX_STRING strmake_lex_string(const char *str, size_t length) const
+  {
+    char *tmp= strmake_root(mem_root, str, length);
+    if (!tmp)
+      return {0,0};
+    return {tmp, length};
+  }
+  LEX_CSTRING strmake_lex_cstring(const char *str, size_t length) const
+  {
+    return strmake_lex_string(str, length);
+  }
+  LEX_CSTRING strmake_lex_cstring(const LEX_CSTRING &from) const
+  {
+    return strmake_lex_cstring(from.str, from.length);
+  }
+  LEX_CSTRING strmake_lex_cstring_trim_whitespace(const LEX_CSTRING &from,
+                                                  CHARSET_INFO *cs)
+  {
+    return strmake_lex_cstring(Lex_cstring(from).trim_whitespace(cs));
+  }
+
+  /*
+    Methods to copy a string to memory root,
+    write the result to the out parameter,
+    and return as a LEX_STRING/LEX_CSTRING pointer.
+  */
+  LEX_STRING *make_lex_string(LEX_STRING *lex_str, const char* str,
+                              size_t length) const
+  {
+    if (!(lex_str->str= strmake_root(mem_root, str, length)))
+    {
+      lex_str->length= 0;
+      return 0;
+    }
+    lex_str->length= length;
+    return lex_str;
+  }
+  LEX_CSTRING *make_lex_string(LEX_CSTRING *lex_str, const char* str,
+                               size_t length) const
+  {
+    if (!(lex_str->str= strmake_root(mem_root, str, length)))
+    {
+      lex_str->length= 0;
+      return 0;
+    }
+    lex_str->length= length;
+    return lex_str;
+  }
+
+  /*
+    Methods to copy a string value on memory root,
+    but also allocate on memory root LEX_CSTRING itself
+    and return a pointer to it.
+  */
+  LEX_CSTRING *make_clex_string(const char* str, size_t length) const
+  {
+    LEX_CSTRING *lex_str;
+    char *tmp;
+    if (unlikely(!(lex_str= (LEX_CSTRING *)alloc_root(mem_root,
+                                                      sizeof(LEX_CSTRING) +
+                                                      length+1))))
+      return 0;
+    tmp= (char*) (lex_str+1);
+    lex_str->str= tmp;
+    memcpy(tmp, str, length);
+    tmp[length]= 0;
+    lex_str->length= length;
+    return lex_str;
+  }
+  LEX_CSTRING *make_clex_string(const LEX_CSTRING from) const
+  {
+    return make_clex_string(from.str, from.length);
+  }
+
+  // Allocate LEX_STRING for character set conversion
+  bool alloc_lex_string(LEX_STRING *dst, size_t length) const
+  {
+    if (likely((dst->str= (char*) alloc(length))))
+      return false;
+    dst->length= 0;  // Safety
+    return true;     // EOM
+  }
+
+  // Remove double quotes:  aaa""bbb -> aaa"bbb
+  bool quote_unescape(LEX_CSTRING *dst, const LEX_CSTRING *src,
+                      char quote) const
+  {
+    const char *tmp= src->str;
+    const char *tmpend= src->str + src->length;
+    char *to;
+    if (!(dst->str= to= (char *) alloc(src->length + 1)))
+    {
+      dst->length= 0; // Safety
+      return true;
+    }
+    for ( ; tmp < tmpend; )
+    {
+      if ((*to++= *tmp++) == quote)
+        tmp++;                                  // Skip double quotes
+    }
+    *to= 0;                                     // End null for safety
+    dst->length= to - dst->str;
+    return false;
+  }
+
+  /*
+    Make a lower-cased copy of an identifier on mem_root.
+
+    @param src    - The original identifier (usually coming from the parser)
+    @return       - {NULL,0} in case of EOM, or a non-NULL LEX_STRING
+                    with the lower-cased identifier copy.
+  */
+  LEX_STRING make_ident_casedn(const LEX_CSTRING &src)
+  {
+    return lex_string_casedn_root(mem_root, &my_charset_utf8mb3_general_ci,
+                                  src.str, src.length);
+  }
+
+  /*
+    Make an exact copy or a lower-cased copy of an identifier on mem_root.
+
+    @param src    - The original identifier (usually coming from the parser)
+    @param casedn - If the name should be converted to lower case
+    @return       - {NULL,0} in case of EOM,
+                    or a non-NULL LEX_STRING with the identifier copy.
+  */
+  LEX_STRING make_ident_opt_casedn(const LEX_CSTRING &src, bool casedn)
+  {
+    return casedn ? make_ident_casedn(src) :
+                    lex_string_strmake_root(mem_root, src.str, src.length);
+  }
+
+  template <typename Lex_ident_XXX>
+  Lex_ident_XXX lex_ident_copy(const Lex_ident_XXX &src)
+  {
+    return Lex_ident_XXX(strmake_lex_cstring(src));
+  }
+
+  template <typename Lex_ident_XXX>
+  Lex_ident_XXX lex_ident_casedn(const Lex_ident_XXX &src)
+  {
+    return Lex_ident_XXX(make_ident_casedn(src));
+  }
+
+  /*
+    Convert a LEX_CSTRING to a valid database name:
+    - validated with Lex_ident_fs::check_db_name()
+    - optionally lower-cased
+    The lower-cased copy is created on Query_arena::mem_root, when needed.
+
+    @param name         - The name to normalize. Must not be {NULL,0}.
+    @param casedn       - If the name should be lower-cased.
+    @return             - {NULL,0} on EOM or a bad database name
+                          (with an errror is raised,
+                          or a good database name otherwise.
+  */
+  Lex_ident_db to_ident_db_opt_casedn_with_error(const LEX_CSTRING &name,
+                                                 bool casedn);
+
+  /*
+    Convert a LEX_CSTRING to a valid internal database name:
+    - validated with Lex_ident_db::check_name()
+    - optionally lower-cased when lower_case_table_names==1
+    The lower-cased copy is created on Query_arena::mem_root, when needed.
+
+    @param name         - The name to normalize. Must not be {NULL,0}.
+    @return             - {NULL,0} on EOM or a bad database name
+                          (with an errror is raised,
+                          or a good database name otherwise.
+  */
+  Lex_ident_db to_ident_db_internal_with_error(const LEX_CSTRING &name)
+  {
+    return to_ident_db_opt_casedn_with_error(name, lower_case_table_names == 1);
+  }
+
+  /*
+    Convert a LEX_CSTRING to a valid normalized database name:
+    - validated with Lex_ident_fs::check_db_name()
+    - optionally lower-cased when lower_case_table_names>0
+    The lower-cased copy is created on Query_arena::mem_root, when needed.
+
+    @param name         - The name to normalize. Must not be {NULL,0}.
+    @return             - {NULL,0} on EOM or a bad database name
+                          (with an errror is raised,
+                          or a good database name otherwise.
+  */
+  Lex_ident_db_normalized to_ident_db_normalized_with_error(
+                                                      const LEX_CSTRING &name)
+  {
+    Lex_ident_db tmp= to_ident_db_opt_casedn_with_error(name,
+                                                   lower_case_table_names > 0);
+    return Lex_ident_db_normalized(tmp);
   }
 
   void set_query_arena(Query_arena *set);
@@ -1306,6 +1574,8 @@ struct send_column_info_state
     checksum= 0;
   }
 };
+
+extern uint sql_command_flags[];
 
 
 /**
@@ -1387,6 +1657,10 @@ public:
   {
     set_query_inner(CSET_STRING());
   }
+  ulong sql_command_flags() const
+  {
+    return ::sql_command_flags[lex->sql_command];
+  }
   /**
     Name of the current (default) database.
 
@@ -1415,7 +1689,7 @@ public:
   void set_n_backup_statement(Statement *stmt, Statement *backup);
   void restore_backup_statement(Statement *stmt, Statement *backup);
   /* return class type */
-  virtual Type type() const;
+  Type type() const override;
 };
 
 
@@ -1548,7 +1822,9 @@ public:
     @return True if the security context fulfills the access requirements.
   */
   bool check_access(const privilege_t want_access, bool match_any = false);
-  bool is_priv_user(const char *user, const char *host);
+  bool is_priv_user(const LEX_CSTRING &user, const LEX_CSTRING &host);
+  bool is_user_defined() const
+    { return user && user != delayed_user && user != slave_user; };
 };
 
 
@@ -1854,8 +2130,10 @@ public:
   ulonglong tmp_tables_size;
   ulonglong client_capabilities;
   ulonglong cuted_fields, sent_row_count, examined_row_count;
+  ulonglong sent_row_count_for_statement, examined_row_count_for_statement;
   ulonglong affected_rows;
   ulonglong bytes_sent_old;
+  ulonglong max_tmp_space_used;
   ha_handler_stats handler_stats;
   ulong     tmp_tables_used;
   ulong     tmp_tables_disk_used;
@@ -1864,6 +2142,8 @@ public:
   uint in_sub_stmt;    /* 0,  SUB_STMT_TRIGGER or SUB_STMT_FUNCTION */
   bool enable_slow_log;
   bool last_insert_id_used;
+  bool in_stored_procedure;
+  bool do_union;
   enum enum_check_fields count_cuted_fields;
 };
 
@@ -1960,24 +2240,32 @@ private:
 /**
   Implements the trivial error handler which cancels all error states
   and prevents an SQLSTATE to be set.
+  Remembers the first error
 */
 
 class Dummy_error_handler : public Internal_error_handler
 {
+  uint m_unhandled_errors;
+  uint first_error;
 public:
+  Dummy_error_handler()
+    : m_unhandled_errors(0), first_error(0)
+  {}
   bool handle_condition(THD *thd,
                         uint sql_errno,
                         const char* sqlstate,
                         Sql_condition::enum_warning_level *level,
                         const char* msg,
-                        Sql_condition ** cond_hdl)
+                        Sql_condition ** cond_hdl) override
   {
-    /* Ignore error */
-    return TRUE;
+    m_unhandled_errors++;
+    if (!first_error)
+      first_error= sql_errno;
+    return TRUE;                                // Ignore error
   }
-  Dummy_error_handler() = default;                    /* Remove gcc warning */
+  bool any_error() { return m_unhandled_errors != 0; }
+  uint got_error() { return first_error; }
 };
-
 
 /**
   Implements the trivial error handler which counts errors as they happen.
@@ -1992,7 +2280,7 @@ public:
                         const char* sqlstate,
                         Sql_condition::enum_warning_level *level,
                         const char* msg,
-                        Sql_condition ** cond_hdl)
+                        Sql_condition ** cond_hdl) override
   {
     if (*level == Sql_condition::WARN_LEVEL_ERROR)
       errors++;
@@ -2020,7 +2308,7 @@ public:
                         const char* sqlstate,
                         Sql_condition::enum_warning_level *level,
                         const char* msg,
-                        Sql_condition ** cond_hdl);
+                        Sql_condition ** cond_hdl) override;
 
 private:
 };
@@ -2041,7 +2329,7 @@ public:
                         const char *sqlstate,
                         Sql_condition::enum_warning_level *level,
                         const char* msg,
-                        Sql_condition **cond_hdl);
+                        Sql_condition **cond_hdl) override;
 
   bool need_reopen() const { return m_need_reopen; };
   void init() { m_need_reopen= FALSE; };
@@ -2054,12 +2342,12 @@ class Turn_errors_to_warnings_handler : public Internal_error_handler
 {
 public:
   Turn_errors_to_warnings_handler() = default;
-  bool handle_condition(THD *thd,
-                        uint sql_errno,
-                        const char* sqlstate,
+  bool handle_condition(THD *,
+                        uint,
+                        const char*,
                         Sql_condition::enum_warning_level *level,
-                        const char* msg,
-                        Sql_condition ** cond_hdl)
+                        const char*,
+                        Sql_condition ** cond_hdl) override
   {
     *cond_hdl= NULL;
     if (*level == Sql_condition::WARN_LEVEL_ERROR)
@@ -2071,12 +2359,12 @@ public:
 
 struct Suppress_warnings_error_handler : public Internal_error_handler
 {
-  bool handle_condition(THD *thd,
-                        uint sql_errno,
-                        const char *sqlstate,
+  bool handle_condition(THD *,
+                        uint,
+                        const char *,
                         Sql_condition::enum_warning_level *level,
-                        const char *msg,
-                        Sql_condition **cond_hdl)
+                        const char *,
+                        Sql_condition **) override
   {
     return *level == Sql_condition::WARN_LEVEL_WARN;
   }
@@ -2317,6 +2605,19 @@ struct wait_for_commit
     group commit as T1.
   */
   bool commit_started;
+  /*
+    Set to temporarily ignore calls to wakeup_subsequent_commits(). The
+    caller must arrange that another wakeup_subsequent_commits() gets called
+    later after wakeup_blocked has been set back to false.
+
+    This is used for parallel replication with temporary tables.
+    Temporary tables require strict single-threaded operation. The normal
+    optimization, of doing wakeup_subsequent_commits early and overlapping
+    part of the commit with the following transaction, is not safe. Thus
+    when temporary tables are replicated, wakeup is blocked until the
+    event group is fully done.
+  */
+  bool wakeup_blocked;
 
   void register_wait_for_prior_commit(wait_for_commit *waitee);
   int wait_for_prior_commit(THD *thd, bool allow_kill=true)
@@ -2419,6 +2720,11 @@ public:
     swap_variables(sp_cache*, sp_package_body_cache, rhs.sp_package_body_cache);
   }
   void sp_caches_clear();
+  /**
+    Clear content of sp related caches.
+    Don't delete cache objects itself.
+  */
+  void sp_caches_empty();
 };
 
 
@@ -2597,6 +2903,39 @@ struct thd_async_state
 };
 
 
+enum class THD_WHERE
+{
+  NOWHERE = 0,
+  CHECKING_TRANSFORMED_SUBQUERY,
+  IN_ALL_ANY_SUBQUERY,
+  JSON_TABLE_ARGUMENT,
+  FIELD_LIST,
+  PARTITION_FUNCTION,
+  FROM_CLAUSE,
+  DEFAULT_WHERE,
+  ON_CLAUSE,
+  WHERE_CLAUSE,
+  SET_LIST,
+  INSERT_LIST,
+  VALUES_CLAUSE,
+  UPDATE_CLAUSE,
+  RETURNING,
+  FOR_SYSTEM_TIME,
+  ORDER_CLAUSE,
+  HAVING_CLAUSE,
+  GROUP_STATEMENT,
+  PROCEDURE_LIST,
+  CHECK_OPTION,
+  DO_STATEMENT,
+  HANDLER_STATEMENT,
+  USE_WHERE_STRING, // ugh, a compromise for vcol...
+};
+
+
+class THD;
+const char *thd_where(THD *thd);
+
+
 /**
   @class THD
   For each client connection we create a separate thread with THD serving as
@@ -2604,6 +2943,7 @@ struct thd_async_state
 */
 
 class THD: public THD_count, /* this must be first */
+           public Sql_used,
            public Statement,
            /*
              This is to track items changed during execution of a prepared
@@ -2649,13 +2989,6 @@ public:
   MDL_request *backup_commit_lock;
 
   void reset_for_next_command(bool do_clear_errors= 1);
-  /*
-    Constant for THD::where initialization in the beginning of every query.
-
-    It's needed because we do not save/restore THD::where normally during
-    primary (non subselect) query execution.
-  */
-  static const char * const DEFAULT_WHERE;
 
 #ifdef EMBEDDED_LIBRARY
   struct st_mysql  *mysql;
@@ -2688,7 +3021,7 @@ public:
   Protocol_binary protocol_binary;	// Binary protocol
   HASH    user_vars;			// hash for user variables
   String  packet;			// dynamic buffer for network I/O
-  String  convert_buffer;               // buffer for charset conversions
+  String  convert_buffer;		// buffer for charset conversions
   struct  my_rnd_struct rand;		// used for authentication
   struct  system_variables variables;	// Changeable local variables
   struct  system_status_var status_var; // Per thread statistic vars
@@ -2728,7 +3061,7 @@ public:
     A pointer to the stack frame of handle_one_connection(),
     which is called first in the thread for handling a client
   */
-  char	  *thread_stack;
+  void *thread_stack;
 
   /**
     Currently selected catalog.
@@ -2812,17 +3145,33 @@ public:
   const char *get_proc_info() const
   { return proc_info; }
 
+  // Used by thd_where() when where==USE_WHERE_STRING
+  const char *where_str;
+
   /*
     Used in error messages to tell user in what part of MySQL we found an
     error. E. g. when where= "having clause", if fix_fields() fails, user
     will know that the error was in having clause.
   */
-  const char *where;
+  THD_WHERE where;
 
   /* Needed by MariaDB semi sync replication */
   Trans_binlog_info *semisync_info;
+
+#ifndef DBUG_OFF
+  /*
+    If Active_tranx is missing an entry for a transaction which is planning to
+    await an ACK, this ensures that the reason is because semi-sync was turned
+    off then on in-between the binlogging of the transaction, and before it had
+    started waiting for the ACK.
+  */
+  ulong expected_semi_sync_offs;
+#endif
+
   /* If this is a semisync slave connection. */
   bool semi_sync_slave;
+  /* Several threads may share this thd. Used with parallel repair */
+  bool shared_thd;
   ulonglong client_capabilities;  /* What the client supports */
   ulong max_client_packet_length;
 
@@ -2910,6 +3259,12 @@ public:
 
   bool save_prep_leaf_list;
 
+  /**
+    The data member reset_sp_cache is to signal that content of sp_cache
+    must be reset (all items be removed from it).
+  */
+  bool reset_sp_cache;
+
   /* container for handler's private per-connection data */
   Ha_data ha_data[MAX_HA];
 
@@ -2927,12 +3282,6 @@ public:
   */
   uint32 binlog_unsafe_warning_flags;
 
-  typedef uint used_t;
-  enum { RAND_USED=1, TIME_ZONE_USED=2, QUERY_START_SEC_PART_USED=4,
-         THREAD_SPECIFIC_USED=8 };
-
-  used_t used;
-
 #ifndef MYSQL_CLIENT
   binlog_cache_mngr *  binlog_setup_trx_data();
   /*
@@ -2946,43 +3295,45 @@ public:
   */
   void binlog_start_trans_and_stmt();
   void binlog_set_stmt_begin();
-  int binlog_write_row(TABLE* table, bool is_transactional,
+  int binlog_write_row(TABLE* table, Event_log *bin_log,
+                       binlog_cache_data *cache_data, bool is_transactional,
                        const uchar *buf);
-  int binlog_delete_row(TABLE* table, bool is_transactional,
-                        const uchar *buf);
-  int binlog_update_row(TABLE* table, bool is_transactional,
+  int binlog_delete_row(TABLE* table,  Event_log *bin_log,
+                        binlog_cache_data *cache_data, bool is_transactional,
+                        enum_binlog_row_image row_image, const uchar *buf);
+  int binlog_update_row(TABLE* table, Event_log *bin_log,
+                        binlog_cache_data *cache_data, bool is_transactional,
+                        enum_binlog_row_image row_image,
                         const uchar *old_data, const uchar *new_data);
   bool prepare_handlers_for_update(uint flag);
   bool binlog_write_annotated_row(Log_event_writer *writer);
   void binlog_prepare_for_row_logging();
   bool binlog_write_table_maps();
-  bool binlog_write_table_map(TABLE *table, bool with_annotate);
-  static void binlog_prepare_row_images(TABLE* table);
 
   void set_server_id(uint32 sid) { variables.server_id = sid; }
 
   /*
     Member functions to handle pending event for row-level logging.
   */
-  template <class RowsEventT> Rows_log_event*
-    binlog_prepare_pending_rows_event(TABLE* table, uint32 serv_id,
-                                      size_t needed,
-                                      bool is_transactional,
-                                      RowsEventT* hint);
-  Rows_log_event* binlog_get_pending_rows_event(bool is_transactional) const;
-  void binlog_set_pending_rows_event(Rows_log_event* ev, bool is_transactional);
+  binlog_cache_mngr *binlog_get_cache_mngr() const;
   inline int binlog_flush_pending_rows_event(bool stmt_end)
   {
     return (binlog_flush_pending_rows_event(stmt_end, FALSE) || 
             binlog_flush_pending_rows_event(stmt_end, TRUE));
   }
   int binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional);
-  int binlog_remove_pending_rows_event(bool clear_maps, bool is_transactional);
-
+  void binlog_remove_rows_events();
+  uint has_pending_row_events();
   bool binlog_need_stmt_format(bool is_transactional) const
   {
-    return log_current_statement() &&
-           !binlog_get_pending_rows_event(is_transactional);
+    if (!log_current_statement())
+      return false;
+    auto *cache_mngr= binlog_get_cache_mngr();
+    if (!cache_mngr)
+      return true;
+    return !binlog_get_pending_rows_event(cache_mngr,
+                                          use_trans_cache(this,
+                                                          is_transactional));
   }
 
   bool binlog_for_noop_dml(bool transactional_table);
@@ -3102,7 +3453,7 @@ public:
     WT_THD wt;                          ///< for deadlock detection
     Rows_log_event *m_pending_rows_event;
 
-    struct st_trans_time : public timeval
+    struct st_trans_time : public my_timeval
     {
       void reset(THD *thd)
       {
@@ -3169,6 +3520,17 @@ public:
     Note: in the parser, stmt_arena == thd, even for PS/SP.
   */
   Query_arena *stmt_arena;
+
+  /**
+    Get either call or statement arena. In case some function is called from
+    within a query the call arena has to be used for a memory allocation,
+    else use the statement arena.
+  */
+  Query_arena *active_stmt_arena_to_use()
+  {
+    return (state  == Query_arena::STMT_SP_QUERY_ARGUMENTS) ? this :
+                                                              stmt_arena;
+  }
 
   void *bulk_param;
 
@@ -3377,12 +3739,13 @@ public:
 
   ha_rows    cuted_fields;
 
-private:
   /*
     number of rows we actually sent to the client, including "synthetic"
     rows in ROLLUP etc.
   */
   ha_rows    m_sent_row_count;
+  /* Number of rows for the total statement */
+  ha_rows    sent_row_count_for_statement;
 
   /**
     Number of rows read and/or evaluated for a statement. Used for
@@ -3395,22 +3758,42 @@ private:
     filesort() before reading it for e.g. update.
   */
   ha_rows    m_examined_row_count;
+  /* Number of rows for the top level query */
+  ha_rows    examined_row_count_for_statement;
 
-public:
   ha_rows get_sent_row_count() const
   { return m_sent_row_count; }
 
   ha_rows get_examined_row_count() const
-  { return m_examined_row_count; }
+  {
+    DBUG_EXECUTE_IF("debug_huge_number_of_examined_rows",
+                    return (ULONGLONG_MAX - 1000000););
+    return m_examined_row_count;
+  }
 
   ulonglong get_affected_rows() const
   { return affected_rows; }
 
   void set_sent_row_count(ha_rows count);
-  void set_examined_row_count(ha_rows count);
 
-  void inc_sent_row_count(ha_rows count);
-  void inc_examined_row_count(ha_rows count);
+  inline void inc_sent_row_count(ha_rows count)
+  {
+    m_sent_row_count+= count;
+    sent_row_count_for_statement+= count;
+    MYSQL_SET_STATEMENT_ROWS_SENT(m_statement_psi, m_sent_row_count);
+  }
+  inline void inc_examined_row_count_fast(ha_rows count= 1)
+  {
+    m_examined_row_count+= count;
+    examined_row_count_for_statement+= count;
+  }
+  inline void inc_examined_row_count(ha_rows count= 1)
+  {
+    inc_examined_row_count_fast();
+    MYSQL_SET_STATEMENT_ROWS_EXAMINED(m_statement_psi, m_examined_row_count);
+  }
+
+  void ps_report_examined_row_count();
 
   void inc_status_created_tmp_disk_tables();
   void inc_status_created_tmp_files();
@@ -3502,6 +3885,7 @@ public:
   ulonglong  tmp_tables_size;
   ulonglong  bytes_sent_old;
   ulonglong  affected_rows;                     /* Number of changed rows */
+  ulonglong  max_tmp_space_used= 0;
 
   Opt_trace_context opt_trace;
   pthread_t  real_id;                           /* For debugging */
@@ -3583,7 +3967,7 @@ public:
       return TRUE;
     }
     if (apc_target.have_apc_requests())
-      apc_target.process_apc_requests(); 
+      apc_target.process_apc_requests(false);
     return FALSE;
   }
 
@@ -3595,7 +3979,6 @@ public:
     This is used for taging error messages in the log files.
   */
   LEX_CSTRING connection_name;
-  char       default_master_connection_buff[MAX_CONNECTION_NAME+1];
   uint8      password; /* 0, 1 or 2 */
   uint8      failed_com_change_user;
   bool       slave_thread;
@@ -3679,7 +4062,7 @@ public:
     execution stack when the event turns out to be ignored.
   */
   int	     slave_expected_error;
-  enum_sql_command last_sql_command;  // Last sql_command exceuted in mysql_execute_command()
+  enum_sql_command last_sql_command;  // Last sql_command executed in mysql_execute_command()
 
   sp_rcontext *spcont;		// SP runtime context
 
@@ -3799,6 +4182,10 @@ public:
   void free_connection();
   void reset_for_reuse();
   void store_globals();
+  void reset_stack()
+  {
+    thread_stack= 0;
+  }
   void reset_globals();
   bool trace_started()
   {
@@ -3867,7 +4254,7 @@ public:
   enter_cond(mysql_cond_t *cond, mysql_mutex_t* mutex,
              const PSI_stage_info *stage, PSI_stage_info *old_stage,
              const char *src_function, const char *src_file,
-             int src_line)
+             int src_line) override
   {
     mysql_mutex_assert_owner(mutex);
     mysys_var->current_mutex = mutex;
@@ -3879,7 +4266,7 @@ public:
   }
   inline void exit_cond(const PSI_stage_info *stage,
                         const char *src_function, const char *src_file,
-                        int src_line)
+                        int src_line) override
   {
     /*
       Putting the mutex unlock in thd->exit_cond() ensures that
@@ -3896,8 +4283,8 @@ public:
     mysql_mutex_unlock(&mysys_var->mutex);
     return;
   }
-  virtual int is_killed() { return killed; }
-  virtual THD* get_thd() { return this; }
+  int is_killed() override { return killed; }
+  THD* get_thd() override { return this; }
 
   /**
     A callback to the server internals that is used to address
@@ -3922,8 +4309,8 @@ public:
     @retval  TRUE  if the thread was woken up
     @retval  FALSE otherwise.
    */
-  virtual bool notify_shared_lock(MDL_context_owner *ctx_in_use,
-                                  bool needs_thr_lock_abort);
+  bool notify_shared_lock(MDL_context_owner *ctx_in_use,
+                          bool needs_thr_lock_abort) override;
 
   // End implementation of MDL_context_owner interface.
 
@@ -3982,7 +4369,7 @@ private:
   }
 
 public:
-  timeval transaction_time()
+  my_timeval transaction_time()
   {
     if (!in_multi_stmt_transaction_mode())
       transaction->start_time.reset(this);
@@ -4057,6 +4444,8 @@ public:
   {
     utime_after_query= current_utime();
   }
+
+  Timeval_null safe_timeval_replacement_for_nonzero_datetime(const Datetime &);
 
   /**
    Update server status after execution of a top level statement.
@@ -4161,104 +4550,23 @@ public:
   {
     return !stmt_arena->is_stmt_prepare();
   }
-  inline void* trans_alloc(size_t size)
+  inline void* trans_alloc(size_t size) const
   {
     return alloc_root(&transaction->mem_root,size);
   }
-
-  LEX_CSTRING strmake_lex_cstring(const char *str, size_t length)
-  {
-    const char *tmp= strmake_root(mem_root, str, length);
-    if (!tmp)
-      return {0,0};
-    return {tmp, length};
-  }
-  LEX_CSTRING strmake_lex_cstring(const LEX_CSTRING &from)
-  {
-    return strmake_lex_cstring(from.str, from.length);
-  }
   LEX_CSTRING strmake_lex_cstring_trim_whitespace(const LEX_CSTRING &from)
   {
-    return strmake_lex_cstring(Lex_cstring(from).trim_whitespace(charset()));
-  }
-
-  LEX_STRING *make_lex_string(LEX_STRING *lex_str, const char* str, size_t length)
-  {
-    if (!(lex_str->str= strmake_root(mem_root, str, length)))
-    {
-      lex_str->length= 0;
-      return 0;
-    }
-    lex_str->length= length;
-    return lex_str;
-  }
-  LEX_CSTRING *make_lex_string(LEX_CSTRING *lex_str, const char* str, size_t length)
-  {
-    if (!(lex_str->str= strmake_root(mem_root, str, length)))
-    {
-      lex_str->length= 0;
-      return 0;
-    }
-    lex_str->length= length;
-    return lex_str;
-  }
-  // Remove double quotes:  aaa""bbb -> aaa"bbb
-  bool quote_unescape(LEX_CSTRING *dst, const LEX_CSTRING *src, char quote)
-  {
-    const char *tmp= src->str;
-    const char *tmpend= src->str + src->length;
-    char *to;
-    if (!(dst->str= to= (char *) alloc(src->length + 1)))
-    {
-      dst->length= 0; // Safety
-      return true;
-    }
-    for ( ; tmp < tmpend; )
-    {
-      if ((*to++= *tmp++) == quote)
-        tmp++;                                  // Skip double quotes
-    }
-    *to= 0;                                     // End null for safety
-    dst->length= to - dst->str;
-    return false;
-  }
-
-  LEX_CSTRING *make_clex_string(const char* str, size_t length)
-  {
-    LEX_CSTRING *lex_str;
-    char *tmp;
-    if (unlikely(!(lex_str= (LEX_CSTRING *)alloc_root(mem_root,
-                                                      sizeof(LEX_CSTRING) +
-                                                      length+1))))
-      return 0;
-    tmp= (char*) (lex_str+1);
-    lex_str->str= tmp;
-    memcpy(tmp, str, length);
-    tmp[length]= 0;
-    lex_str->length= length;
-    return lex_str;
-  }
-  LEX_CSTRING *make_clex_string(const LEX_CSTRING from)
-  {
-    return make_clex_string(from.str, from.length);
-  }
-
-  // Allocate LEX_STRING for character set conversion
-  bool alloc_lex_string(LEX_STRING *dst, size_t length)
-  {
-    if (likely((dst->str= (char*) alloc(length))))
-      return false;
-    dst->length= 0;  // Safety
-    return true;     // EOM
+    return Query_arena::strmake_lex_cstring_trim_whitespace(from, charset());
   }
   bool convert_string(LEX_STRING *to, CHARSET_INFO *to_cs,
 		      const char *from, size_t from_length,
-		      CHARSET_INFO *from_cs);
+		      CHARSET_INFO *from_cs) const;
   bool reinterpret_string_from_binary(LEX_CSTRING *to, CHARSET_INFO *to_cs,
-                                      const char *from, size_t from_length);
+                                      const char *from, size_t from_length)
+                                      const;
   bool convert_string(LEX_CSTRING *to, CHARSET_INFO *to_cs,
                       const char *from, size_t from_length,
-                      CHARSET_INFO *from_cs)
+                      CHARSET_INFO *from_cs) const
   {
     LEX_STRING tmp;
     bool rc= convert_string(&tmp, to_cs, from, from_length, from_cs);
@@ -4268,7 +4576,7 @@ public:
   }
   bool convert_string(LEX_CSTRING *to, CHARSET_INFO *tocs,
                       const LEX_CSTRING *from, CHARSET_INFO *fromcs,
-                      bool simple_copy_is_possible)
+                      bool simple_copy_is_possible) const
   {
     if (!simple_copy_is_possible)
       return unlikely(convert_string(to, tocs, from->str, from->length, fromcs));
@@ -4284,7 +4592,7 @@ public:
   */
   bool convert_fix(CHARSET_INFO *dstcs, LEX_STRING *dst,
                    CHARSET_INFO *srccs, const char *src, size_t src_length,
-                   String_copier *status);
+                   String_copier *status) const;
 
   /*
     Same as above, but additionally sends ER_INVALID_CHARACTER_STRING
@@ -4292,7 +4600,7 @@ public:
   */
   bool convert_with_error(CHARSET_INFO *dstcs, LEX_STRING *dst,
                           CHARSET_INFO *srccs,
-                          const char *src, size_t src_length);
+                          const char *src, size_t src_length) const;
   /*
     If either "dstcs" or "srccs" is &my_charset_bin,
     then performs native copying using copy_fix().
@@ -4300,16 +4608,18 @@ public:
   */
   bool copy_fix(CHARSET_INFO *dstcs, LEX_STRING *dst,
                 CHARSET_INFO *srccs, const char *src, size_t src_length,
-                String_copier *status);
+                String_copier *status) const;
 
   /*
     Same as above, but additionally sends ER_INVALID_CHARACTER_STRING
     in case of bad byte sequences or Unicode conversion problems.
   */
   bool copy_with_error(CHARSET_INFO *dstcs, LEX_STRING *dst,
-                       CHARSET_INFO *srccs, const char *src, size_t src_length);
+                       CHARSET_INFO *srccs, const char *src, size_t src_length)
+                       const;
 
-  bool convert_string(String *s, CHARSET_INFO *from_cs, CHARSET_INFO *to_cs);
+  bool convert_string(String *s, CHARSET_INFO *from_cs,
+                      CHARSET_INFO *to_cs);
 
   /*
     Check if the string is wellformed, raise an error if not wellformed.
@@ -4320,7 +4630,8 @@ public:
                                        size_t length,
                                        CHARSET_INFO *cs) const;
 
-  bool to_ident_sys_alloc(Lex_ident_sys_st *to, const Lex_ident_cli_st *from);
+  bool to_ident_sys_alloc(Lex_ident_sys_st *to,
+                          const Lex_ident_cli_st *from) const;
 
   /*
     Create a string literal with optional client->connection conversion.
@@ -4330,7 +4641,8 @@ public:
   */
   Item_basic_constant *make_string_literal(const char *str, size_t length,
                                            my_repertoire_t repertoire);
-  Item_basic_constant *make_string_literal(const Lex_string_with_metadata_st &str)
+  Item_basic_constant *
+  make_string_literal(const Lex_string_with_metadata_st &str)
   {
     my_repertoire_t repertoire= str.repertoire(variables.character_set_client);
     return make_string_literal(str.str, str.length, repertoire);
@@ -4384,6 +4696,7 @@ public:
     is_slave_error= 0;
     if (killed == KILL_BAD_DATA)
       reset_killed();
+    my_errno= 0;
     DBUG_VOID_RETURN;
   }
 
@@ -4470,6 +4783,17 @@ public:
 
   inline Query_arena *activate_stmt_arena_if_needed(Query_arena *backup)
   {
+    if (state == Query_arena::STMT_SP_QUERY_ARGUMENTS)
+      /*
+        Caller uses the arena with state STMT_SP_QUERY_ARGUMENTS for stored
+        routine's parameters. Lifetime of these objects spans a lifetime of
+        stored routine call and freed every time the stored routine execution
+        has been completed. That is the reason why switching to statement's
+        arena is not performed for arguments, else we would observe increasing
+        of memory usage while a stored routine be called over and over again.
+      */
+      return NULL;
+
     /*
       Use the persistent arena if we are in a prepared statement or a stored
       procedure statement and we have not already changed to use this arena.
@@ -4488,14 +4812,19 @@ public:
     return !stmt_arena->is_conventional();
   }
 
+  void register_item_tree_change(Item **place)
+  {
+    /* TODO: check for OOM condition here */
+    if (is_item_tree_change_register_required())
+      nocheck_register_item_tree_change(place, *place, mem_root);
+  }
+
   void change_item_tree(Item **place, Item *new_value)
   {
     DBUG_ENTER("THD::change_item_tree");
     DBUG_PRINT("enter", ("Register: %p (%p) <- %p",
                        *place, place, new_value));
-    /* TODO: check for OOM condition here */
-    if (is_item_tree_change_register_required())
-      nocheck_register_item_tree_change(place, *place, mem_root);
+    register_item_tree_change(place);
     *place= new_value;
     DBUG_VOID_RETURN;
   }
@@ -4563,7 +4892,8 @@ public:
           The worst things that can happen is that we get
           a suboptimal error message.
         */
-        killed_err= (err_info*) alloc_root(&main_mem_root, sizeof(*killed_err));
+        if (!killed_err)
+          killed_err= (err_info*) my_malloc(PSI_INSTRUMENT_ME, sizeof(*killed_err), MYF(MY_WME));
         if (likely(killed_err))
         {
           killed_err->no= killed_errno_arg;
@@ -4598,13 +4928,13 @@ public:
             (!transaction->stmt.modified_non_trans_table ||
              (variables.sql_mode & MODE_STRICT_ALL_TABLES)));
   }
-  void set_status_var_init();
+  void set_status_var_init(ulong offset);
   void reset_n_backup_open_tables_state(Open_tables_backup *backup);
   void restore_backup_open_tables_state(Open_tables_backup *backup);
   void reset_sub_statement_state(Sub_statement_state *backup, uint new_state);
   void restore_sub_statement_state(Sub_statement_state *backup);
   void store_slow_query_state(Sub_statement_state *backup);
-  void reset_slow_query_state();
+  void reset_slow_query_state(Sub_statement_state *backup);
   void add_slow_query_state(Sub_statement_state *backup);
   void set_n_backup_active_arena(Query_arena *set, Query_arena *backup);
   void restore_active_arena(Query_arena *set, Query_arena *backup);
@@ -4658,7 +4988,7 @@ public:
       tests fail and so force them to propagate the
       lex->binlog_row_based_if_mixed upwards to the caller.
     */
-    if ((wsrep_binlog_format() == BINLOG_FORMAT_MIXED) && (in_sub_stmt == 0))
+    if ((wsrep_binlog_format(variables.binlog_format) == BINLOG_FORMAT_MIXED) && (in_sub_stmt == 0))
       set_current_stmt_binlog_format_row();
 
     DBUG_VOID_RETURN;
@@ -4714,7 +5044,7 @@ public:
                 show_system_thread(system_thread)));
     if (in_sub_stmt == 0)
     {
-      if (wsrep_binlog_format() == BINLOG_FORMAT_ROW)
+      if (wsrep_binlog_format(variables.binlog_format) == BINLOG_FORMAT_ROW)
         set_current_stmt_binlog_format_row();
       else if (!has_temporary_tables())
         set_current_stmt_binlog_format_stmt();
@@ -4748,14 +5078,7 @@ public:
   /** Set the current database, without copying */
   void reset_db(const LEX_CSTRING *new_db);
 
-  /*
-    Copy the current database to the argument. Use the current arena to
-    allocate memory for a deep copy: current database may be freed after
-    a statement is parsed but before it's executed.
-
-    Can only be called by owner of thd (no mutex protection)
-  */
-  bool copy_db_to(LEX_CSTRING *to)
+  bool check_if_current_db_is_set_with_error() const
   {
     if (db.str == NULL)
     {
@@ -4771,12 +5094,48 @@ public:
         my_message(ER_NO_DB_ERROR, ER(ER_NO_DB_ERROR), MYF(0));
       return TRUE;
     }
+    return false;
+  }
+
+  /*
+    Copy the current database to the argument. Use the current arena to
+    allocate memory for a deep copy: current database may be freed after
+    a statement is parsed but before it's executed.
+
+    Can only be called by owner of thd (no mutex protection)
+  */
+  bool copy_db_to(LEX_CSTRING *to)
+  {
+    if (check_if_current_db_is_set_with_error())
+      return true;
 
     to->str= strmake(db.str, db.length);
     to->length= db.length;
     return to->str == NULL;                     /* True on error */
   }
-  /* Get db name or "". Use for printing current db */
+
+
+  /*
+    Make a normalized copy of the current database.
+    Raise an error if no current database is set.
+    Note, in case of lower_case_table_names==2, thd->db can contain the
+    name in arbitrary case typed by the user, so it must be lower-cased.
+    For other lower_case_table_names values the name is already in
+    its normalized case, so it's copied as is.
+  */
+  Lex_ident_db_normalized copy_db_normalized()
+  {
+    if (check_if_current_db_is_set_with_error())
+      return Lex_ident_db_normalized();
+    LEX_CSTRING ident= make_ident_opt_casedn(db, lower_case_table_names == 2);
+    /*
+      A non-empty thd->db is always known to satisfy check_db_name().
+      So after optional lower-casing above it's safe to
+      make Lex_ident_db_normalized.
+    */
+    return Lex_ident_db_normalized(ident);
+  }
+  /* Get db name or "". */
   const char *get_db()
   { return safe_str(db.str); }
 
@@ -4993,14 +5352,25 @@ public:
 
 public:
   /** Overloaded to guard query/query_length fields */
-  virtual void set_statement(Statement *stmt);
-  void set_command(enum enum_server_command command)
+  void set_statement(Statement *stmt) override;
+  inline void set_command(enum enum_server_command command)
   {
+    DBUG_ASSERT(command != COM_SLEEP);
     m_command= command;
 #ifdef HAVE_PSI_THREAD_INTERFACE
     PSI_STATEMENT_CALL(set_thread_command)(m_command);
 #endif
   }
+  /* As sleep needs a bit of special handling, we have a special case for it */
+  inline void mark_connection_idle()
+  {
+    proc_info= 0;
+    m_command= COM_SLEEP;
+#ifdef HAVE_PSI_THREAD_INTERFACE
+    PSI_STATEMENT_CALL(set_thread_command)(m_command);
+#endif
+  }
+
   inline enum enum_server_command get_command() const
   { return m_command; }
 
@@ -5070,8 +5440,7 @@ public:
   /* Relesae transactional locks if there are no active transactions */
   void release_transactional_locks()
   {
-    if (!(server_status &
-          (SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY)))
+    if (!in_active_multi_stmt_transaction())
       mdl_context.release_transactional_locks(this);
   }
   int decide_logging_format(TABLE_LIST *tables);
@@ -5105,11 +5474,29 @@ public:
   {
     if (global_system_variables.log_warnings > threshold)
     {
+      char real_ip_str[64];
+      real_ip_str[0]= 0;
+
+      /* For proxied connections, add the real IP to the warning message */
+      if (net.using_proxy_protocol && net.vio)
+      {
+        if(net.vio->localhost)
+          snprintf(real_ip_str, sizeof(real_ip_str), " real ip: 'localhost'");
+        else
+        {
+          char buf[INET6_ADDRSTRLEN];
+          if (!vio_getnameinfo((sockaddr *)&(net.vio->remote), buf,
+              sizeof(buf),NULL, 0, NI_NUMERICHOST))
+          {
+            snprintf(real_ip_str, sizeof(real_ip_str), " real ip: '%s'",buf);
+          }
+        }
+      }
       Security_context *sctx= &main_security_ctx;
-      sql_print_warning(ER_THD(this, ER_NEW_ABORTING_CONNECTION),
+      sql_print_warning(ER_DEFAULT(ER_NEW_ABORTING_CONNECTION),
                         thread_id, (db.str ? db.str : "unconnected"),
                         sctx->user ? sctx->user : "unauthenticated",
-                        sctx->host_or_ip, reason);
+                        sctx->host_or_ip, real_ip_str, reason);
     }
   }
 
@@ -5207,8 +5594,18 @@ public:
     Flag, mutex and condition for a thread to wait for a signal from another
     thread.
 
-    Currently used to wait for group commit to complete, can also be used for
-    other purposes.
+    Currently used to wait for group commit to complete, and COND_wakeup_ready
+    is used for threads to wait on semi-sync ACKs (though is protected by
+    Repl_semi_sync_master::LOCK_binlog). Note the following relationships
+    between these two use-cases when using
+    rpl_semi_sync_master_wait_point=AFTER_SYNC during group commit:
+      1) Non-leader threads use COND_wakeup_ready to wait for the leader thread
+         to complete binlog commit.
+      2) The leader thread uses COND_wakeup_ready to await ACKs from the
+         replica before signalling the non-leader threads to wake up.
+
+    With wait_point=AFTER_COMMIT, there is no overlap as binlogging has
+    finished, so COND_wakeup_ready is safe to re-use.
   */
   bool wakeup_ready;
   mysql_mutex_t LOCK_wakeup_ready;
@@ -5253,19 +5650,20 @@ public:
 
   TABLE *create_and_open_tmp_table(LEX_CUSTRING *frm,
                                    const char *path,
-                                   const char *db,
-                                   const char *table_name,
+                                   const Lex_ident_db &db,
+                                   const Lex_ident_table &table_name,
                                    bool open_internal_tables);
 
-  TABLE *find_temporary_table(const char *db, const char *table_name,
+  TABLE *find_temporary_table(const Lex_ident_db &db,
+                              const Lex_ident_table &table_name,
                               Temporary_table_state state= TMP_TABLE_IN_USE);
   TABLE *find_temporary_table(const TABLE_LIST *tl,
                               Temporary_table_state state= TMP_TABLE_IN_USE);
 
   TMP_TABLE_SHARE *find_tmp_table_share_w_base_key(const char *key,
                                                    uint key_length);
-  TMP_TABLE_SHARE *find_tmp_table_share(const char *db,
-                                        const char *table_name);
+  TMP_TABLE_SHARE *find_tmp_table_share(const Lex_ident_db &db,
+                                        const Lex_ident_table &table_name);
   TMP_TABLE_SHARE *find_tmp_table_share(const TABLE_LIST *tl);
   TMP_TABLE_SHARE *find_tmp_table_share(const char *key, size_t key_length);
 
@@ -5288,14 +5686,16 @@ private:
   /* Whether a lock has been acquired? */
   bool m_tmp_tables_locked;
 
-  uint create_tmp_table_def_key(char *key, const char *db,
-                                const char *table_name);
+  uint create_tmp_table_def_key(char *key, const Lex_ident_db &db,
+                                const Lex_ident_table &table_name);
   TMP_TABLE_SHARE *create_temporary_table(LEX_CUSTRING *frm,
-                                          const char *path, const char *db,
-                                          const char *table_name);
+                                          const char *path,
+                                          const Lex_ident_db &db,
+                                          const Lex_ident_table &table_name);
   TABLE *find_temporary_table(const char *key, uint key_length,
                               Temporary_table_state state);
-  TABLE *open_temporary_table(TMP_TABLE_SHARE *share, const char *alias);
+  TABLE *open_temporary_table(TMP_TABLE_SHARE *share,
+                              const Lex_ident_table &alias);
   bool find_and_use_tmp_table(const TABLE_LIST *tl, TABLE **out_table);
   bool use_temporary_table(TABLE *table, TABLE **out_table);
   void close_temporary_table(TABLE *table);
@@ -5336,17 +5736,20 @@ public:
   bool is_binlog_dump_thread();
 #endif
 
-  /*
-    Indicates if this thread is suspended due to awaiting an ACK from a
-    replica. True if suspended, false otherwise.
+  bool check_slave_ignored_db_with_error(const Lex_ident_db &db) const;
 
-    Note that this variable is protected by Repl_semi_sync_master::LOCK_binlog
-  */
-  bool is_awaiting_semisync_ack;
-
-  inline ulong wsrep_binlog_format() const
+  inline ulong wsrep_binlog_format(ulong binlog_format) const
   {
-    return WSREP_BINLOG_FORMAT(variables.binlog_format);
+#ifdef WITH_WSREP
+    // During CTAS we force ROW format
+    if (wsrep_ctas)
+      return BINLOG_FORMAT_ROW;
+    else
+      return ((wsrep_forced_binlog_format != BINLOG_FORMAT_UNSPEC) ?
+               wsrep_forced_binlog_format : binlog_format);
+#else
+    return (binlog_format);
+#endif
   }
 
 #ifdef WITH_WSREP
@@ -5411,7 +5814,8 @@ public:
   /* true if BF abort is observed in do_command() right after reading
   client's packet, and if the client has sent PS execute command. */
   bool                      wsrep_delayed_BF_abort;
-
+  // true if this transaction is CREATE TABLE AS SELECT (CTAS)
+  bool                      wsrep_ctas;
   /*
     Transaction id:
     * m_wsrep_next_trx_id is assigned on the first query after
@@ -5622,10 +6026,26 @@ public:
     lex= backup_lex;
   }
 
-  bool should_collect_handler_stats() const
+  bool should_collect_handler_stats()
   {
-    return (variables.log_slow_verbosity & LOG_SLOW_VERBOSITY_ENGINE) ||
-           lex->analyze_stmt;
+    /*
+      We update handler_stats.active to ensure that we have the same
+      value across the whole statement.
+      This function is only called from TABLE::init() so the value will
+      be the same for the whole statement.
+    */
+    handler_stats.active=
+      ((variables.log_slow_verbosity & LOG_SLOW_VERBOSITY_ENGINE) ||
+       userstat_running || lex->analyze_stmt);
+    return handler_stats.active;
+  }
+
+  /* Return true if we should create a note when an unusable key is found */
+  bool give_notes_for_unusable_keys()
+  {
+    return ((variables.note_verbosity & (NOTE_VERBOSITY_UNUSABLE_KEYS)) ||
+            (lex->describe && // Is EXPLAIN
+             (variables.note_verbosity & NOTE_VERBOSITY_EXPLAIN)));
   }
 
   bool vers_insert_history_fast(const TABLE *table)
@@ -5648,6 +6068,23 @@ public:
       return false;
     return !is_set_timestamp_forbidden(this);
   }
+  /*
+    Return true if we are in stored procedure, not in a function or
+    trigger.
+  */
+  bool in_stored_procedure()
+  {
+    return (lex->sphead != 0 &&
+            !(in_sub_stmt & (SUB_STMT_FUNCTION | SUB_STMT_TRIGGER)));
+  }
+
+  /* Data and methods for bulk multiple unit result reporting */
+  DYNAMIC_ARRAY *unit_results;
+  void stop_collecting_unit_results();
+  bool collect_unit_results(ulonglong id, ulonglong affected_rows);
+  bool need_report_unit_results();
+  bool report_collected_unit_results();
+  bool init_collecting_unit_results();
 };
 
 
@@ -5919,7 +6356,7 @@ public:
   TABLE *dst_table; /* table to write into */
 
   /* The following is called in the child thread: */
-  int send_data(List<Item> &items);
+  int send_data(List<Item> &items) override;
 };
 
 
@@ -5933,7 +6370,7 @@ class select_result_text_buffer : public select_result_sink
 {
 public:
   select_result_text_buffer(THD *thd_arg): select_result_sink(thd_arg) {}
-  int send_data(List<Item> &items);
+  int send_data(List<Item> &items) override;
   bool send_result_set_metadata(List<Item> &fields, uint flag);
 
   void save_to(String *res);
@@ -5961,9 +6398,9 @@ public:
     DBUG_PRINT("enter", ("this %p", this));
     DBUG_VOID_RETURN;
   }              /* Remove gcc warning */
-  uint field_count(List<Item> &fields) const { return 0; }
-  bool send_result_set_metadata(List<Item> &fields, uint flag) { return FALSE; }
-  select_result_interceptor *result_interceptor() { return this; }
+  uint field_count(List<Item> &fields) const override { return 0; }
+  bool send_result_set_metadata(List<Item> &fields, uint flag) override { return FALSE; }
+  select_result_interceptor *result_interceptor() override { return this; }
 
   /*
     Instruct the object to not call my_ok(). Client output will be handled
@@ -6004,6 +6441,8 @@ public:
 };
 
 
+class sp_instr_cpush;
+
 /* A mediator between stored procedures and server side cursors */
 class sp_lex_keeper;
 class sp_cursor: public sp_cursor_statistics
@@ -6031,28 +6470,26 @@ private:
     uint get_field_count() { return field_count; }
     void set_spvar_list(List<sp_variable> *vars) { spvar_list= vars; }
 
-    virtual bool send_eof() { return FALSE; }
-    virtual int send_data(List<Item> &items);
-    virtual int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-    virtual bool view_structure_only() const { return m_view_structure_only; }
+    bool send_eof() override { return FALSE; }
+    int send_data(List<Item> &items) override;
+    int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+    bool view_structure_only() const override { return m_view_structure_only; }
 };
 
 public:
   sp_cursor()
    :result(NULL, false),
-    m_lex_keeper(NULL),
     server_side_cursor(NULL)
   { }
-  sp_cursor(THD *thd_arg, sp_lex_keeper *lex_keeper, bool view_structure_only)
+  sp_cursor(THD *thd_arg, bool view_structure_only)
    :result(thd_arg, view_structure_only),
-    m_lex_keeper(lex_keeper),
     server_side_cursor(NULL)
   {}
 
   virtual ~sp_cursor()
   { destroy(); }
 
-  sp_lex_keeper *get_lex_keeper() { return m_lex_keeper; }
+  virtual sp_lex_keeper *get_lex_keeper() { return nullptr; }
 
   int open(THD *thd);
 
@@ -6065,17 +6502,16 @@ public:
 
   bool export_structure(THD *thd, Row_definition_list *list);
 
-  void reset(THD *thd_arg, sp_lex_keeper *lex_keeper)
+  void reset(THD *thd_arg)
   {
     sp_cursor_statistics::reset();
     result.reset(thd_arg);
-    m_lex_keeper= lex_keeper;
     server_side_cursor= NULL;
   }
 
+  virtual sp_instr_cpush *get_push_instr() { return nullptr; }
 private:
   Select_fetch_into_spvars result;
-  sp_lex_keeper *m_lex_keeper;
   Server_side_cursor *server_side_cursor;
   void destroy();
 };
@@ -6091,13 +6527,13 @@ class select_send :public select_result {
 public:
   select_send(THD *thd_arg):
     select_result(thd_arg), is_result_set_started(FALSE) {}
-  bool send_result_set_metadata(List<Item> &list, uint flags);
-  int send_data(List<Item> &items);
-  bool send_eof();
-  virtual bool check_simple_select() const { return FALSE; }
-  void abort_result_set();
-  virtual void cleanup();
-  select_result_interceptor *result_interceptor() { return NULL; }
+  bool send_result_set_metadata(List<Item> &list, uint flags) override;
+  int send_data(List<Item> &items) override;
+  bool send_eof() override;
+  bool check_simple_select() const override { return FALSE; }
+  void abort_result_set() override;
+  void cleanup() override;
+  select_result_interceptor *result_interceptor() override { return NULL; }
 };
 
 
@@ -6109,9 +6545,9 @@ public:
 
 class select_send_analyze : public select_send
 {
-  bool send_result_set_metadata(List<Item> &list, uint flags) { return 0; }
-  bool send_eof() { return 0; }
-  void abort_result_set() {}
+  bool send_result_set_metadata(List<Item> &list, uint flags) override { return 0; }
+  bool send_eof() override { return 0; }
+  void abort_result_set() override {}
 public:
   select_send_analyze(THD *thd_arg): select_send(thd_arg) {}
 };
@@ -6130,8 +6566,8 @@ public:
     select_result_interceptor(thd_arg), exchange(ex), file(-1),row_count(0L)
   { path[0]=0; }
   ~select_to_file();
-  bool send_eof();
-  void cleanup();
+  bool send_eof() override;
+  void cleanup() override;
 };
 
 
@@ -6171,16 +6607,16 @@ class select_export :public select_to_file {
 public:
   select_export(THD *thd_arg, sql_exchange *ex): select_to_file(thd_arg, ex) {}
   ~select_export();
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-  int send_data(List<Item> &items);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int send_data(List<Item> &items) override;
 };
 
 
 class select_dump :public select_to_file {
 public:
   select_dump(THD *thd_arg, sql_exchange *ex): select_to_file(thd_arg, ex) {}
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-  int send_data(List<Item> &items);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int send_data(List<Item> &items) override;
 };
 
 
@@ -6198,17 +6634,17 @@ class select_insert :public select_result_interceptor {
                 List<Item> *update_values, enum_duplicates duplic,
                 bool ignore, select_result *sel_ret_list);
   ~select_insert();
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-  virtual int prepare2(JOIN *join);
-  virtual int send_data(List<Item> &items);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int prepare2(JOIN *join) override;
+  int send_data(List<Item> &items) override;
   virtual bool store_values(List<Item> &values);
   virtual bool can_rollback_data() { return 0; }
   bool prepare_eof();
   bool send_ok_packet();
-  bool send_eof();
-  virtual void abort_result_set();
+  bool send_eof() override;
+  void abort_result_set() override;
   /* not implemented: select_insert is never re-used in prepared statements */
-  void cleanup();
+  void cleanup() override;
 };
 
 
@@ -6243,18 +6679,18 @@ public:
       bzero(&ddl_log_state_create, sizeof(ddl_log_state_create));
       bzero(&ddl_log_state_rm, sizeof(ddl_log_state_rm));
     }
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
 
   int binlog_show_create_table(TABLE **tables, uint count);
-  bool store_values(List<Item> &values);
-  bool send_eof();
-  virtual void abort_result_set();
-  virtual bool can_rollback_data() { return 1; }
+  bool store_values(List<Item> &values) override;
+  bool send_eof() override;
+  void abort_result_set() override;
+  bool can_rollback_data() override { return 1; }
 
   // Needed for access from local class MY_HOOKS in prepare(), since thd is proteted.
   const THD *get_thd(void) { return thd; }
   const HA_CREATE_INFO *get_create_info() { return create_info; };
-  int prepare2(JOIN *join) { return 0; }
+  int prepare2(JOIN *join) override { return 0; }
 
 private:
   TABLE *create_table_from_items(THD *thd,
@@ -6359,6 +6795,7 @@ public:
     aggregate functions as normal functions.
   */
   bool precomputed_group_by;
+  bool group_concat;
   bool force_copy_fields;
   /*
     If TRUE, create_tmp_field called from create_tmp_table will convert
@@ -6377,7 +6814,7 @@ public:
      group_length(0), group_null_parts(0),
      using_outer_summary_function(0),
      schema_table(0), materialized_subquery(0), force_not_null_cols(0),
-     precomputed_group_by(0),
+     precomputed_group_by(0), group_concat(0),
      force_copy_fields(0), bit_fields_as_long(0), skip_create_table(0)
   {
     init();
@@ -6417,7 +6854,7 @@ public:
     init();
     tmp_table_param.init();
   }
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
   /**
     Do prepare() and prepare2() if they have been postponed until
     column type information is computed (used by select_union_direct).
@@ -6428,13 +6865,13 @@ public:
   */
   virtual bool postponed_prepare(List<Item> &types)
   { return false; }
-  int send_data(List<Item> &items);
+  int send_data(List<Item> &items) override;
   int write_record();
   int update_counter(Field *counter, longlong value);
   int delete_record();
-  bool send_eof();
+  bool send_eof() override;
   virtual bool flush();
-  void cleanup();
+  void cleanup() override;
   virtual bool create_result_table(THD *thd, List<Item> *column_types,
                                    bool is_distinct, ulonglong options,
                                    const LEX_CSTRING *alias,
@@ -6561,11 +6998,11 @@ public:
     curr_op_type(UNSPECIFIED)
   {
   };
-  int send_data(List<Item> &items);
-  void change_select();
+  int send_data(List<Item> &items) override;
+  void change_select() override;
   int unfold_record(ha_rows cnt);
-  bool send_eof();
-  bool force_enable_index_if_needed()
+  bool send_eof() override;
+  bool force_enable_index_if_needed() override
   {
     is_index_enabled= true;
     return true;
@@ -6622,15 +7059,15 @@ class select_union_recursive :public select_unit
       row_counter(0)
   { incr_table_param.init(); };
 
-  int send_data(List<Item> &items);
+  int send_data(List<Item> &items) override;
   bool create_result_table(THD *thd, List<Item> *column_types,
                            bool is_distinct, ulonglong options,
                            const LEX_CSTRING *alias,
                            bool bit_fields_as_long,
                            bool create_table,
                            bool keep_row_order,
-                           uint hidden);
-  void cleanup();
+                           uint hidden) override;
+  void cleanup() override;
 };
 
 /**
@@ -6677,30 +7114,30 @@ public:
     done_send_result_set_metadata(false), done_initialize_tables(false),
     limit_found_rows(0)
     { send_records= 0; }
-  bool change_result(select_result *new_result);
-  uint field_count(List<Item> &fields) const
+  bool change_result(select_result *new_result) override;
+  uint field_count(List<Item> &fields) const override
   {
     // Only called for top-level select_results, usually select_send
     DBUG_ASSERT(false); /* purecov: inspected */
     return 0; /* purecov: inspected */
   }
-  bool postponed_prepare(List<Item> &types);
-  bool send_result_set_metadata(List<Item> &list, uint flags);
-  int send_data(List<Item> &items);
-  bool initialize_tables (JOIN *join);
-  bool send_eof();
-  bool flush() { return false; }
-  bool check_simple_select() const
+  bool postponed_prepare(List<Item> &types) override;
+  bool send_result_set_metadata(List<Item> &list, uint flags) override;
+  int send_data(List<Item> &items) override;
+  bool initialize_tables (JOIN *join) override;
+  bool send_eof() override;
+  bool flush() override { return false; }
+  bool check_simple_select() const override
   {
     /* Only called for top-level select_results, usually select_send */
     DBUG_ASSERT(false); /* purecov: inspected */
     return false; /* purecov: inspected */
   }
-  void abort_result_set()
+  void abort_result_set() override
   {
     result->abort_result_set(); /* purecov: inspected */
   }
-  void cleanup()
+  void cleanup() override
   {
     send_records= 0;
   }
@@ -6718,7 +7155,11 @@ public:
     // EXPLAIN should never output to a select_union_direct
     DBUG_ASSERT(false); /* purecov: inspected */
   }
+#ifdef EMBEDDED_LIBRARY
+  void begin_dataset() override
+#else
   void begin_dataset()
+#endif
   {
     // Only called for sp_cursor::Select_fetch_into_spvars
     DBUG_ASSERT(false); /* purecov: inspected */
@@ -6734,8 +7175,8 @@ protected:
 public:
   select_subselect(THD *thd_arg, Item_subselect *item_arg):
     select_result_interceptor(thd_arg), item(item_arg) {}
-  int send_data(List<Item> &items)=0;
-  bool send_eof() { return 0; };
+  int send_data(List<Item> &items) override=0;
+  bool send_eof() override { return 0; };
 };
 
 /* Single value subselect interface class */
@@ -6745,7 +7186,7 @@ public:
   select_singlerow_subselect(THD *thd_arg, Item_subselect *item_arg):
     select_subselect(thd_arg, item_arg)
   {}
-  int send_data(List<Item> &items);
+  int send_data(List<Item> &items) override;
 };
 
 
@@ -6796,10 +7237,10 @@ public:
                            bool bit_fields_as_long,
                            bool create_table,
                            bool keep_row_order,
-                           uint hidden);
+                           uint hidden) override;
   bool init_result_table(ulonglong select_options);
-  int send_data(List<Item> &items);
-  void cleanup();
+  int send_data(List<Item> &items) override;
+  void cleanup() override;
   ha_rows get_null_count_of_col(uint idx)
   {
     DBUG_ASSERT(idx < table->s->fields);
@@ -6832,8 +7273,8 @@ public:
                                   bool mx, bool all):
     select_subselect(thd_arg, item_arg), cache(0), fmax(mx), is_all(all)
   {}
-  void cleanup();
-  int send_data(List<Item> &items);
+  void cleanup() override;
+  int send_data(List<Item> &items) override;
   bool cmp_real();
   bool cmp_int();
   bool cmp_decimal();
@@ -6848,7 +7289,7 @@ class select_exists_subselect :public select_subselect
 public:
   select_exists_subselect(THD *thd_arg, Item_subselect *item_arg):
     select_subselect(thd_arg, item_arg) {}
-  int send_data(List<Item> &items);
+  int send_data(List<Item> &items) override;
 };
 
 
@@ -7016,7 +7457,7 @@ public:
   inline Table_ident(SELECT_LEX_UNIT *s) : sel(s)
   {
     /* We must have a table name here as this is used with add_table_to_list */
-    db.str= empty_c_string;                    /* a subject to casedn_str */
+    db.str= empty_c_string;
     db.length= 0;
     table.str= internal_table_name;
     table.length=1;
@@ -7028,13 +7469,23 @@ public:
   }
   bool resolve_table_rowtype_ref(THD *thd, Row_definition_list &defs);
   bool append_to(THD *thd, String *to) const;
+  /*
+    Convert Table_ident::m_db to a valid internal database name:
+    - validated with Lex_ident_db::check_name()
+    - optionally lower-cased when lower_case_table_names==1
+
+    @param arena - the arena to allocate the lower-cased copy on, when needed.
+    @return        {NULL,0} in case of EOM or invalid database name,
+                   or a good identifier otherwise.
+  */
+  Lex_ident_db to_ident_db_internal_with_error(Query_arena *arena) const;
 };
 
 
 class Qualified_column_ident: public Table_ident
 {
 public:
-  LEX_CSTRING m_column;
+  const Lex_ident_column m_column;
 public:
   Qualified_column_ident(const LEX_CSTRING *column)
     :Table_ident(&null_clex_str),
@@ -7051,13 +7502,13 @@ public:
    :Table_ident(thd, db, table, false),
     m_column(*column)
   { }
-  bool resolve_type_ref(THD *thd, Column_definition *def);
+  bool resolve_type_ref(THD *thd, Column_definition *def) const;
   bool append_to(THD *thd, String *to) const;
 };
 
 
 // this is needed for user_vars hash
-class user_var_entry
+class user_var_entry: public Type_handler_hybrid_field_type
 {
   CHARSET_INFO *m_charset;
  public:
@@ -7066,8 +7517,6 @@ class user_var_entry
   char *value;
   size_t length;
   query_id_t update_query_id, used_query_id;
-  Item_result type;
-  bool unsigned_flag;
 
   double val_real(bool *null_value);
   longlong val_int(bool *null_value) const;
@@ -7107,15 +7556,15 @@ public:
 public:
   multi_delete(THD *thd_arg, TABLE_LIST *dt, uint num_of_tables);
   ~multi_delete();
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-  int send_data(List<Item> &items);
-  bool initialize_tables (JOIN *join);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int send_data(List<Item> &items) override;
+  bool initialize_tables (JOIN *join) override;
   int do_deletes();
   int do_table_deletes(TABLE *table, SORT_INFO *sort_info, bool ignore);
-  bool send_eof();
+  bool send_eof() override;
   inline ha_rows num_deleted() const { return deleted; }
-  virtual void abort_result_set();
-  void prepare_to_read_rows();
+  void abort_result_set() override;
+  void prepare_to_read_rows() override;
 };
 
 
@@ -7163,19 +7612,19 @@ public:
   ~multi_update();
   bool init(THD *thd);
   bool init_for_single_table(THD *thd);
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-  int send_data(List<Item> &items);
-  bool initialize_tables (JOIN *join);
-  int prepare2(JOIN *join);
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int send_data(List<Item> &items) override;
+  bool initialize_tables (JOIN *join) override;
+  int prepare2(JOIN *join) override;
   int  do_updates();
-  bool send_eof();
+  bool send_eof() override;
   inline ha_rows num_found() const { return found; }
   inline ha_rows num_updated() const { return updated; }
   inline void set_found (ha_rows n) { found= n; }
   inline void set_updated (ha_rows n) { updated= n; }
-  virtual void abort_result_set();
-  void update_used_tables();
-  void prepare_to_read_rows();
+  virtual void abort_result_set() override;
+  void update_used_tables() override;
+  void prepare_to_read_rows() override;
 };
 
 class my_var_sp;
@@ -7207,8 +7656,8 @@ public:
       m_rcontext_handler(rcontext_handler),
       m_type_handler(type_handler), offset(o), sp(s) { }
   ~my_var_sp() = default;
-  bool set(THD *thd, Item *val);
-  my_var_sp *get_my_var_sp() { return this; }
+  bool set(THD *thd, Item *val) override;
+  my_var_sp *get_my_var_sp() override { return this; }
   const Type_handler *type_handler() const
   { return m_type_handler; }
   sp_rcontext *get_rcontext(sp_rcontext *local_ctx) const;
@@ -7229,7 +7678,7 @@ public:
               &type_handler_double/*Not really used*/, s),
     m_field_offset(field_idx)
   { }
-  bool set(THD *thd, Item *val);
+  bool set(THD *thd, Item *val) override;
 };
 
 class my_var_user: public my_var {
@@ -7237,7 +7686,7 @@ public:
   my_var_user(const LEX_CSTRING *j)
     : my_var(j, SESSION_VAR) { }
   ~my_var_user() = default;
-  bool set(THD *thd, Item *val);
+  bool set(THD *thd, Item *val) override;
 };
 
 class select_dumpvar :public select_result_interceptor {
@@ -7250,11 +7699,11 @@ public:
    :select_result_interceptor(thd_arg), row_count(0), m_var_sp_row(NULL)
   { var_list.empty(); }
   ~select_dumpvar() = default;
-  int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
-  int send_data(List<Item> &items);
-  bool send_eof();
-  virtual bool check_simple_select() const;
-  void cleanup();
+  int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int send_data(List<Item> &items) override;
+  bool send_eof() override;
+  bool check_simple_select() const override;
+  void cleanup() override;
 };
 
 /* Bits in sql_command_flags */
@@ -7394,6 +7843,11 @@ public:
   DDL statement that may be subject to error filtering.
 */
 #define CF_WSREP_MAY_IGNORE_ERRORS (1U << 24)
+/**
+   Basic DML statements that create writeset.
+*/
+#define CF_WSREP_BASIC_DML (1u << 25)
+
 #endif /* WITH_WSREP */
 
 
@@ -7577,6 +8031,22 @@ inline bool handler::has_long_unique()
   return table->s->long_unique_table;
 }
 
+/**
+  Return whether the handler is root.
+  @return false if table is maintained by different handlerton, true otherwise.
+  @note The implementation supposes that the same handler can't be found as both
+  root and non-root.
+
+  There are two known cases when it's non-root:
+  1. under partition's ha_write_row() (also true for copy_partitions())
+  2. under ha_mroonga::wrapper_write_row();
+  same applies for ha_delete_row/ha_update_row.
+*/
+inline bool handler::is_root_handler() const
+{
+  return ht == table->file->ht;
+}
+
 extern pthread_attr_t *get_connection_attrib(void);
 
 /**
@@ -7630,6 +8100,8 @@ inline bool binlog_should_compress(size_t len)
     len >= opt_bin_log_compress_min_len;
 }
 
+void binlog_prepare_row_images(TABLE* table,
+                               enum_binlog_row_image row_image);
 
 /**
    Save thd sql_mode on instantiation.
@@ -7645,6 +8117,50 @@ class Sql_mode_save
   THD *thd;
   sql_mode_t old_mode; // SQL mode saved at construction time.
 };
+
+
+/*
+  Save the current sql_mode. Switch off sql_mode flags which can prevent
+  normal parsing of VIEWs, expressions in generated columns.
+  Restore the old sql_mode on destructor.
+*/
+class Sql_mode_save_for_frm_handling: public Sql_mode_save
+{
+public:
+  Sql_mode_save_for_frm_handling(THD *thd)
+   :Sql_mode_save(thd)
+  {
+    /*
+      - MODE_REAL_AS_FLOAT            affect only CREATE TABLE parsing
+      + MODE_PIPES_AS_CONCAT          affect expression parsing
+      + MODE_ANSI_QUOTES              affect expression parsing
+      + MODE_IGNORE_SPACE             affect expression parsing
+      - MODE_IGNORE_BAD_TABLE_OPTIONS affect only CREATE/ALTER TABLE parsing
+      * MODE_ONLY_FULL_GROUP_BY       affect execution
+      * MODE_NO_UNSIGNED_SUBTRACTION  affect execution
+      - MODE_NO_DIR_IN_CREATE         affect table creation only
+      - MODE_POSTGRESQL               compounded from other modes
+      + MODE_ORACLE                   affects Item creation (e.g for CONCAT)
+      - MODE_MSSQL                    compounded from other modes
+      - MODE_DB2                      compounded from other modes
+      - MODE_MAXDB                    affect only CREATE TABLE parsing
+      - MODE_NO_KEY_OPTIONS           affect only SHOW
+      - MODE_NO_TABLE_OPTIONS         affect only SHOW
+      - MODE_NO_FIELD_OPTIONS         affect only SHOW
+      - MODE_MYSQL323                 affect only SHOW
+      - MODE_MYSQL40                  affect only SHOW
+      - MODE_ANSI                     compounded from other modes
+                                      (+ transaction mode)
+      ? MODE_NO_AUTO_VALUE_ON_ZERO    affect UPDATEs
+      + MODE_NO_BACKSLASH_ESCAPES     affect expression parsing
+      + MODE_EMPTY_STRING_IS_NULL     affect expression parsing
+    */
+    thd->variables.sql_mode&= ~(MODE_PIPES_AS_CONCAT | MODE_ANSI_QUOTES |
+                                MODE_IGNORE_SPACE | MODE_NO_BACKSLASH_ESCAPES |
+                                MODE_ORACLE | MODE_EMPTY_STRING_IS_NULL);
+  };
+};
+
 
 class Switch_to_definer_security_ctx
 {
@@ -7720,11 +8236,13 @@ public:
 
 
 class Use_relaxed_field_copy: public Sql_mode_save,
-                              public Check_level_instant_set
+                              public Check_level_instant_set,
+                              public Abort_on_warning_instant_set
 {
 public:
   Use_relaxed_field_copy(THD *thd) :
-      Sql_mode_save(thd), Check_level_instant_set(thd, CHECK_FIELD_IGNORE)
+      Sql_mode_save(thd), Check_level_instant_set(thd, CHECK_FIELD_IGNORE),
+      Abort_on_warning_instant_set(thd, 0)
   {
     thd->variables.sql_mode&= ~(MODE_NO_ZERO_IN_DATE | MODE_NO_ZERO_DATE);
     thd->variables.sql_mode|= MODE_INVALID_DATES;
@@ -7739,75 +8257,33 @@ public:
 class Database_qualified_name
 {
 public:
-  LEX_CSTRING m_db;
-  LEX_CSTRING m_name;
-  Database_qualified_name(const LEX_CSTRING *db, const LEX_CSTRING *name)
-   :m_db(*db), m_name(*name)
+  Lex_ident_db m_db;
+  Lex_cstring m_name; // no comparison semantics
+  Database_qualified_name()
   { }
-  Database_qualified_name(const LEX_CSTRING &db, const LEX_CSTRING &name)
+  Database_qualified_name(const Lex_ident_db &db, const LEX_CSTRING &name)
    :m_db(db), m_name(name)
   { }
-  Database_qualified_name(const char *db, size_t db_length,
-                          const char *name, size_t name_length)
+
+  Identifier_chain2 to_identifier_chain2() const
   {
-    m_db.str= db;
-    m_db.length= db_length;
-    m_name.str= name;
-    m_name.length= name_length;
+    return Identifier_chain2(m_db, m_name);
   }
 
-  bool eq(const Database_qualified_name *other) const
-  {
-    CHARSET_INFO *cs= lower_case_table_names ?
-                      &my_charset_utf8mb3_general_ci :
-                      &my_charset_utf8mb3_bin;
-    return
-      m_db.length == other->m_db.length &&
-      m_name.length == other->m_name.length &&
-      !cs->strnncoll(m_db.str, m_db.length,
-                     other->m_db.str, other->m_db.length) &&
-      !cs->strnncoll(m_name.str, m_name.length,
-                     other->m_name.str, other->m_name.length);
-  }
-  void copy(MEM_ROOT *mem_root, const LEX_CSTRING &db,
-                                const LEX_CSTRING &name);
 
-  static Database_qualified_name split(const LEX_CSTRING &txt)
+  bool eq_routine_name(const Database_qualified_name *other) const
   {
-    DBUG_ASSERT(txt.str[txt.length] == '\0'); // Expect 0-terminated input
-    const char *dot= strchr(txt.str, '.');
-    if (!dot)
-      return Database_qualified_name(NULL, 0, txt.str, txt.length);
-    size_t dblen= dot - txt.str;
-    Lex_cstring db(txt.str, dblen);
-    Lex_cstring name(txt.str + dblen + 1, txt.length - dblen - 1);
-    return Database_qualified_name(db, name);
-  }
 
-  // Export db and name as a qualified name string: 'db.name'
-  size_t make_qname(char *dst, size_t dstlen) const
-  {
-    return my_snprintf(dst, dstlen, "%.*s.%.*s",
-                       (int) m_db.length, m_db.str,
-                       (int) m_name.length, m_name.str);
+    return m_db.streq(other->m_db) &&
+           Lex_ident_routine(m_name).streq(other->m_name);
   }
-  // Export db and name as a qualified name string, allocate on mem_root.
-  bool make_qname(MEM_ROOT *mem_root, LEX_CSTRING *dst) const
-  {
-    const uint dot= !!m_db.length;
-    char *tmp;
-    /* format: [database + dot] + name + '\0' */
-    dst->length= m_db.length + dot + m_name.length;
-    if (unlikely(!(dst->str= tmp= (char*) alloc_root(mem_root,
-                                                     dst->length + 1))))
-      return true;
-    snprintf(tmp, dst->length + 1, "%.*s%.*s%.*s",
-            (int) m_db.length, (m_db.length ? m_db.str : ""),
-            dot, ".",
-            (int) m_name.length, m_name.str);
-    DBUG_SLOW_ASSERT(ok_for_lower_case_names(m_db.str));
-    return false;
-  }
+  /*
+    Make copies of "db" and "name" on the memory root in internal format:
+    - Lower-case "db" if lower-case-table-names==1.
+    - Preserve "name" as is.
+  */
+  bool copy_sp_name_internal(MEM_ROOT *mem_root, const Lex_ident_db &db,
+                             const LEX_CSTRING &name);
 
   bool make_package_routine_name(MEM_ROOT *mem_root,
                                  const LEX_CSTRING &package,
@@ -7817,9 +8293,7 @@ public:
     size_t length= package.length + 1 + routine.length + 1;
     if (unlikely(!(tmp= (char *) alloc_root(mem_root, length))))
       return true;
-    m_name.length= my_snprintf(tmp, length, "%.*s.%.*s",
-                               (int) package.length, package.str,
-                               (int) routine.length, routine.str);
+    m_name.length= Identifier_chain2(package, routine).make_qname(tmp, length);
     m_name.str= tmp;
     return false;
   }
@@ -7848,7 +8322,8 @@ public:
   { }
   LEX_CSTRING lex_cstring() const override
   {
-    size_t length= m_name->make_qname(err_buffer, sizeof(err_buffer));
+    size_t length= m_name->to_identifier_chain2().make_qname(err_buffer,
+                                                           sizeof(err_buffer));
     return {err_buffer, length};
   }
 };
@@ -7856,20 +8331,22 @@ public:
 class Type_holder: public Sql_alloc,
                    public Item_args,
                    public Type_handler_hybrid_field_type,
-                   public Type_all_attributes
+                   public Type_all_attributes,
+                   public Type_extra_attributes
 {
-  const TYPELIB *m_typelib;
   bool m_maybe_null;
 public:
   Type_holder()
-   :m_typelib(NULL),
-    m_maybe_null(false)
+  :m_maybe_null(false)
   { }
 
-  void set_type_maybe_null(bool maybe_null_arg) { m_maybe_null= maybe_null_arg; }
+  void set_type_maybe_null(bool maybe_null_arg) override
+  {
+    m_maybe_null= maybe_null_arg;
+  }
   bool get_maybe_null() const { return m_maybe_null; }
 
-  decimal_digits_t decimal_precision() const
+  decimal_digits_t decimal_precision() const override
   {
     /*
       Type_holder is not used directly to create fields, so
@@ -7881,13 +8358,13 @@ public:
     DBUG_ASSERT(0);
     return 0;
   }
-  void set_typelib(const TYPELIB *typelib)
+  Type_extra_attributes *type_extra_attributes_addr() override
   {
-    m_typelib= typelib;
+    return this;
   }
-  const TYPELIB *get_typelib() const
+  const Type_extra_attributes type_extra_attributes() const override
   {
-    return m_typelib;
+    return *this;
   }
 
   bool aggregate_attributes(THD *thd)
@@ -8027,6 +8504,10 @@ extern THD_list server_threads;
 
 void setup_tmp_table_column_bitmaps(TABLE *table, uchar *bitmaps,
                                     uint field_count);
+C_MODE_START
+void mariadb_sleep_for_space(unsigned int seconds);
+C_MODE_END
+
 #ifdef WITH_WSREP
 extern void wsrep_to_isolation_end(THD*);
 #endif
@@ -8062,6 +8543,24 @@ public:
 #endif
   }
 };
+
+
+/**
+  Make a new string allocated on THD's mem-root.
+
+  @param thd        thread handler.
+  @param start_ptr  start of the new string.
+  @param end_ptr    end of the new string.
+
+  @return LEX_CSTRING object, containing a pointer to a newly
+  constructed/allocated string, and its length. The data member
+  LEX_CSTRING::str has the value nullptr in case of out-of-memory error.
+*/
+
+LEX_CSTRING make_string(THD *thd, const char *start_ptr,
+                        const char *end_ptr);
+
+#include "deprecation.h"
 
 #endif /* MYSQL_SERVER */
 #endif /* SQL_CLASS_INCLUDED */

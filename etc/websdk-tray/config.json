@@ -19,22 +19,6 @@
             ]
         },
         {
-            "name": "apache",
-            "label": "Apache SSL",
-            "exec": [
-                "cmd.exe /C C:/WebSdk/lib/apache/start.bat"
-            ],
-            "off": [
-                "taskkill.exe /f /IM httpd.exe"
-            ],
-            "visible": [
-                "C:/WebSdk/lib/apache"
-            ],
-            "check": [
-                "httpd.exe"
-            ]
-        },
-        {
             "name": "adm",
             "label": "Adminer",
             "exec": [
@@ -75,12 +59,34 @@
             "visible": [
                 "no"
             ]
+        },
+        {
+            "name": "httpd",
+            "label": "Switch to Apache + PHP8.3",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/lib/httpd/start.bat"
+            ]
+        },
+        {
+            "name": "apache",
+            "label": "Apache SSL",
+            "exec": [
+                "cmd.exe /C C:/WebSdk/lib/apache/start.bat"
+            ],
+            "off": [
+                "taskkill.exe /f /IM httpd.exe"
+            ],
+            "visible": [
+                "C:/WebSdk/lib/apache"
+            ],
+            "check": [
+                "httpd.exe"
+            ]
         }
     ],
     "check": {
         "process": [
             "mariadbd.exe",
-            "php-cgi.exe",
             "nginx.exe"
         ],
         "items": [

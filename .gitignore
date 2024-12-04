@@ -18,7 +18,7 @@ phpMyAdmin
 var/www/adminer/themes/backup
 .idea
 extra.*.conf
-apache
+lib/apache*
 *.cache
 adminer.css
 adminer.json

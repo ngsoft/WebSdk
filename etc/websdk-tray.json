@@ -1,0 +1,168 @@
+{
+    "label": "Web SDK",
+    "autostart": false,
+    "menu": [
+        {
+            "name": "on",
+            "label": "WebSdk on [nginx|php8.3|mariadb]",
+            "notify": [
+                "Démarrage du WebSdk [nginx|php8.3|mariadb]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-cgi.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-nginx.bat"
+            ],
+            "checks": {
+                "process": [
+                    "nginx.exe",
+                    "php-cgi.exe"
+                ]
+            },
+            "visible": [
+                "mariadb"
+            ]
+        },
+        {
+            "name": "httpd",
+            "label": "WebSdk on [apache|php8.3|mariadb]",
+            "notify": [
+                "Démarrage du WebSdk [apache|php8.3|mariadb]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/httpd/start.bat"
+            ],
+            "checks": {
+                "process": [
+                    "httpd.exe"
+                ]
+            },
+            "visible": [
+                "mariadb"
+            ]
+        },
+        {
+            "name": "on_mariadb",
+            "label": "WebSdk on [nginx|php8.3|mariadb]",
+            "notify": [
+                "Démarrage du WebSdk [nginx|php8.3|mariadb]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-cgi.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-nginx.bat"
+            ],
+            "checks": {
+                "process": [
+                    "mariadbd.exe",
+                    "nginx.exe",
+                    "php-cgi.exe"
+                ]
+            },
+            "icons": [
+                "icons/on.png",
+                "icons/dark/on.png"
+            ],
+            "visible": [
+                "!mariadb"
+            ]
+        },
+        {
+            "name": "httpd_mariadb",
+            "label": "WebSdk on [apache|php8.3|mariadb]",
+            "notify": [
+                "Démarrage du WebSdk [apache|php8.3|mariadb]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",
+                "cmd.exe /C C:/WebSdk/lib/httpd/start.bat"
+            ],
+            "checks": {
+                "process": [
+                    "mariadbd.exe",
+                    "httpd.exe"
+                ]
+            },
+            "icons": [
+                "icons/on.png",
+                "icons/dark/on.png"
+            ],
+            "visible": [
+                "!mariadb"
+            ]
+        },
+        {
+            "name": "off",
+            "label": "WebSdk off",
+            "notify": [
+                "Arrêt du WebSdk"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/httpd/stop.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-nginx.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-cgi.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-mariadb.bat"
+            ],
+            "icons": [
+                "icons/off.png",
+                "icons/dark/off.png"
+            ]
+        },
+        "separator",
+        {
+            "name": "adm",
+            "label": "Lancer Adminer",
+            "start": [
+                "cmd.exe /C start  http://localhost/adminer/?server=localhost&username=root"
+            ],
+            "visible": [
+                "!off",
+                "adm-enabled"
+            ]
+        },
+        {
+            "name": "pma",
+            "label": "Lancer PhpMyAdmin",
+            "start": [
+                "cmd.exe /C start  http://localhost/phpmyadmin/index.php?route=/"
+            ],
+            "visible": [
+                "!off",
+                "pma-enabled"
+            ]
+        },
+        {
+            "name": "adm-enabled",
+            "label": "adm-enabled",
+            "visible": false,
+            "checks": {
+                "files": [
+                    "c:/WebSdk/var/www/adminer/adminer.php"
+                ]
+            }
+        },
+        {
+            "name": "pma-enabled",
+            "label": "pma-enabled",
+            "visible": false,
+            "checks": {
+                "files": [
+                    "c:/WebSdk/var/www/PhpMyAdmin/index.php"
+                ]
+            }
+        },
+        {
+            "name": "mariadb",
+            "label": "mariadb",
+            "visible": false,
+            "checks": {
+                "process": [
+                    "mariadbd.exe"
+                ]
+            }
+        }
+    ],
+    "labels": {
+        "Exit": "Quitter",
+        "Auto Start": "Démarrage automatique"
+    }
+}

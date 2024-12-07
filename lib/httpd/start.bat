@@ -2,12 +2,10 @@
 
 setlocal
 
-taskkill /f /IM nginx.exe
-taskkill /f /IM httpd.exe
-taskkill /f /IM php-cgi.exe
-
+call "%~dp0stop.bat"
 call "%~dp0..\sdk\loadenv.bat"
-
-pushd "%~dp0\bin"
-    "%SDK%daemonize.exe" .\nginx.exe
+taskkill /f /IM nginx.exe > NUL 2>&1
+pushd "%~dp0bin"
+    "%SDK%daemonize.exe" .\httpd.exe
 popd
+

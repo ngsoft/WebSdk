@@ -1,4 +1,4 @@
-**/databases
+lib/mariadb/databases*
 **/tmp
 **/logs
 **/temp

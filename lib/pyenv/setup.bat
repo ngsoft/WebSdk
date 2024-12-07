@@ -86,6 +86,7 @@ if not exist "%py3%" (
 )
 
 echo Installing/Updating essential modules ...
-"%py3%python.exe" -m pip install --upgrade pip virtualenv pyinstaller --no-warn-script-location
+"%py3%python.exe" -m pip install --upgrade pip virtualenv pyinstaller pipupgrade --no-warn-script-location
 
+@REM pipupgrade --verbose --latest --yes
 @REM Its done!

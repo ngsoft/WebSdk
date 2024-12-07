@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <title>Welcome to nginx!</title>
@@ -30,7 +30,7 @@
     <p><em>Thank you for using nginx.</em></p>
     <p>You are using PHP version <strong><?= PHP_VERSION ?></strong></p>
     <?php
-    $apps = ['phpMyAdmin', 'adminer'];
+    $apps = ['adminer', 'phpMyAdmin',];
     if (PHP_VERSION_ID < 70250) {
         $apps = ['adminer'];
     }

@@ -80,3 +80,6 @@ if ERRORLEVEL 1 (
     echo Adding startup item...
     REG ADD "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "WebSDK" /t REG_SZ /F /D "%bin%websdk-tray.exe"
 )
+
+if NOT EXIST "%etc%websdk-tray.json" copy "%etc%websdk-tray-dist.json" "%etc%websdk-tray.json" > NUL 2>&1
+copy "%sdk%WebSdk.lnk" "C:\ProgramData\Microsoft\Windows\Start Menu\Programs" > NUL 2>&1

@@ -22,3 +22,4 @@ lib/apache*
 *.cache
 adminer.css
 adminer.json
+websdk-tray.json

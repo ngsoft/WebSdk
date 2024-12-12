@@ -118,7 +118,7 @@
                 "explorer.exe C:\\WebSdk\\lib\\httpd\\conf\\custom"
             ],
             "visible": [
-                "httpd"
+                "httpd_mariadb"
             ]
         },
         {

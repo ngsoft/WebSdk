@@ -16,6 +16,7 @@ python iconloader.py
 
 ```cmd
 pyinstaller --onefile --icon app.ico websdk-tray.pyw
+@REM pyinstaller --uac-admin --onefile --icon app.ico websdk-tray.pyw
 cp websdk-tray.json dist\
 ```
 

@@ -1,9 +1,17 @@
 @echo off
 setlocal
-call "%~dp0stop-cgi.bat" > NUL 2>&1
-
 @REM Loads Environment
 call "%~dp0..\loadenv.bat"
+
+@REM Checks UAC
+NET FILE > NUL 2>&1
+if "%ERRORLEVEL%" == "0" goto script
+@REM Run elevated
+"%elevate%" "%sdk%daemonize.exe" cmd.exe /C "%~fx0"
+goto :eof
+:script
+@REM Run Script Elevated
+call "%~dp0stop-cgi.bat" > NUL 2>&1
 
 if not defined opts (
     @REM Most compatible options (overridden by conf file)
@@ -19,6 +27,7 @@ if exist "%etc%php-cgi/%php_version%.bat" (
     call "%etc%php-cgi/%php_version%.bat"
 )
 
-
 echo Starting PHP %php_version% FastCGI on port 9802...
-"%SDK%daemonize.exe" "%lib%php\%php_version%\php-cgi.exe" -b 127.0.0.1:9802 %opts%
+    pushd "%lib%php\%php_version%"
+    "%sdk%daemonize.exe" php-cgi.exe -c .\php.ini -b 9802 %opts% 
+popd

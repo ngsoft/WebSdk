@@ -6,16 +6,12 @@ import winreg
 import win32api
 import time
 import subprocess
+import sys
 from iconloader import IconLoader
 
 appName = "Tray"
 exeName = "tray"
 pth = "."
-
-
-# noinspection PyUnresolvedReferences
-def alert(msg, title=appName):
-    win32api.MessageBox(0, msg, title)
 
 
 try:
@@ -36,6 +32,12 @@ darkMode = False
 canRun = True
 loopCount = 0
 loopInterval = 4
+waitBetweenProcesses = 0.5
+
+
+# noinspection PyUnresolvedReferences
+def alert(msg, title=appName):
+    win32api.MessageBox(0, msg, title)
 
 
 def check_darkmode(useSystem=True):
@@ -78,18 +80,21 @@ def save_config(cfg, file=configFile):
         return False
 
 
-def run_command(cmd):
+def run_command(cmd, waitBefore=0.0):
 
-    if not isinstance(cmd, list):
-        cmd = cmd.split()
     try:
+        if waitBefore > 0:
+            time.sleep(waitBefore)
+
+        if not isinstance(cmd, list):
+            cmd = cmd.split()
         subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=0x08000000,
         )
-
+        # subprocess.run(cmd, creationflags=0x08000000)
     except:
         pass
 
@@ -97,7 +102,7 @@ def run_command(cmd):
 def run_process_list(processList):
     try:
         for cmd in processList:
-            run_command(cmd)
+            run_command(cmd, waitBetweenProcesses)
     except:
         pass
 
@@ -239,7 +244,6 @@ def action_click(app, item):
 
 
 def run_item(name):
-    print("run", name)
     action = "start"
     launch = list()
     if len(starters[name]) > 0:
@@ -266,7 +270,6 @@ def action_visible(item):
         return visibility[name]
     for mode in visibility[name]:
         if mode[0] == "!":
-            # print(name, "<->", mode)
             mode = mode[1:]
             if mode in states and states[mode]:
                 return False
@@ -324,6 +327,7 @@ canAutoStart = False
 prevMode = activeMode = None
 activeModes = list()  # reference all the modes that can be activated (with icons)
 
+
 if __name__ == "__main__":
     # load config
     config = load_config(configFile)
@@ -337,6 +341,9 @@ if __name__ == "__main__":
             appName = config["label"]
         if "autostart" in config:
             autostart = config["autostart"] == True
+        if "waitBetweenProcesses" in config and config["waitBetweenProcesses"] > 0:
+            waitBetweenProcesses = float(config["waitBetweenProcesses"])
+
         if "labels" in config:
             if isinstance(config["labels"], dict):
                 for k, v in config["labels"].items():
@@ -455,7 +462,9 @@ if __name__ == "__main__":
         items.append(pystray.Menu.SEPARATOR)
         items.append(
             pystray.MenuItem(
-                labels["Auto Start"], action_autostart, checked=lambda item: autostart
+                labels["Auto Start"],
+                action_autostart,
+                checked=lambda item: autostart,
             )
         )
     items.append(pystray.Menu.SEPARATOR)

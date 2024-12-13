@@ -1,10 +1,11 @@
 {
     "label": "Web SDK",
     "autostart": false,
+    "waitBetweenProcesses": 1,
     "menu": [
         {
             "name": "on",
-            "label": "WebSdk on [nginx|php8.3|mariadb]",
+            "label": "Démarrer WebSdk[nginx|php8.3|mariadb]",
             "notify": [
                 "Démarrage du WebSdk [nginx|php8.3|mariadb]"
             ],
@@ -24,7 +25,7 @@
         },
         {
             "name": "httpd",
-            "label": "WebSdk on [apache|php8.3|mariadb]",
+            "label": "Démarrer WebSdk[apache|php8.3|mariadb]",
             "notify": [
                 "Démarrage du WebSdk [apache|php8.3|mariadb]"
             ],
@@ -105,9 +106,22 @@
             "icons": [
                 "icons/off.png",
                 "icons/dark/off.png"
+            ],
+            "visible": [
+                "!off"
             ]
         },
         "separator",
+        {
+            "name": "httpd-conf",
+            "label": "Configurer Apache",
+            "start": [
+                "explorer.exe C:\\WebSdk\\lib\\httpd\\conf\\custom"
+            ],
+            "visible": [
+                "httpd_mariadb"
+            ]
+        },
         {
             "name": "adm",
             "label": "Lancer Adminer",

@@ -1,6 +1,7 @@
 {
     "label": "Web SDK",
     "autostart": false,
+    "waitBetweenProcesses": 1,
     "menu": [
         {
             "name": "on",

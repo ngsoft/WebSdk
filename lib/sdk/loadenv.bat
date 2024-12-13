@@ -15,6 +15,7 @@ set "nginx=%lib%nginx\"
 set "php81=%lib%php\8.1\"
 set "php82=%lib%php\8.2\"
 set "php83=%lib%php\8.3\"
+set "php84=%lib%php\8.4\"
 set "php74=%lib%php\7.4\"
 set "php56=%lib%php\5.6\"
 set "php55=%lib%php\5.5\"
@@ -28,4 +29,5 @@ set "gvm=%lib%gvm\"
 set "go=%lib%go\"
 @REM 7zip
 set "unpack=%bin%7zr.exe"
+set "elevate=%bin%elevate.exe"
 

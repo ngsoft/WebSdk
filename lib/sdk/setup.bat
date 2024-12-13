@@ -48,7 +48,7 @@ setlocal enabledelayedexpansion
 pushd "%~dp0"
     call loadenv.bat
     call :install_nvm
-    for %%f in (bin lib\mariadb\bin lib\php\8.3 lib\php\8.2 lib\php\8.1 lib\php\7.4 lib\php\5.6 lib\php\5.5 lib\pear) do (
+    for %%f in (bin lib\mariadb\bin lib\php\8.3 lib\php\8.2 lib\php\8.4 lib\php\8.1 lib\php\7.4 lib\php\5.6 lib\php\5.5 lib\pear) do (
         call :addpath_sdk "%%f"
     )
 popd
@@ -83,3 +83,10 @@ if ERRORLEVEL 1 (
 
 if NOT EXIST "%etc%websdk-tray.json" copy "%etc%websdk-tray-dist.json" "%etc%websdk-tray.json" > NUL 2>&1
 copy "%sdk%WebSdk.lnk" "C:\ProgramData\Microsoft\Windows\Start Menu\Programs" > NUL 2>&1
+
+@REM add demonize.exe admin flag
+@REM REG query "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /V "%sdk%demonize.exe" > NUL 2>&1
+@REM if ERRORLEVEL 1 (
+@REM     echo Adding demonizer...
+@REM     REG ADD "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /reg:64 /V "%sdk%demonize.exe" /t REG_SZ /D "~ RUNASADMIN" /F
+@REM )

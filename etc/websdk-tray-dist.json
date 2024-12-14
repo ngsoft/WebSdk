@@ -5,9 +5,9 @@
     "menu": [
         {
             "name": "on",
-            "label": "Démarrer WebSdk[nginx|php8.3|mariadb]",
+            "label": "Démarrer WebSdk[nginx|php8.4|mariadb]",
             "notify": [
-                "Démarrage du WebSdk [nginx|php8.3|mariadb]"
+                "Démarrage du WebSdk [nginx|php8.4|mariadb]"
             ],
             "start": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-cgi.bat",
@@ -25,9 +25,9 @@
         },
         {
             "name": "httpd",
-            "label": "Démarrer WebSdk[apache|php8.3|mariadb]",
+            "label": "Démarrer WebSdk[apache|mariadb]",
             "notify": [
-                "Démarrage du WebSdk [apache|php8.3|mariadb]"
+                "Démarrage du WebSdk [apache|mariadb]"
             ],
             "start": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
@@ -43,9 +43,9 @@
         },
         {
             "name": "on_mariadb",
-            "label": "WebSdk on [nginx|php8.3|mariadb]",
+            "label": "WebSdk on [nginx|php8.4|mariadb]",
             "notify": [
-                "Démarrage du WebSdk [nginx|php8.3|mariadb]"
+                "Démarrage du WebSdk [nginx|php8.4|mariadb]"
             ],
             "start": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",
@@ -69,9 +69,9 @@
         },
         {
             "name": "httpd_mariadb",
-            "label": "WebSdk on [apache|php8.3|mariadb]",
+            "label": "WebSdk on [apache|mariadb]",
             "notify": [
-                "Démarrage du WebSdk [apache|php8.3|mariadb]"
+                "Démarrage du WebSdk [apache|mariadb]"
             ],
             "start": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",

@@ -1,5 +1,8 @@
 @echo off
 setlocal
+
+echo Stopping MariaDB...
+
 @REM Loads Environment
 call "%~dp0..\loadenv.bat"
 
@@ -11,7 +14,6 @@ if "%ERRORLEVEL%" == "0" goto script
 goto :eof
 :script
 @REM Run Script Elevated
-echo Stopping MariaDB...
 pushd "%~dp0..\..\mariadb"
     bin\mariadb-admin.exe shutdown -uroot -ptoor > NUL 2>&1
     if ERRORLEVEL 0 (

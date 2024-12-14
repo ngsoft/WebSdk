@@ -1,8 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+<?php
+
+$software = explode(" ", $_SERVER["SERVER_SOFTWARE"])[0];
+$softwareType = strtolower(explode("/", $software)[0]);
+$softwareVersion = explode("/", $software)[1];
+$softwareName = ucfirst($softwareType);
+$cgi = isset($_SERVER["FCGI_ROLE"]) ? " Fast CGI" : "";
+
+?>
 
 <head>
-    <title>Welcome to nginx!</title>
+    <title>Welcome to <?= "$softwareName $softwareVersion" ?>!</title>
     <style>
         html {
             color-scheme: light dark;
@@ -13,25 +22,42 @@
             margin: 0 auto;
             font-family: Poppins, Tahoma, Verdana, Arial, sans-serif;
         }
+
+        small {
+            margin-left: 16px;
+            vertical-align: baseline;
+        }
     </style>
 </head>
 
 <body>
-    <h1>Welcome to nginx!</h1>
-    <p>If you see this page, the nginx web server is successfully installed and
+    <h1>Welcome to <?= "$softwareName $softwareVersion" ?>!</h1>
+    <p>If you see this page, the <?= $softwareType ?> web server is successfully installed and
         working.</p>
+    <?php if ($softwareType === "nginx") : ?>
+        <p>For online documentation and support please refer to
+            <a target="_blank" href="http://nginx.org/">nginx.org</a>.<br />
+            Commercial support is available at
+            <a target="_blank" href="http://nginx.com/">nginx.com</a>.
+        </p>
 
-    <p>For online documentation and support please refer to
-        <a href="http://nginx.org/">nginx.org</a>.<br />
-        Commercial support is available at
-        <a href="http://nginx.com/">nginx.com</a>.
+
+    <?php else : ?>
+        <p>For online documentation and support please refer to
+            <a target="_blank" href="https://httpd.apache.org/docs/2.4/">apache.org</a>.<br />
+            User support is available at
+            <a target="_blank" href="https://httpd.apache.org/support.html">apache.org</a>.
+        </p>
+
+    <?php endif; ?>
+    <p><em>Thank you for using <?= $softwareType ?>.</em></p>
+    <p>You are using PHP version
+        <strong><?= PHP_VERSION . $cgi ?></strong>
+        <small><?= PHP_VERSION_ID ?></small>
     </p>
-
-    <p><em>Thank you for using nginx.</em></p>
-    <p>You are using PHP version <strong><?= PHP_VERSION ?></strong></p>
     <?php
-    $apps = ['adminer', 'phpMyAdmin',];
-    if (PHP_VERSION_ID < 70250) {
+    $apps = ['phpMyAdmin', 'adminer',];
+    if (PHP_VERSION_ID < 70250 || PHP_VERSION_ID > 80401) {
         $apps = ['adminer'];
     }
     foreach ($apps as $app) {
@@ -44,8 +70,9 @@
     <script>
         setTimeout(() => {
             location.href = `/<?= $app ?>`;
-        }, 2000);
+        }, 5000);
     </script>
+
 </body>
 
 </html>

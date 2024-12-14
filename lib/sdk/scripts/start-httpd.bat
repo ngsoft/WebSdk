@@ -1,8 +1,10 @@
 @echo off
 setlocal
-@REM Loads Environment
-call "%~dp0..\sdk\loadenv.bat"
 
+echo Starting Apache on port 80...
+
+@REM Loads Environment
+call "%~dp0..\loadenv.bat"
 @REM Checks UAC
 NET FILE > NUL 2>&1
 if "%ERRORLEVEL%" == "0" goto script
@@ -11,9 +13,9 @@ if "%ERRORLEVEL%" == "0" goto script
 goto :eof
 :script
 @REM Run Script Elevated
-call "%~dp0stop.bat"
-
-pushd "%~dp0bin"
-    "%SDK%daemonize.exe" .\httpd.exe
+call "%~dp0stop-httpd.bat"
+taskkill /f /IM nginx.exe > NUL 2>&1
+pushd "%httpd%"
+    "%sdk%daemonize.exe" httpd.exe
 popd
 

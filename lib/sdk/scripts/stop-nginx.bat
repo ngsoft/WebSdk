@@ -1,5 +1,8 @@
 @echo off
 setlocal
+
+echo Stopping Nginx...
+
 @REM Loads Environment
 call "%~dp0..\loadenv.bat"
 
@@ -11,6 +14,4 @@ if "%ERRORLEVEL%" == "0" goto script
 goto :eof
 :script
 @REM Run Script Elevated
-
-echo Stopping Nginx...
 taskkill /F /IM nginx.exe > NUL 2>&1

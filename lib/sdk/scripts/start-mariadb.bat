@@ -1,5 +1,8 @@
 @echo off
 setlocal
+
+echo Starting MariaDB on port 3306...
+
 @REM Loads Environment
 call "%~dp0..\loadenv.bat"
 
@@ -22,6 +25,5 @@ pushd "%mariadb%"
         set starting=true
         call "%sdk%scripts\stop-mariadb.bat" > NUL
     )
-    echo Starting MariaDB on port 3306...
     "%sdk%daemonize.exe" bin\mariadbd.exe --defaults-file=databases\my.ini --console
 popd

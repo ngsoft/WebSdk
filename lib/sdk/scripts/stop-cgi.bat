@@ -1,5 +1,8 @@
 @echo off
 setlocal
+
+echo Stopping PHP FastCGI...
+
 @REM Loads Environment
 call "%~dp0..\loadenv.bat"
 
@@ -11,5 +14,4 @@ if "%ERRORLEVEL%" == "0" goto script
 goto :eof
 :script
 @REM Run Script Elevated
-echo Stopping PHP FastCGI...
 taskkill /F /IM php-cgi.exe  > NUL 2>&1

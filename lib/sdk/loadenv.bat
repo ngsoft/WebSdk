@@ -11,6 +11,7 @@ set "nvm=%lib%nvm\"
 set "mariadb=%lib%mariadb\"
 @REM web
 set "nginx=%lib%nginx\"
+set "httpd=%lib%httpd\bin\"
 @REM php
 set "php81=%lib%php\8.1\"
 set "php82=%lib%php\8.2\"

@@ -30,7 +30,7 @@
                 "Démarrage du WebSdk [apache|php8.3|mariadb]"
             ],
             "start": [
-                "cmd.exe /C C:/WebSdk/lib/httpd/start.bat"
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
             ],
             "checks": {
                 "process": [
@@ -75,7 +75,7 @@
             ],
             "start": [
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",
-                "cmd.exe /C C:/WebSdk/lib/httpd/start.bat"
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
             ],
             "checks": {
                 "process": [
@@ -98,7 +98,7 @@
                 "Arrêt du WebSdk"
             ],
             "start": [
-                "cmd.exe /C C:/WebSdk/lib/httpd/stop.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-httpd.bat",
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-nginx.bat",
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-cgi.bat",
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-mariadb.bat"
@@ -106,9 +106,6 @@
             "icons": [
                 "icons/off.png",
                 "icons/dark/off.png"
-            ],
-            "visible": [
-                "!off"
             ]
         },
         "separator",

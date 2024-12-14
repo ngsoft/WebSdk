@@ -1,6 +1,7 @@
 lib/mariadb/databases*
 **/tmp
 **/logs
+!.gitignore
 **/temp
 **/certs
 **/*.wget*

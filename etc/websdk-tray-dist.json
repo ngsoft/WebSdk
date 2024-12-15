@@ -110,8 +110,34 @@
         },
         "separator",
         {
+            "name": "php-info",
+            "label": "Afficher informations PHP",
+            "start": [
+                "cmd.exe /C start  http://localhost/adminer/info.php"
+            ],
+            "visible": [
+                "!off"
+            ]
+        },
+        {
+            "name": "cgi-conf",
+            "label": "Changer nginx PHP version",
+            "notify": [
+                "Modifier la version de php et relancer le WebSDK"
+            ],
+            "start": [
+                "notepad.exe C:\\WebSdk\\etc\\php-cgi.bat"
+            ],
+            "visible": [
+                "on_mariadb"
+            ]
+        },
+        {
             "name": "httpd-conf",
             "label": "Configurer Apache",
+            "notify": [
+                "Ajoutez des alias, virtual hosts ou changez la version de PHP"
+            ],
             "start": [
                 "explorer.exe C:\\WebSdk\\lib\\httpd\\conf\\custom"
             ],

@@ -31,4 +31,6 @@ set "go=%lib%go\"
 @REM 7zip
 set "unpack=%bin%7zr.exe"
 set "elevate=%bin%elevate.exe"
+set "daemonize=%sdk%daemonize.exe"
+set "spawner=%sdk%php-cgi-spawner.exe"
 

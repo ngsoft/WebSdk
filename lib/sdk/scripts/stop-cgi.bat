@@ -10,8 +10,9 @@ call "%~dp0..\loadenv.bat"
 NET FILE > NUL 2>&1
 if "%ERRORLEVEL%" == "0" goto script
 @REM Run elevated
-"%elevate%" "%sdk%daemonize.exe" cmd.exe /C "%~fx0"
+"%elevate%" "%daemonize%" cmd.exe /C "%~fx0"
 goto :eof
 :script
 @REM Run Script Elevated
+taskkill /F /IM php-cgi-spawner.exe  > NUL 2>&1
 taskkill /F /IM php-cgi.exe  > NUL 2>&1

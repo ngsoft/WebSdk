@@ -1,5 +1,5 @@
 @echo off
-setlocal
-call "%~dp0..\lib\sdk\loadenv.bat"
-set "php=%php84%"
-call "%~dp0phan.bat" %*
+echo.
+echo PHP 8.4 is not supported by phan yet
+echo.
+exit /b 1

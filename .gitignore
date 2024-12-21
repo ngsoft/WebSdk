@@ -24,4 +24,7 @@ lib/apache*
 adminer.css
 adminer.json
 websdk-tray.json
+
+# dev versions tests and sql exports
 *.sql.gz
+lib/php/[5-9].[0-9].*/

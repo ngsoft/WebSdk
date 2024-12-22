@@ -62,7 +62,6 @@ class ThemeSwitcher
                         break 2;
                     }
                 }
-
             }
         }
 
@@ -151,7 +150,6 @@ class ThemeSwitcher
             $data["dark"] = $data["fix"] = false;
         }
         return $data;
-
     }
 
     public static function saveJsonData($file = "adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false, $fix = false)

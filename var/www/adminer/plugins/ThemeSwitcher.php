@@ -4,20 +4,69 @@ class ThemeSwitcher
 {
     const THEMES_LOCATION = '%s/themes/';
     const BACKUP_LOCATION = '%s/themes/backup/';
-    const GH_THEME_LIST = 'https://api.github.com/repos/vrana/adminer/contents/designs';
-    const GH_THEME_DOWNLOAD = 'https://raw.githubusercontent.com/vrana/adminer/master/designs/%s/adminer.css';
+    const GH_THEME_LIST = 'https://api.github.com/repos/%s/contents/designs';
+    const GH_THEME_DOWNLOAD = 'https://raw.githubusercontent.com/%s/master/designs/%s/adminer.css';
 
     const PROMPT = 'Type the number of the theme you want to use: ';
     const THEME_FILE = 'adminer.css';
     public static $themeList = [];
-
     private static $option = '';
-
     private static $theme = null;
+    private static $sessionFile = "adminer.session";
+
+    public static $product = "Adminer";
+    public static $repo = [
+        "Adminer" => "vrana/adminer",
+        "AdminerEvo" => "adminerevo/adminerevo",
+    ];
+
+    public function head()
+    {
+        self::updateAdminerSession(connect());
+
+        ?>
+        <script<?php echo nonce(); ?> type="text/javascript">
+            addEventListener("DOMContentLoaded", () => {
+                let
+                    menu = document.getElementById('menu'),
+                    h1 = menu.querySelector("h1"),
+                    hasLinks = menu.querySelector('.links') !== null && h1 !== null;
+
+                if (hasLinks) {
+                    const c = document.createElement('div');
+                    c.style = `padding: 8px; display:flex; column-gap:8px;justify-content: space-between;`;
+                    c.innerHTML = [
+                        `<a href="./theme-switcher.php">Switch theme</a>`,
+                        `<a href="./info.php">PHP Infos</a>`
+                    ].join('');
+                    h1.parentElement.insertBefore(c, h1.nextElementSibling)
+                }
+
+            });
+        </script>
+        <style>
+            .links {
+                display: flex;
+            }
+
+            #menu > h1 {
+                border-top: 1px solid transparent;
+            }
+        </style>
+        <?php
+    }
 
 
     public static function startAdminerSession()
     {
+
+        static $ok = false;
+
+        if ($ok) {
+            return;
+        }
+        $ok = true;
+
         $sid = "";
         if (isset($_COOKIE["adminer_sid"])) {
             $sid = $_COOKIE["adminer_sid"];
@@ -33,8 +82,18 @@ class ThemeSwitcher
             session_start();
         }
 
-        if (isset($_SESSION['themes']) && empty(self::$themeList)) {
-            self::$themeList = $_SESSION['themes'];
+        if (empty(self::$themeList[self::$product]) && isset($_SESSION['themes'][self::$product])) {
+            self::$themeList = $_SESSION['themes'][self::$product];
+        }
+    }
+
+
+    public static function updateAdminerSession($connect = null)
+    {
+        $file = sys_get_temp_dir() . "/" . self::$sessionFile;
+        @unlink($file);
+        if ($connect) {
+            @file_put_contents($file, date("Y-m-d H:i:s", time() + 600));
         }
     }
 
@@ -43,29 +102,32 @@ class ThemeSwitcher
     {
         self::startAdminerSession();
 
+        $file = sys_get_temp_dir() . "/" . self::$sessionFile;
+        $date = @file_get_contents($file);
+        if (is_string($date)) {
+            $time = strtotime($date);
+            return $time > time();
+        }
+        return false;
+    }
 
-        $loggedIn = false;
-        $pwds = isset($_SESSION['pwds']) ? $_SESSION['pwds'] : [];
 
-        if (isset($pwds["server"])) {
-            foreach ($pwds["server"] as $server) {
-                foreach ($server as $list) {
-                    if (is_array($list)) {
-                        foreach ($list as $item) {
-                            if (is_string($item)) {
-                                $loggedIn = true;
-                                break 3;
-                            }
-                        }
-                    } elseif (is_string($list)) {
-                        $loggedIn = true;
-                        break 2;
-                    }
-                }
-            }
+    public static function getRepo($type = null)
+    {
+
+        $versions = array_keys(self::$repo);
+
+        if ($type === null) {
+            $type = self::$product;
         }
 
-        return $loggedIn;
+
+        foreach ($versions as $version) {
+            if (strtolower($type) === strtolower($version)) {
+                return self::$repo[$version];
+            }
+        }
+        return self::$repo["Adminer"];
     }
 
 
@@ -98,7 +160,10 @@ class ThemeSwitcher
         if (empty($file)) {
             return $location;
         }
-        return $location . "$file.css";
+
+        $product = &self::$product;
+
+        return $location . mb_strtolower("$file-$product.css");
     }
 
     public static function getThemeLocation($theme = '')
@@ -120,7 +185,7 @@ class ThemeSwitcher
             return $result;
         }
 
-        return sprintf(self::GH_THEME_DOWNLOAD, $theme);
+        return sprintf(self::GH_THEME_DOWNLOAD, self::getRepo(), $theme);
     }
 
 
@@ -137,7 +202,8 @@ class ThemeSwitcher
 
 
         $file = self::getAdminerLocation() . DIRECTORY_SEPARATOR . $file;
-        if (file_exists($file)) {
+
+        if (is_file($file)) {
             $newData = json_decode(file_get_contents($file), true);
             foreach (array_keys($data) as $key) {
                 if (gettype($data[$key]) === gettype($newData[$key])) {
@@ -174,13 +240,13 @@ class ThemeSwitcher
     {
 
         self::startAdminerSession();
-        if (empty(self::$themeList)) {
+        if (empty(self::$themeList[self::$product])) {
             $list = [];
 
 
             if (
                 $json = @file_get_contents(
-                    self::GH_THEME_LIST,
+                    sprintf(self::GH_THEME_LIST, self::getRepo()),
                     false,
                     stream_context_create([
                         'http' => [
@@ -215,16 +281,16 @@ class ThemeSwitcher
             }
 
             natsort($list);
-            self::$themeList = array_values($list);
+            self::$themeList[self::$product] = array_values($list);
 
             // prevents api call on browsers
-            if (!self::isRunningFromCommandLine() && count(self::$themeList) > 10) {
+            if (!self::isRunningFromCommandLine() && count(self::$themeList[self::$product]) > 10) {
                 $_SESSION['themes'] = self::$themeList;
             }
         }
 
 
-        return self::$themeList;
+        return self::$themeList[self::$product];
     }
 
 
@@ -234,6 +300,7 @@ class ThemeSwitcher
             'Downloaded' => [],
             'Available' => self::getThemeList()
         ];
+
 
         $downloaded = &$groups['Downloaded'];
         $available = &$groups['Available'];
@@ -390,6 +457,7 @@ class ThemeSwitcher
         $optGroups = self::getThemeOptionGroups();
         $current = self::getSelectedTheme();
         $groups = [];
+
 
         foreach ($optGroups as $groupName => $themes) {
             if (!isset($groups[$groupName])) {

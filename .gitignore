@@ -17,6 +17,7 @@ var/vendor
 var/composer.lock
 phpMyAdmin
 var/www/adminer/themes/backup
+var/www/**/*.db
 .idea
 extra.*.conf
 lib/apache*

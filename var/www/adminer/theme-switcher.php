@@ -64,23 +64,29 @@ function renderArgs($arguments, $prefix = '')
     return implode(' ', $result);
 }
 
-$loggedIn = ThemeSwitcher::isLoggedInAdminer();
 
+$vendors = array_keys(ThemeSwitcher::$repo);
+$product = &ThemeSwitcher::$product;
+if (isset($_GET["product"]) && in_array($_GET["product"], $vendors)) {
+    $product = $_GET["product"];
+}
+
+$loggedIn = ThemeSwitcher::isLoggedInAdminer();
 
 if ($loggedIn && isset($_SERVER["HTTP_REFERER"]) && false !== strpos($_SERVER["HTTP_REFERER"], "username")) {
     $_SESSION["redirectAdminer"] = $_SERVER["HTTP_REFERER"];
 }
 
-
 unset($_SESSION["themeData"]);
 $currentData = ThemeSwitcher::loadJsonData();
 $customThemes = [
-    "default-blue" => "Custom Adminer Blue",
-    "default-green" => "Custom Adminer Green",
-    "default-orange" => "Custom Adminer Orange",
+    "default-blue" => "Custom $product Blue",
+    "default-green" => "Custom $product Green",
+    "default-orange" => "Custom $product Orange",
 ];
 
-$title = "Adminer Theme Switcher";
+
+$title = "$product Theme Switcher";
 
 
 $action = "default";
@@ -116,10 +122,39 @@ elseif (!$loggedIn) : ?>
 
     </div>
 <?php elseif ($action === "default") :
-    $subTitle = "Select your theme";
-?>
+    $subTitle = "Select your product"; ?>
+
+    <form method="get" class="d-flex flex-column w-100 pt-4">
+        <input type="hidden" name="action" value="select-theme">
+        <div class="mb-2 mt-4 pt-4">
+            <label for="product" class="px-1 pb-2 fw-bold">Choose Your Program</label>
+            <select class="form-select" id="product" name="product">
+                <?php foreach ($vendors as $product): ?>
+                    <option value="<?= $product ?>">
+                        <?= $product ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-auto">
+            <div>
+                <a href="?action=redirect" class="btn btn-outline-secondary text-capitalize">Go back to
+                    adminer</a>
+            </div>
+            <div>
+                <button type="submit" id="submitForm" class="btn btn-outline-primary">
+                    Select theme
+                </button>
+            </div>
+        </div>
+    </form>
+
+<?php elseif ($action === "select-theme") :
+    $subTitle = "Select your theme"; ?>
     <form method="get" class="d-flex flex-column w-100">
         <input type="hidden" name="action" value="apply">
+        <input type="hidden" name="product" value="<?= $product ?>">
 
         <div class="mb-2">
             <label for="themeType" class="px-1 pb-2 fw-bold">Choose Theme Type</label>
@@ -128,7 +163,7 @@ elseif (!$loggedIn) : ?>
                 <optgroup label="Select theme type">
 
                     <option <?= renderArgs(["selected" => $currentData["type"] === "none", "value" => "none"]) ?>>
-                        Adminer default
+                        <?= $product ?> default
                         theme
                     </option>
                     <option
@@ -137,7 +172,7 @@ elseif (!$loggedIn) : ?>
                     </option>
                     <option
                         <?= renderArgs(["selected" => $currentData["type"] === "adminer", "value" => "adminer"]) ?>>
-                        Adminer theme
+                        <?= $product ?> theme
                     </option>
                 </optgroup>
             </select>
@@ -156,28 +191,34 @@ elseif (!$loggedIn) : ?>
         </div>
 
         <div class="my-2 d-none" data-type="adminer">
-            <?php ThemeSwitcher::displayPageAvailableThemes() ?>
+            <?php
+            ThemeSwitcher::displayPageAvailableThemes();
+            $disabled = "disabled";
+            $current = ThemeSwitcher::getThemeName(ThemeSwitcher::getSelectedTheme());
+            if ($current === $currentData["theme"] && !is_file(ThemeSwitcher::getBackupLocation($current))) {
+                $disabled = "";
+            } ?>
         </div>
 
         <div class="my-2 px-2 d-none" data-type="none,adminer">
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["select"]]) ?>
-                    type="checkbox"
-                    role="switch" id="bsSelectOn" name="bsSelectOn">
+                       type="checkbox"
+                       role="switch" id="bsSelectOn" name="bsSelectOn">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectOn">Use Bootstrap Select
                     plugin</label>
             </div>
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["fix"]]) ?>
-                    type="checkbox"
-                    role="switch" id="bsSelectFix" name="bsSelectFix">
+                       type="checkbox"
+                       role="switch" id="bsSelectFix" name="bsSelectFix">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectFix">Fix input sizes</label>
             </div>
 
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["dark"]]) ?>
-                    type="checkbox"
-                    role="switch" id="bsSelectDark" name="bsSelectDark">
+                       type="checkbox"
+                       role="switch" id="bsSelectDark" name="bsSelectDark">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectDark">Theme is dark</label>
             </div>
 
@@ -187,9 +228,10 @@ elseif (!$loggedIn) : ?>
         <div class="d-flex justify-content-between align-items-center mt-auto">
             <div>
                 <a href="?action=redirect" class="btn btn-outline-secondary text-capitalize">Go back to adminer</a>
+                <a href="?" class="btn btn-outline-secondary text-capitalize ms-3">Select product</a>
             </div>
             <div>
-                <button type="submit" id="submitForm" class="btn btn-outline-success" disabled>
+                <button type="submit" id="submitForm" <?= $disabled ?> class="btn btn-outline-success">
                     Change theme
                 </button>
             </div>
@@ -219,15 +261,11 @@ elseif (!$loggedIn) : ?>
             });
         }
 
-        themeTypeSelect.addEventListener("change", ({
-            target
-        }) => {
+        themeTypeSelect.addEventListener("change", ({target}) => {
             changeType(target.value);
         });
 
-        document.querySelector("form").addEventListener("change", ({
-            target
-        }) => {
+        document.querySelector("form").addEventListener("change", ({target}) => {
             let t = target.closest('[data-type] input, [data-type] select');
             if (t) {
                 btn.disabled = t.value === "" ? true : null;
@@ -236,7 +274,7 @@ elseif (!$loggedIn) : ?>
 
 
         changeType(`<?= $currentData['type'] ?>`);
-        btn.disabled = true;
+        <?php if($disabled) :?>btn.disabled = true;<?php endif;?>
     </script>
 <?php elseif ($action === "apply") :
     $_GET["action"] = "select";
@@ -276,7 +314,7 @@ elseif (!$loggedIn) : ?>
                 $ok = ThemeSwitcher::downloadTheme();
         }
     }
-?>
+    ?>
     <div class="d-flex flex-column justify-content-between w-100">
 
         <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100">
@@ -293,7 +331,7 @@ elseif (!$loggedIn) : ?>
                         Your theme has been reset
                     </div>
                     <div>
-                        Adminer theme has been reset to defaults
+                        <?= $product ?> theme has been reset to defaults
                     </div>
                 <?php endif; ?>
             <?php else: ?>
@@ -328,9 +366,9 @@ $body = ob_get_clean();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Adminer Theme Switcher</title>
+    <title><?= $product ?> Theme Switcher</title>
     <link href="./static/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
     <style>
         .cursor-pointer {
@@ -343,7 +381,7 @@ $body = ob_get_clean();
     </style>
     <link rel="icon" href="./static/images/touchIcon-android.png">
     <script type="module">
-        (function() {
+        (function () {
             const
                 darkMode = globalThis.matchMedia('(prefers-color-scheme: dark)'),
                 darkModeSwitch = document.getElementById("darkModeSwitch"),
@@ -390,7 +428,7 @@ $body = ob_get_clean();
             max-width: 840px !important;
         }
 
-        main>.card:first-of-type {
+        main > .card:first-of-type {
             min-height: 50vh;
         }
     </style>
@@ -398,45 +436,45 @@ $body = ob_get_clean();
 </head>
 
 <body class="d-flex flex-column min-vh-100 justify-content-evenly align-items-center bg-secondary-subtle">
-    <header>
-        <?php if (!empty($pageTitle)): ?>
-            <h1 class="text-body-secondary mb-0"><?= $pageTitle ?></h1>
-        <?php endif; ?>
-    </header>
-    <main class="container">
-        <div class="card bg-body-tertiary w-100 min-h-100">
-            <div class="card-header d-flex">
+<header>
+    <?php if (!empty($pageTitle)): ?>
+        <h1 class="text-body-secondary mb-0"><?= $pageTitle ?></h1>
+    <?php endif; ?>
+</header>
+<main class="container">
+    <div class="card bg-body-tertiary w-100 min-h-100">
+        <div class="card-header d-flex">
 
-                <div>
-                    <?php if (!empty($title)): ?>
-                        <h5 class="card-title"><?= $title ?></h5>
-                        <?php if (!empty($subTitle)): ?>
-                            <h6 class="card-subtitle text-body-secondary ms-2 fst-italic"><?= $subTitle ?></h6>
+            <div>
+                <?php if (!empty($title)): ?>
+                    <h5 class="card-title"><?= $title ?></h5>
+                    <?php if (!empty($subTitle)): ?>
+                        <h6 class="card-subtitle text-body-secondary ms-2 fst-italic"><?= $subTitle ?></h6>
                     <?php endif;
-                    endif; ?>
-                </div>
-
-
-                <div class="form-check form-switch ms-auto user-select-none">
-                    <label class="form-check-label visually-hidden" for="darkModeSwitch">Dark Mode</label>
-                    <div class="d-flex align-items-center">
-                        <div class="text-uppercase cursor-pointer"></div>
-                        <input class="form-check-input cursor-pointer ms-2" type="range" min="0" max="2" id="darkModeSwitch"
-                            title="Toggle dark Mode">
-                    </div>
-
-
-                </div>
+                endif; ?>
             </div>
 
 
-            <div class="card-body p-4 d-flex">
-                <?= !empty($body) ? $body : "" ?>
+            <div class="form-check form-switch ms-auto user-select-none">
+                <label class="form-check-label visually-hidden" for="darkModeSwitch">Dark Mode</label>
+                <div class="d-flex align-items-center">
+                    <div class="text-uppercase cursor-pointer"></div>
+                    <input class="form-check-input cursor-pointer ms-2" type="range" min="0" max="2" id="darkModeSwitch"
+                           title="Toggle dark Mode">
+                </div>
+
+
             </div>
         </div>
 
-    </main>
-    <footer><?= !empty($footer) ? $footer : "" ?></footer>
+
+        <div class="card-body p-4 d-flex">
+            <?= !empty($body) ? $body : "" ?>
+        </div>
+    </div>
+
+</main>
+<footer><?= !empty($footer) ? $footer : "" ?></footer>
 </body>
 
 </html>

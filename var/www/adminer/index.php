@@ -26,7 +26,7 @@ function adminer_object()
         new AdminerLoginIp(['127.0', '192.168', '::1']),
         new AdminerLoginServers(
             [],
-            ['mysql', 'sqlite']
+            ['mysql', 'pgsql', 'sqlite']
             , __DIR__ . "/../../../tmp/adminer-servers"
         ),
     ];

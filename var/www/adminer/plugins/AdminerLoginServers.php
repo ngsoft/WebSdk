@@ -223,7 +223,7 @@ class AdminerLoginServers
         if (!$drivers) {
             $drivers = [];
             foreach ($GLOBALS as $var) {
-                if (is_array($var) && isset($var["server"])) {
+                if (is_array($var) && isset($var["server"]) && !isset($var["username"])) {
                     $drivers = $var;
                     break;
                 }
@@ -269,6 +269,7 @@ class AdminerLoginServers
 
         if ($name == 'driver') {
             if ($this->dynamic) {
+
                 if (count($this->drivers) > 1) {
                     if (empty(SERVER)) {
                         $this->currentDriver = current($this->servers)["driver"];
@@ -288,6 +289,7 @@ class AdminerLoginServers
                         $heading
                     );
                     $availableDrivers = $this->getAvailableDrivers();
+
 
                     $html = '<select id="driver-select" style="width: 100%;" required>';
                     $html .= '<option value="">Select a Driver</option>';
@@ -310,30 +312,30 @@ class AdminerLoginServers
                         const
                             canHideUser = <?= json_encode(array_keys(static::$passwordLess)) ?>,
                             canHidePass = <?= json_encode($this->canHidePassword()) ?>,
-                            inputValue = document.querySelector('[name="auth[driver]"]');
+                            /** @type HTMLInputElement */ inputValue = document.querySelector('[name="auth[driver]"]');
 
 
-                        addEventListener("DOMContentLoaded", () => {
+                        function updateAuthForm() {
                             const
                                 userForm = document.getElementById('username-form'),
                                 passForm = document.getElementById('password-form'),
-                                selectDriver = document.getElementById('driver-select');
-
-                            selectDriver.onchange = () => {
-                                inputValue.value = selectDriver.value;
-                                if (userForm instanceof Element && passForm instanceof Element) {
-                                    if (canHideUser.includes(inputValue.value)) {
-                                        userForm.style.display = "none";
-                                        if (canHidePass[inputValue.value]) {
-                                            passForm.style.display = "none";
-                                        }
-                                        return;
+                                /** @type HTMLSelectElement*/ selectDriver = document.getElementById('driver-select');
+                            inputValue.value = selectDriver.value;
+                            if (userForm instanceof Element && passForm instanceof Element) {
+                                if (canHideUser.includes(inputValue.value)) {
+                                    userForm.style.display = "none";
+                                    if (canHidePass[inputValue.value]) {
+                                        passForm.style.display = "none";
                                     }
-                                    userForm.style.display = null;
-                                    passForm.style.display = null;
+                                    return;
                                 }
-
+                                userForm.style.display = null;
+                                passForm.style.display = null;
                             }
+                        }
+
+                        addEventListener("DOMContentLoaded", () => {
+                            document.getElementById('driver-select').onchange = updateAuthForm;
                         });
                     </script>
                     <?php $html .= ob_get_clean();
@@ -400,8 +402,11 @@ class AdminerLoginServers
                         el.addEventListener('change', () => {
 
                             if (el.options[el.selectedIndex].id === 'addCustomServer') {
+
+
                                 el.style.display = 'none';
                                 if (driverForm instanceof Element) {
+
                                     driverForm.style.display = null;
                                 }
                                 [inputName, inputAddress].forEach(input => {
@@ -414,10 +419,7 @@ class AdminerLoginServers
                                 if (servers[el.value]) {
                                     selectDriver.value = servers[el.value]["driver"];
                                 }
-                                selectDriver.dispatchEvent(new Event("change", {
-                                    bubbles: true,
-                                    cancelable: true
-                                }));
+                                updateAuthForm();
                             }
 
                         })

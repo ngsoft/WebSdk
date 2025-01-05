@@ -8,8 +8,47 @@
 class AdminerAutocomplete
 {
     public $keywords = [
-        'DELETE FROM', 'DISTINCT', 'EXPLAIN', 'FROM', 'GROUP BY', 'HAVING', 'INSERT INTO', 'INNER JOIN', 'IGNORE',
-        'LIMIT', 'LEFT JOIN', 'NULL', 'ORDER BY', 'ON DUPLICATE KEY UPDATE', 'SELECT', 'UPDATE', 'WHERE',
+        'CREATE TABLE',
+        'CREATE DATABASE',
+        'PRIMARY KEY',
+        'AUTO_INCREMENT',
+        'IF NOT EXISTS',
+        'DELETE FROM',
+        'DISTINCT',
+        'EXPLAIN',
+        'FROM',
+        'GROUP BY',
+        'HAVING',
+        'INSERT INTO',
+        'INNER JOIN',
+        'IGNORE',
+        'LIMIT',
+        'OFFSET',
+        'RIGHT JOIN',
+        'LEFT JOIN',
+        'NOT',
+        'IN',
+        'LIKE',
+        'NULL',
+        'ORDER BY',
+        'ON DUPLICATE KEY UPDATE',
+        'SELECT',
+        'UPDATE',
+        'WHERE',
+        'SET',
+        'VALUES',
+        'BETWEEN',
+        'AND',
+        'OR',
+        "=",
+        "!=",
+        "<>",
+        ">",
+        ">=",
+        "<",
+        "<=",
+        "!<",
+        "!>"
     ];
 
 
@@ -19,46 +58,79 @@ class AdminerAutocomplete
             return;
         }
 
+        $tables = [];
         $suggests = [];
+        $fields = [];
         foreach (array_keys(tables_list()) as $table) {
-            $suggests[] = $table;
+            $tables[] = $table;
             foreach (fields($table) as $field => $foo) {
+                $fields[] = $field;
                 $suggests[] = "$table.$field";
             }
         } ?>
-        <style<?php echo nonce(); ?>>
+        <style <?= nonce(); ?>>
             .ace_editor {
-                width: 100%;
+
                 height: 500px;
                 resize: both;
                 border: 1px solid black;
+                min-width: 715px;
+                min-height: 500px;
+                width: 715px;
+            }
+
+            .ace_text-input {
+                font-family: "Fira Code Nerd Font Mono", "Fira Code", "Poppins", "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro", monospace;
+                font-variant-ligatures: none;
+                font-feature-settings: "liga" 0;
             }
         </style>
-        <script<?php echo nonce(); ?> src="static/ace/ace.js"></script>
-        <script<?php echo nonce(); ?> src="static/ace/ext-language_tools.js"></script>
+        <script<?php echo nonce(); ?> src="static/ace/ace.js">
+        </script>
+        <script<?php echo nonce(); ?> src="static/ace/ext-language_tools.js">
+        </script>
         <script<?php echo nonce(); ?>>
             document.addEventListener('DOMContentLoaded', () => {
 
-                var keywords = <?php echo json_encode($this->keywords) ?>;
-                var suggests = <?php echo json_encode($suggests) ?>;
-                var textarea = document.querySelector('.sqlarea');
-                var form = textarea.form;
-                var editor;
+                let keywords = <?= json_encode($this->keywords) ?>,
+                    tables = <?= json_encode($tables) ?>,
+                    fields = <?= json_encode($fields) ?>,
+                    suggests = <?= json_encode($suggests) ?>,
+                    textarea = document.querySelector('.sqlarea'),
+                    form = textarea.form,
+                    editor;
 
                 ace.config.set('basePath', 'static/ace');
                 editor = ace.edit(textarea);
-                editor.setTheme('ace/theme/tomorrow');
+                // editor.setTheme('ace/theme/tomorrow');
                 editor.session.setMode('ace/mode/sql');
                 editor.setOptions({
                     fontSize: 14,
                     enableBasicAutocompletion: [{
-                        identifierRegexps: [/[a-zA-Z_0-9\.\-\u00A2-\uFFFF]/], // added dot
+                        identifierRegexps: [/[a-zA-Z_0-9.\-\u00A2-\uFFFF<>!]/], // added dot
                         getCompletions: (editor, session, pos, prefix, callback) => {
+
+                            // there is a limit to the length of the Array so we filter the results
+
+                            let matches = [
+                                ...keywords.map((word) => ({value: word + ' ', score: 1, meta: 'keyword'}))
+                                    .filter(x => prefix.toLowerCase().startsWith(x.value.toLowerCase().slice(0, 1))),
+                                ...tables.map((word) => ({value: word + ' ', score: 2, meta: 'table'}))
+                                    .filter(() => prefix.toLowerCase() === prefix),
+                                ...suggests.map((word) => ({value: word + ' ', score: 2, meta: 'field'})),
+                            ];
+
+                            // add alias autocompletion
+                            if (/a-z/.test(prefix)) {
+                                matches.unshift(...fields.map((word) => ({
+                                    value: `${prefix}.${word} `,
+                                    score: 2,
+                                    meta: 'field'
+                                })));
+                            }
+
                             // note, won't fire if caret is at a word that does not have these letters
-                            callback(null, [
-                                ...keywords.map((word) => ({value: word + ' ', score: 1, meta: 'keyword'})),
-                                ...suggests.map((word) => ({value: word + ' ', score: 2, meta: 'name'}))
-                            ]);
+                            callback(null, matches);
                         },
                     }],
                     // to make popup appear automatically, without explicit ctrl+space

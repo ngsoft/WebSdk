@@ -6,8 +6,6 @@ function adminer_object()
 {
     error_reporting(0);
     ini_set("display_errors", 0);
-//    ini_set("display_errors", 1);
-//    error_reporting(-1);
     if (isset($_SESSION["themeData"])) {
         $themeData = $_SESSION["themeData"];
     } else {
@@ -39,10 +37,6 @@ function adminer_object()
     return new AdminerPlugin($plugins);
 }
 
-/**
- * Fix Session cookie
- */
-
 require_once __DIR__ . '/adminer-evo.php';
-//require_once __DIR__ . '/adminer-en.php';
+
 

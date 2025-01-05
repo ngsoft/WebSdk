@@ -15,6 +15,7 @@ class AdminerAutocomplete
         'IF NOT EXISTS',
         'DELETE FROM',
         'DISTINCT',
+        'COUNT(*)',
         'EXPLAIN',
         'FROM',
         'GROUP BY',
@@ -40,6 +41,7 @@ class AdminerAutocomplete
         'BETWEEN',
         'AND',
         'OR',
+        'ON',
         "=",
         "!=",
         "<>",
@@ -81,6 +83,7 @@ class AdminerAutocomplete
 
             .ace_text-input {
                 font-family: "Fira Code Nerd Font Mono", "Fira Code", "Poppins", "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro", monospace;
+                /** /!\ we must disable ligatures for caret to be at the right position */
                 font-variant-ligatures: none;
                 font-feature-settings: "liga" 0;
             }
@@ -117,11 +120,12 @@ class AdminerAutocomplete
                                     .filter(x => prefix.toLowerCase().startsWith(x.value.toLowerCase().slice(0, 1))),
                                 ...tables.map((word) => ({value: word + ' ', score: 2, meta: 'table'}))
                                     .filter(() => prefix.toLowerCase() === prefix),
+                                ...fields.map((word) => ({value: word + ' ', score: 2, meta: 'field'})),
                                 ...suggests.map((word) => ({value: word + ' ', score: 2, meta: 'field'})),
                             ];
 
                             // add alias autocompletion
-                            if (/a-z/.test(prefix)) {
+                            if (/[a-z]/.test(prefix)) {
                                 matches.unshift(...fields.map((word) => ({
                                     value: `${prefix}.${word} `,
                                     score: 2,

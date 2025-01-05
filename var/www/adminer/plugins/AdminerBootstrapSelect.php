@@ -7,21 +7,16 @@ class AdminerBootstrapSelect
 
     protected $dark;
     protected $fix;
+    protected $select;
 
     protected $theme = "";
 
-    public function __construct($theme = "", $dark = false, $fix = false)
+    public function __construct($theme = "", $dark = false, $fix = false, $select = true)
     {
-        if (is_bool($theme)) {
-            list($theme, $dark) = [$dark, $theme];
-            if (!is_string($theme)) {
-                $theme = "";
-            }
-        }
         $this->dark = $dark;
         $this->theme = $theme;
         $this->fix = $fix;
-
+        $this->select = $select;
     }
 
 
@@ -32,9 +27,14 @@ class AdminerBootstrapSelect
         } ?>
         <link rel="stylesheet" <?= nonce() ?> type="text/css" href="./static/select.css">
         <script <?= nonce() ?> type="module">
+            <?php if ($this->select) : ?>
             document.querySelectorAll('select').forEach(s => {
+                if (s.closest("#lang")) {
+                    return;
+                }
                 s.classList.add('form-select', 'form-select-sm')
             });
+            <?php endif; ?>
             <?php if ($this->dark) : ?>
             document.documentElement.setAttribute("data-bs-theme", "dark");
             <?php endif; ?>

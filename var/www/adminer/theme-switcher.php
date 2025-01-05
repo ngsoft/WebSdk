@@ -301,7 +301,7 @@ elseif (!$loggedIn) : ?>
         $ok = true;
     }
 
-    if (!$select || $type === "custom") {
+    if ($type === "custom") {
         $select = $fix = $dark = false;
     }
     if ($ok && $ok = ThemeSwitcher::saveJsonData("adminer.json", $type, $theme, $select, $dark, $fix)) {

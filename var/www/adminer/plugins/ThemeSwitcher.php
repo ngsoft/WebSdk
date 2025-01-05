@@ -30,13 +30,15 @@ class ThemeSwitcher
                 let
                     menu = document.getElementById('menu'),
                     h1 = menu.querySelector("h1"),
-                    hasLinks = menu.querySelector('.links') !== null && h1 !== null;
+                    hasLinks = menu.querySelector('.links') !== null && h1 !== null,
+                    product = document.querySelector(`[href*="adminerevo"]`) ? "AdminerEvo" : "Adminer";
+
 
                 if (hasLinks) {
                     const c = document.createElement('div');
                     c.style = `padding: 8px; display:flex; column-gap:8px;justify-content: space-between;`;
                     c.innerHTML = [
-                        `<a href="./theme-switcher.php">Switch theme</a>`,
+                        `<a href="./theme-switcher.php?action=select-theme&product=${product}">Switch theme</a>`,
                         `<a href="./info.php">PHP Infos</a>`
                     ].join('');
                     h1.parentElement.insertBefore(c, h1.nextElementSibling)
@@ -47,14 +49,17 @@ class ThemeSwitcher
         <style <?= nonce() ?>>
             .links {
                 display: flex;
+                flex-wrap: wrap;
             }
 
             #menu > h1 {
                 border-top: 1px solid transparent;
             }
 
+
             /*theme compatibility with adminer evo*/
             .separator {
+                display: inline-block;
                 width: 0;
                 overflow: hidden;
                 margin: 0 2px;
@@ -204,7 +209,7 @@ class ThemeSwitcher
             "type" => "none",
             "select" => false,
             "dark" => false,
-            "fix" => false
+            "fix" => false,
         ];
 
 
@@ -219,9 +224,6 @@ class ThemeSwitcher
             }
         }
 
-        if (!$data["select"]) {
-            $data["dark"] = $data["fix"] = false;
-        }
         return $data;
     }
 

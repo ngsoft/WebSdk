@@ -24,19 +24,24 @@ function adminer_object()
         new AdminerDisableJush(),
         new AdminerAutocomplete(),
         new AdminerLoginIp(['127.0', '192.168', '::1']),
-        new AdminerLoginServers([], ['mysql', 'sqlite'], __DIR__ . "/../../../tmp/adminer-servers"),
+        new AdminerLoginServers(
+            [],
+            ['mysql', 'sqlite']
+            , __DIR__ . "/../../../tmp/adminer-servers"
+        ),
     ];
+
+    $plugins[] = new AdminerBootstrapSelect($theme, $dark, $fix, $select);
 
     if ($type === "custom") {
         $plugins[] = new AdminerTheme($theme);
-    } elseif ($select) {
-        $plugins[] = new AdminerBootstrapSelect($theme, $dark, $fix);
     }
 
 
     return new AdminerPlugin($plugins);
 }
 
-require_once __DIR__ . '/adminer-evo.php';
+
+require_once __DIR__ . '/adminer.php';
 
 

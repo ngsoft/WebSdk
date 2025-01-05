@@ -44,13 +44,20 @@ class ThemeSwitcher
 
             });
         </script>
-        <style>
+        <style <?= nonce() ?>>
             .links {
                 display: flex;
             }
 
             #menu > h1 {
                 border-top: 1px solid transparent;
+            }
+
+            /*theme compatibility with adminer evo*/
+            .separator {
+                width: 0;
+                overflow: hidden;
+                margin: 0 2px;
             }
         </style>
         <?php

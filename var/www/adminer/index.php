@@ -43,6 +43,6 @@ function adminer_object()
  * Fix Session cookie
  */
 
-require_once __DIR__ . '/adminer.php';
+require_once __DIR__ . '/adminer-evo.php';
 //require_once __DIR__ . '/adminer-en.php';
 

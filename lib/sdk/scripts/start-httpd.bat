@@ -17,6 +17,8 @@ call "%~dp0stop-httpd.bat"
 call "%~dp0stop-cgi.bat"
 taskkill /f /IM nginx.exe > NUL 2>&1
 pushd "%httpd%"
-    "%daemonize%" httpd.exe
+    httpd.exe -k install -n httpd
+    "%WINDIR%\System32\sc.exe" config httpd start=demand
+    httpd.exe -k start -n httpd
 popd
 

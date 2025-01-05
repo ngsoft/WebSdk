@@ -4,7 +4,7 @@ if not exist "%~dp0databases\mysql" (
     pushd %~dp0
         bin\mariadb-install-db.exe -R -D -p toor -c .\my-default.ini
     popd
-    timeout /t 5 /NOBREAK
+    %WINDIR%\System32\timeout.exe /t 5 /NOBREAK
     exit /b
 )
 

@@ -14,4 +14,8 @@ if "%ERRORLEVEL%" == "0" goto script
 goto :eof
 :script
 @REM Run Script Elevated
+pushd "%httpd%"
+    httpd.exe -k stop -n httpd
+    httpd.exe -k uninstall -n httpd
+popd
 taskkill /f /IM httpd.exe > NUL 2>&1

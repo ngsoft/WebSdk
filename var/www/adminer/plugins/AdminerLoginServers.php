@@ -228,7 +228,6 @@ class AdminerLoginServers
                     break;
                 }
             }
-
         }
         return $drivers;
     }
@@ -312,14 +311,16 @@ class AdminerLoginServers
                         const
                             canHideUser = <?= json_encode(array_keys(static::$passwordLess)) ?>,
                             canHidePass = <?= json_encode($this->canHidePassword()) ?>,
-                            /** @type HTMLInputElement */ inputValue = document.querySelector('[name="auth[driver]"]');
+                            /** @type HTMLInputElement */
+                            inputValue = document.querySelector('[name="auth[driver]"]');
 
 
                         function updateAuthForm() {
                             const
                                 userForm = document.getElementById('username-form'),
                                 passForm = document.getElementById('password-form'),
-                                /** @type HTMLSelectElement*/ selectDriver = document.getElementById('driver-select');
+                                /** @type HTMLSelectElement*/
+                                selectDriver = document.getElementById('driver-select');
                             inputValue.value = selectDriver.value;
                             if (userForm instanceof Element && passForm instanceof Element) {
                                 if (canHideUser.includes(inputValue.value)) {
@@ -338,7 +339,7 @@ class AdminerLoginServers
                             document.getElementById('driver-select').onchange = updateAuthForm;
                         });
                     </script>
-                    <?php $html .= ob_get_clean();
+            <?php $html .= ob_get_clean();
 
                     return $heading . $html;
                 }
@@ -356,11 +357,9 @@ class AdminerLoginServers
                 $html .= optionlist(array_keys($this->servers), SERVER);
                 $html .= '<option value="" id="addCustomServer">Add a Server</option>';
                 $html .= "</select>";
-
             } elseif ($this->dynamic) {
-                $html = '<input type="text" value="" name="custom-server"  placeholder="localhost" title="Server name">';
-                $html .= sprintf('<input type="%s" value="" name="custom-server-address" placeholder="127.0.0.1" title="Server address">', $this->save ? "text" : "hidden");
-
+                $html = '<input style="display: block;" type="text" value="" name="custom-server"  placeholder="localhost" title="Server name" >';
+                $html .= sprintf('<input style="display: block;" type="%s" value="" name="custom-server-address" placeholder="127.0.0.1" title="Server address">', $this->save ? "text" : "hidden");
             } else {
                 $html = '<select name="auth[server]" style="width: 100%;">';
                 $html .= optionlist(array_keys($this->servers), SERVER);
@@ -371,12 +370,11 @@ class AdminerLoginServers
             ob_start();
             ?>
             <script <?= nonce() ?>
-                    type="text/javascript">document.querySelector(`[name="auth[driver]"]`).onchange = () => {
-                };</script>
+                type="text/javascript">
+                document.querySelector(`[name="auth[driver]"]`).onchange = () => {};
+            </script>
             <?php if ($this->dynamic): ?>
                 <script <?= nonce() ?> type="text/javascript">
-
-
                     const
                         selectDriver = document.getElementById('driver-select'),
                         servers = <?= json_encode($this->servers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
@@ -402,11 +400,8 @@ class AdminerLoginServers
                         el.addEventListener('change', () => {
 
                             if (el.options[el.selectedIndex].id === 'addCustomServer') {
-
-
                                 el.style.display = 'none';
                                 if (driverForm instanceof Element) {
-
                                     driverForm.style.display = null;
                                 }
                                 [inputName, inputAddress].forEach(input => {
@@ -424,9 +419,9 @@ class AdminerLoginServers
 
                         })
                     });
-
                 </script>
-                <?php $html .= ob_get_clean();endif;
+<?php $html .= ob_get_clean();
+            endif;
 
             return $heading . "$html\n";
         }

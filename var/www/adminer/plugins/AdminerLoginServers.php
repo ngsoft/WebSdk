@@ -239,10 +239,12 @@ class AdminerLoginServers
 
 
         if ($name == 'username') {
+
+
             if (isset(static::$passwordLess[$this->currentDriver ?: $this->defaultDriver])) {
                 $heading = str_replace("<tr>", '<tr id="username-form" style="display:none;">', $heading);
+                $value = preg_replace('#value="[^"]+"#', 'value=""', $value);
             }
-
             $heading = str_replace(
                 "<tr>",
                 '<tr id="username-form">',
@@ -257,6 +259,7 @@ class AdminerLoginServers
                     '<tr id="password-form" style="display:none;">',
                     $heading
                 );
+                $value = preg_replace('#value="[^"]+"#', 'value=""', $value);
             }
 
             $heading = str_replace(
@@ -325,8 +328,10 @@ class AdminerLoginServers
                             if (userForm instanceof Element && passForm instanceof Element) {
                                 if (canHideUser.includes(inputValue.value)) {
                                     userForm.style.display = "none";
+                                    userForm.querySelector("input").value = "";
                                     if (canHidePass[inputValue.value]) {
                                         passForm.style.display = "none";
+                                        passForm.querySelector("input").value = "";
                                     }
                                     return;
                                 }

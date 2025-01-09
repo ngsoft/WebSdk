@@ -26,8 +26,8 @@ function adminer_object()
         new AdminerLoginIp(['127.0', '192.168', '::1']),
         new AdminerLoginServers(
             [],
-            ['mysql', 'pgsql', 'sqlite']
-            , __DIR__ . "/../../../tmp/adminer-servers"
+            ['mysql', 'pgsql', 'sqlite'],
+            __DIR__ . "/../../../tmp/adminer-servers"
         ),
     ];
 
@@ -41,7 +41,8 @@ function adminer_object()
     return new AdminerPlugin($plugins);
 }
 
-
+if (PHP_VERSION_ID < 70000) {
+    require_once __DIR__ . '/adminer-legacy.php';
+    exit;
+}
 require_once __DIR__ . '/adminer.php';
-
-

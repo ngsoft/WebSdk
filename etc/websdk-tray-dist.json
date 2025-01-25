@@ -149,7 +149,7 @@
             "name": "adm",
             "label": "Lancer Adminer",
             "start": [
-                "cmd.exe /C start  http://localhost/adminer/?server=localhost&username=root"
+                "cmd.exe /C start  http://localhost/adminer/"
             ],
             "visible": [
                 "!off",

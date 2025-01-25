@@ -9,45 +9,43 @@
  */
 class AdminerLoginIp
 {
-    public $ips;
+    public $ips = [];
 
-    public $forwarded_for;
+    public $forwarded_for = [];
 
     /** Set allowed IP addresses.
-     * @param array IP address prefixes
-     * @param array X-Forwarded-For prefixes if IP address matches, empty array means anything
-     * @param mixed $ips
-     * @param mixed $forwarded_for
+     * @param array $ips IP address prefixes
+     * @param array $forwarded_for X-Forwarded-For prefixes if IP address matches, empty array means anything
      */
-    public function __construct($ips, $forwarded_for = [])
+    public function __construct(array $ips, array $forwarded_for = [])
     {
-        $this->ips           = $ips;
+        $this->ips = $ips;
         $this->forwarded_for = $forwarded_for;
     }
 
     public function login($login, $password)
     {
-        foreach ($this->ips as $ip)
-        {
-            if (0 == strncasecmp($_SERVER['REMOTE_ADDR'], $ip, strlen($ip)))
-            {
-                if ( ! $this->forwarded_for)
-                {
-                    return true;
+        // no acl
+        if (empty($this->ips)) {
+            return null;
+        }
+        // return null to use next plugin login
+        foreach ($this->ips as $ip) {
+            if (0 == strncasecmp($_SERVER['REMOTE_ADDR'], $ip, strlen($ip))) {
+                if (!$this->forwarded_for) {
+                    return null;
                 }
 
-                if ($_SERVER['HTTP_X_FORWARDED_FOR'])
-                {
-                    foreach ($this->forwarded_for as $forwarded_for)
-                    {
-                        if (0 == strncasecmp(preg_replace('~.*, *~', '', $_SERVER['HTTP_X_FORWARDED_FOR']), $forwarded_for, strlen($forwarded_for)))
-                        {
-                            return true;
+                if ($_SERVER['HTTP_X_FORWARDED_FOR']) {
+                    foreach ($this->forwarded_for as $forwarded_for) {
+                        if (0 == strncasecmp(preg_replace('~.*, *~', '', $_SERVER['HTTP_X_FORWARDED_FOR']), $forwarded_for, strlen($forwarded_for))) {
+                            return null;
                         }
                     }
                 }
             }
         }
+        // return false to block login
         return false;
     }
 }

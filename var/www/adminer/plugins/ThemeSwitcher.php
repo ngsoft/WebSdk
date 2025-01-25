@@ -20,11 +20,14 @@ class ThemeSwitcher
         "AdminerEvo" => "adminerevo/adminerevo",
     ];
 
+
     public function head()
     {
-        self::updateAdminerSession(connect());
 
-        ?>
+        $token = "";
+        if (isset($_SESSION["token"])) {
+            $token = $_SESSION["token"];
+        } ?>
         <script<?php echo nonce(); ?> type="text/javascript">
             addEventListener("DOMContentLoaded", () => {
                 let
@@ -38,8 +41,8 @@ class ThemeSwitcher
                     const c = document.createElement('div');
                     c.style = `padding: 8px; display:flex; column-gap:8px;justify-content: space-between;`;
                     c.innerHTML = [
-                        `<a href="./theme-switcher.php?action=select-theme&product=${product}">Switch theme</a>`,
-                        `<a href="./info.php">PHP Infos</a>`
+                        `<a href="./theme-switcher.php?action=select-theme&token=<?=$token?>&product=${product}">Switch theme</a>`,
+                        `<a href="./info.php?token=<?=$token?>">PHP Infos</a>`
                     ].join('');
                     h1.parentElement.insertBefore(c, h1.nextElementSibling)
                 }
@@ -100,26 +103,22 @@ class ThemeSwitcher
     }
 
 
-    public static function updateAdminerSession($connect = null)
-    {
-        $file = sys_get_temp_dir() . "/" . self::$sessionFile;
-        @unlink($file);
-        if ($connect) {
-            @file_put_contents($file, date("Y-m-d H:i:s", time() + 600));
-        }
-    }
-
-
     public static function isLoggedInAdminer()
     {
         self::startAdminerSession();
-
-        $file = sys_get_temp_dir() . "/" . self::$sessionFile;
-        $date = @file_get_contents($file);
-        if (is_string($date)) {
-            $time = strtotime($date);
-            return $time > time();
+        
+        if (!isset($_SESSION["token"])) {
+            return false;
         }
+
+        if (isset($_REQUEST["token"]) && strval($_SESSION["token"]) === $_REQUEST["token"]) {
+            $_SESSION["connectedAdminer"] = date("Y-m-d H:i:s", time() + 600);
+            return true;
+        }
+        if (isset($_SESSION["connectedAdminer"]) && strtotime($_SESSION["connectedAdminer"]) > time()) {
+            return true;
+        }
+        unset($_SESSION["connectedAdminer"]);
         return false;
     }
 

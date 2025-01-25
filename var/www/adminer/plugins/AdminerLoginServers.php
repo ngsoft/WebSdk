@@ -173,20 +173,33 @@ class AdminerLoginServers
 
     public function credentials()
     {
-        return array($this->servers[SERVER]["server"], $_GET["username"], get_password());
+
+        $user = "";
+        if (!empty($_GET["username"])) {
+            $user = $_GET["username"];
+        }
+        return array($this->servers[SERVER]["server"], $user, get_password());
     }
 
     public function login($login, $password)
     {
-        if (isset($this->servers[SERVER])) {
-            $driver = $this->servers[SERVER]["driver"];
-            if (!empty($this->passwordHashes[$driver])) {
-                return password_verify($password, $this->passwordHashes[$driver]);
-            }
+        
+        if (!isset($this->servers[SERVER])) {
+            return false;
+        }
+
+        $driver = $this->servers[SERVER]["driver"];
+        if (!empty($this->passwordHashes[$driver])) {
+            return password_verify($password, $this->passwordHashes[$driver]);
         }
 
 
-        return isset($this->servers[SERVER]);
+        // password-less drivers
+        if (empty($password) || empty($login)) {
+            return isset(self::$passwordLess[$driver]);
+        }
+
+        return null;
     }
 
     /**
@@ -219,11 +232,13 @@ class AdminerLoginServers
 
     protected function getAvailableDrivers()
     {
+
+
         static $drivers = null;
         if (!$drivers) {
             $drivers = [];
             foreach ($GLOBALS as $var) {
-                if (is_array($var) && isset($var["server"]) && !isset($var["username"])) {
+                if (is_array($var) && $var["server"] === "MySQL" && !isset($var["username"])) {
                     $drivers = $var;
                     break;
                 }
@@ -237,7 +252,6 @@ class AdminerLoginServers
     public function loginFormField($name, $heading, $value)
     {
 
-
         if ($name == 'username') {
 
 
@@ -250,6 +264,13 @@ class AdminerLoginServers
                 '<tr id="username-form">',
                 $heading
             );
+
+            // fix error max_input_var not set correctly
+            if (isset($_SESSION["token"])) {
+                $value .= sprintf('<input type="hidden" name="token" value="%s">', $_SESSION["token"]);
+            }
+
+
         }
 
         if ($name == 'password') {
@@ -270,6 +291,8 @@ class AdminerLoginServers
         }
 
         if ($name == 'driver') {
+
+
             if ($this->dynamic) {
 
                 if (count($this->drivers) > 1) {
@@ -293,7 +316,7 @@ class AdminerLoginServers
                     $availableDrivers = $this->getAvailableDrivers();
 
 
-                    $html = '<select id="driver-select" style="width: 100%;" required>';
+                    $html = '<select id="driver-select" style="width: 100%;">';
                     $html .= '<option value="">Select a Driver</option>';
                     foreach (array_keys($availableDrivers) as $value) {
                         if (empty($value)) {
@@ -341,10 +364,19 @@ class AdminerLoginServers
                         }
 
                         addEventListener("DOMContentLoaded", () => {
-                            document.getElementById('driver-select').onchange = updateAuthForm;
+
+                            const /** @type HTMLSelectElement*/ driverSelect = document.getElementById('driver-select');
+                            driverSelect.onchange = updateAuthForm;
+                            driverSelect.form.onsubmit = e => {
+                                if (!driverSelect.value) {
+                                    e.preventDefault();
+                                    alert("Please select a driver first");
+                                }
+                            };
+
                         });
                     </script>
-            <?php $html .= ob_get_clean();
+                    <?php $html .= ob_get_clean();
 
                     return $heading . $html;
                 }
@@ -354,8 +386,6 @@ class AdminerLoginServers
         }
         if ($name == 'server') {
             if ($this->dynamic && count($this->servers)) {
-
-
                 $html = '<input type="text" value="" name="custom-server" style="display: none;" placeholder="localhost" title="Server name">';
                 $html .= sprintf('<input type="%s" value="" name="custom-server-address" style="display: none;" placeholder="127.0.0.1" title="Server address">', $this->save ? "text" : "hidden");
                 $html .= '<select name="auth[server]" style="width: 100%;">';
@@ -375,8 +405,9 @@ class AdminerLoginServers
             ob_start();
             ?>
             <script <?= nonce() ?>
-                type="text/javascript">
-                document.querySelector(`[name="auth[driver]"]`).onchange = () => {};
+                    type="text/javascript">
+                document.querySelector(`[name="auth[driver]"]`).onchange = () => {
+                };
             </script>
             <?php if ($this->dynamic): ?>
                 <script <?= nonce() ?> type="text/javascript">
@@ -425,7 +456,7 @@ class AdminerLoginServers
                         })
                     });
                 </script>
-<?php $html .= ob_get_clean();
+                <?php $html .= ob_get_clean();
             endif;
 
             return $heading . "$html\n";

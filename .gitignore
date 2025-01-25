@@ -26,6 +26,7 @@ adminer.css
 adminer.json
 websdk-tray.json
 lib/nvm/*.log
+lib/pg*/
 
 # dev versions tests and sql exports
 *.sql.gz

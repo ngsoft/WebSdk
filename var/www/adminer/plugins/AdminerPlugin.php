@@ -8,6 +8,8 @@
  */
 class AdminerPlugin extends Adminer
 {
+
+
     /** @access protected */
     protected $plugins;
 
@@ -20,9 +22,9 @@ class AdminerPlugin extends Adminer
     }
 
     /** Register plugins
-     * @param array object instances or null to register all classes starting by 'Adminer'
+     * @param ?array $plugins object instances or null to register all classes starting by 'Adminer'
      */
-    function __construct($plugins)
+    function __construct($plugins = null)
     {
         if ($plugins === null) {
             $plugins = array();
@@ -77,6 +79,7 @@ class AdminerPlugin extends Adminer
         }
         return $this->_callParent($function, $args);
     }
+
 
     function _appendPlugin($function, $args)
     {

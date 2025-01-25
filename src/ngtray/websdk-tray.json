@@ -168,6 +168,42 @@
             ]
         },
         {
+            "name": "pg",
+            "label": "Lancer PostgreSql",
+            "notify": [
+                "Lancement de PostgreSql",
+                "Arrêt de PostgreSql"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-pg.bat"
+            ],
+            "stop": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-pg.bat"
+            ],
+            "checks": {
+                "process": [
+                    "postgres.exe"
+                ]
+            },
+            "visible": [
+                "!off"
+            ]
+        },
+        "separator",
+        {
+            "name": "pg-console",
+            "label": "Console PostgreSql",
+            "notify": [
+                "Accès à la console PostgreSql"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/pg/console.bat"
+            ],
+            "visible": [
+                "pg"
+            ]
+        },
+        {
             "name": "adm-enabled",
             "label": "adm-enabled",
             "visible": false,

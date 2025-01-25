@@ -7,8 +7,10 @@ set "etc=%WEB_SDK%etc\"
 set "sdk=%lib%sdk\"
 @REM nodejs
 set "nvm=%lib%nvm\"
-@REM sql
+@REM mariadb
 set "mariadb=%lib%mariadb\"
+@REM pgsql
+set "pgdb=%lib%pg\"
 @REM web
 set "nginx=%lib%nginx\"
 set "httpd=%lib%httpd\bin\"

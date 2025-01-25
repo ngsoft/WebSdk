@@ -14,11 +14,9 @@ if "%ERRORLEVEL%" == "0" goto script
 goto :eof
 :script
 @REM Run Script Elevated
-pushd "%~dp0..\..\mariadb"
+pushd "%mariadb%"
     bin\mariadb-admin.exe shutdown -uroot -ptoor > NUL 2>&1
-    if ERRORLEVEL 0 (
-        if "%starting%" == "true" (
-            %WINDIR%\System32\timeout.exe /T 5 /NOBREAK  > NUL 2>&1
-        )
+    if "%starting%" == "true" (
+        %WINDIR%\System32\timeout.exe /T 5 /NOBREAK  > NUL 2>&1
     )
 popd

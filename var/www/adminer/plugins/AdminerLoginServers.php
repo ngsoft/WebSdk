@@ -36,16 +36,20 @@ class AdminerLoginServers
     protected $defaultDriver = null;
     protected $currentDriver = "";
     protected $save = false;
+    protected $passwordEmpty = false;
     protected $sessionKey = "adminer-server-list";
 
     protected $passwordHashes = [];
 
     /** Set supported servers
      * @param array $servers array($description => array("server" => "127.0.0.1", "driver" => "server|pgsql|sqlite|..."))
-     * @param string|false $save
      * @param string|string[] $defaultDriver
+     * @param string|false $save
+     * @param bool $dynamic Authorize dynamic login form
+     * @param bool $passwordLess Authorize empty passwords
+     *
      */
-    public function __construct($servers = [], $defaultDriver = "server", $save = false, $dynamic = true)
+    public function __construct($servers = [], $defaultDriver = "server", $save = false, $dynamic = true, $passwordLess = false)
     {
 
         /**
@@ -56,7 +60,7 @@ class AdminerLoginServers
                 $this->passwordHashes[$passwordLessDriver] = password_hash($_ENV[$passwordLessKey], PASSWORD_DEFAULT);
             }
         }
-
+        $this->passwordEmpty = $passwordLess;
         $this->dynamic = $dynamic;
         $this->save = $save;
         $this->drivers = self::$driverList;
@@ -97,7 +101,7 @@ class AdminerLoginServers
             $this->servers = $_SESSION[$this->sessionKey];
         } elseif (empty($servers) && !$dynamic) {
             $this->servers = [
-                'localhost' => ['driver' => $defaultDriver, 'server' => '127.0.0.1'],
+                'MySql' => ['driver' => $defaultDriver, 'server' => '127.0.0.1'],
             ];
         }
 
@@ -132,6 +136,9 @@ class AdminerLoginServers
                     }
                 }
             }
+            if ($driver === "mysql") {
+                $driver = "server";
+            }
             if (!empty($ip) && empty($name)) {
                 $name = $ip;
             }
@@ -139,7 +146,9 @@ class AdminerLoginServers
                 $this->servers[$name] = ["server" => $ip, "driver" => $driver];
             }
         }
+
         if (isset($_POST["auth"])) {
+
             $address = "";
             if (!empty($_POST['custom-server']) && !empty($_POST['custom-server-address'])) {
                 $_POST["auth"]["server"] = $_POST['custom-server'];
@@ -149,6 +158,12 @@ class AdminerLoginServers
             if (empty($_POST["auth"]["driver"])) {
                 $_POST["auth"]["driver"] = $defaultDriver;
             }
+
+            if ($_POST["auth"]["driver"] === "mysql") {
+                $_POST["auth"]["driver"] = "server";
+            }
+
+
             $key = $_POST["auth"]["server"];
             if (empty($address)) {
                 $address = $key;
@@ -161,6 +176,7 @@ class AdminerLoginServers
                         "server" => $address,
                     ];
                     $_SESSION[$this->sessionKey] = $this->servers;
+
                     if (is_string($save)) {
                         @file_put_contents($save, json_encode($this->servers));
                     }
@@ -183,7 +199,7 @@ class AdminerLoginServers
 
     public function login($login, $password)
     {
-        
+
         if (!isset($this->servers[SERVER])) {
             return false;
         }
@@ -195,8 +211,8 @@ class AdminerLoginServers
 
 
         // password-less drivers
-        if (empty($password) || empty($login)) {
-            return isset(self::$passwordLess[$driver]);
+        if (empty($password)) {
+            return isset(self::$passwordLess[$driver]) || $this->passwordEmpty;
         }
 
         return null;
@@ -269,8 +285,6 @@ class AdminerLoginServers
             if (isset($_SESSION["token"])) {
                 $value .= sprintf('<input type="hidden" name="token" value="%s">', $_SESSION["token"]);
             }
-
-
         }
 
         if ($name == 'password') {
@@ -295,12 +309,13 @@ class AdminerLoginServers
 
             if ($this->dynamic) {
 
+
                 if (count($this->drivers) > 1) {
                     if (empty(SERVER)) {
                         $this->currentDriver = current($this->servers)["driver"];
                     }
 
-                    if (count($this->servers) > 1) {
+                    if (count($this->servers) > 0) {
                         $heading = str_replace(
                             "<tr>",
                             '<tr id="driver-select-form" style="display:none;">',
@@ -315,9 +330,7 @@ class AdminerLoginServers
                     );
                     $availableDrivers = $this->getAvailableDrivers();
 
-
                     $html = '<select id="driver-select" style="width: 100%;">';
-                    $html .= '<option value="">Select a Driver</option>';
                     foreach (array_keys($availableDrivers) as $value) {
                         if (empty($value)) {
                             continue;
@@ -385,16 +398,20 @@ class AdminerLoginServers
             return '<input type="hidden" name="auth[driver]" value="">';
         }
         if ($name == 'server') {
-            if ($this->dynamic && count($this->servers)) {
-                $html = '<input type="text" value="" name="custom-server" style="display: none;" placeholder="localhost" title="Server name">';
-                $html .= sprintf('<input type="%s" value="" name="custom-server-address" style="display: none;" placeholder="127.0.0.1" title="Server address">', $this->save ? "text" : "hidden");
-                $html .= '<select name="auth[server]" style="width: 100%;">';
-                $html .= optionlist(array_keys($this->servers), SERVER);
-                $html .= '<option value="" id="addCustomServer">Add a Server</option>';
-                $html .= "</select>";
-            } elseif ($this->dynamic) {
-                $html = '<input style="display: block;" type="text" value="" name="custom-server"  placeholder="localhost" title="Server name" >';
-                $html .= sprintf('<input style="display: block;" type="%s" value="" name="custom-server-address" placeholder="127.0.0.1" title="Server address">', $this->save ? "text" : "hidden");
+            if ($this->dynamic) {
+
+                if (count($this->servers)) {
+                    $html = '<select name="auth[server]" style="width: 100%;">';
+                    $html .= optionlist(array_keys($this->servers), SERVER);
+                    $html .= '<option value="" id="addCustomServer">Add a Server</option>';
+                    $html .= "</select>";
+                    $html .= '<input type="text" value="" name="custom-server" style="display: none;" placeholder="localhost" title="Server name">';
+                    $html .= '<input type="text" value="" name="custom-server-address" style="display: none;" placeholder="127.0.0.1" title="Server address">';
+
+                } else {
+                    $html = '<input requied type="text" value="" name="custom-server" style="display: block;" placeholder="localhost" title="Server name">';
+                    $html .= '<input requied type="text" value="" name="custom-server-address" style="display: block;" placeholder="127.0.0.1" title="Server address">';
+                }
             } else {
                 $html = '<select name="auth[server]" style="width: 100%;">';
                 $html .= optionlist(array_keys($this->servers), SERVER);
@@ -436,16 +453,29 @@ class AdminerLoginServers
                         el.addEventListener('change', () => {
 
                             if (el.options[el.selectedIndex].id === 'addCustomServer') {
-                                el.style.display = 'none';
-                                if (driverForm instanceof Element) {
-                                    driverForm.style.display = null;
-                                }
+                                // el.style.display = 'none';
+
                                 [inputName, inputAddress].forEach(input => {
                                     input.setAttribute('required', '');
                                     input.style.display = "block";
                                 });
+                                if (driverForm instanceof Element) {
+                                    driverForm.style.display = null;
+                                }
+
                                 return;
                             }
+
+                            [inputName, inputAddress].forEach(input => {
+                                input.style.display = "none";
+                                input.removeAttribute('required');
+                                input.value = "";
+                            });
+
+                            if (driverForm instanceof Element) {
+                                driverForm.style.display = "none";
+                            }
+
                             if (selectDriver) {
                                 if (servers[el.value]) {
                                     selectDriver.value = servers[el.value]["driver"];
@@ -453,7 +483,36 @@ class AdminerLoginServers
                                 updateAuthForm();
                             }
 
-                        })
+                        });
+                    });
+                </script>
+                <?php $html .= ob_get_clean();
+            else: ob_start(); ?>
+                <script <?= nonce() ?> type="text/javascript">
+                    addEventListener("DOMContentLoaded", () => {
+                        const
+                            servers = <?= json_encode($this->servers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+                            canHideUser = <?= json_encode(array_keys(static::$passwordLess)) ?>,
+                            canHidePass = <?= json_encode($this->canHidePassword()) ?>,
+                            /** @type HTMLTableRowElement */
+                            userForm = document.getElementById("username-form"),
+                            /** @type HTMLTableRowElement */
+                            passForm = document.getElementById("password-form"),
+                            /** @type HTMLSelectElement */
+                            serverSelect = document.querySelector('[name="auth[server]"]');
+
+                        serverSelect.addEventListener('change', () => {
+                            let name = serverSelect.value,
+                                driver = servers[name]["driver"],
+                                hideUser = canHideUser.includes(driver),
+                                hidePass = canHidePass[driver] ?? false;
+
+                            userForm.querySelector("input").value = passForm.querySelector("input").value = "";
+                            userForm.style.display = hideUser ? "none" : null;
+                            passForm.style.display = hidePass ? "none" : null;
+
+
+                        });
                     });
                 </script>
                 <?php $html .= ob_get_clean();

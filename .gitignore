@@ -27,6 +27,7 @@ adminer.json
 websdk-tray.json
 lib/nvm/*.log
 lib/pgs*/
+/etc/.*
 
 # dev versions tests and sql exports
 *.sql.gz

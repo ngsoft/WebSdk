@@ -146,6 +146,12 @@ phan8.1
 phan8.2
 ```
 
+## Win32 API
+
+l'extension `win32std` à été compilée et intégrée aux versions php `8.2`, `8.3` et `8.4`
+En attandant que des stubs soient générés, une documentation est disponible à l'adresse suivante: [win32std - Windows binding for PHP](http://wildphp.free.fr/wiki/doku.php?id=win32std:index)
+
+
 ## Les commandes du SDK:
 
 Ce sdk fournit des commandes pour démarrer et arrêter les services :

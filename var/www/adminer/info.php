@@ -1,5 +1,7 @@
 <?php
 
+use Adminer\ThemeSwitcher;
+
 ob_start();
 
 require_once __DIR__ . "/autoloader.php";

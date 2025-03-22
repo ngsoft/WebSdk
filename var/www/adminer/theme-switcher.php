@@ -1,4 +1,7 @@
 <?php
+
+use Adminer\ThemeSwitcher;
+
 ob_start();
 
 require_once __DIR__ . "/autoloader.php";
@@ -203,22 +206,22 @@ elseif (!$loggedIn) : ?>
         <div class="my-2 px-2 d-none" data-type="none,adminer">
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["select"]]) ?>
-                       type="checkbox"
-                       role="switch" id="bsSelectOn" name="bsSelectOn">
+                    type="checkbox"
+                    role="switch" id="bsSelectOn" name="bsSelectOn">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectOn">Use Bootstrap Select
                     plugin</label>
             </div>
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["fix"]]) ?>
-                       type="checkbox"
-                       role="switch" id="bsSelectFix" name="bsSelectFix">
+                    type="checkbox"
+                    role="switch" id="bsSelectFix" name="bsSelectFix">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectFix">Fix input sizes</label>
             </div>
 
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["dark"]]) ?>
-                       type="checkbox"
-                       role="switch" id="bsSelectDark" name="bsSelectDark">
+                    type="checkbox"
+                    role="switch" id="bsSelectDark" name="bsSelectDark">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectDark">Theme is dark</label>
             </div>
 
@@ -261,11 +264,15 @@ elseif (!$loggedIn) : ?>
             });
         }
 
-        themeTypeSelect.addEventListener("change", ({target}) => {
+        themeTypeSelect.addEventListener("change", ({
+            target
+        }) => {
             changeType(target.value);
         });
 
-        document.querySelector("form").addEventListener("change", ({target}) => {
+        document.querySelector("form").addEventListener("change", ({
+            target
+        }) => {
             let t = target.closest('[data-type] input, [data-type] select');
             if (t) {
                 btn.disabled = t.value === "" ? true : null;
@@ -274,7 +281,8 @@ elseif (!$loggedIn) : ?>
 
 
         changeType(`<?= $currentData['type'] ?>`);
-        <?php if($disabled) :?>btn.disabled = true;<?php endif;?>
+        <?php if ($disabled) : ?>btn.disabled = true;
+        <?php endif; ?>
     </script>
 <?php elseif ($action === "apply") :
     $_GET["action"] = "select";
@@ -314,7 +322,7 @@ elseif (!$loggedIn) : ?>
                 $ok = ThemeSwitcher::downloadTheme();
         }
     }
-    ?>
+?>
     <div class="d-flex flex-column justify-content-between w-100">
 
         <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100">
@@ -366,7 +374,7 @@ $body = ob_get_clean();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title><?= $product ?> Theme Switcher</title>
     <link href="./static/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
@@ -381,7 +389,7 @@ $body = ob_get_clean();
     </style>
     <link rel="icon" href="./static/images/touchIcon-android.png">
     <script type="module">
-        (function () {
+        (function() {
             const
                 darkMode = globalThis.matchMedia('(prefers-color-scheme: dark)'),
                 darkModeSwitch = document.getElementById("darkModeSwitch"),
@@ -428,7 +436,7 @@ $body = ob_get_clean();
             max-width: 840px !important;
         }
 
-        main > .card:first-of-type {
+        main>.card:first-of-type {
             min-height: 50vh;
         }
     </style>
@@ -436,45 +444,45 @@ $body = ob_get_clean();
 </head>
 
 <body class="d-flex flex-column min-vh-100 justify-content-evenly align-items-center bg-secondary-subtle">
-<header>
-    <?php if (!empty($pageTitle)): ?>
-        <h1 class="text-body-secondary mb-0"><?= $pageTitle ?></h1>
-    <?php endif; ?>
-</header>
-<main class="container">
-    <div class="card bg-body-tertiary w-100 min-h-100">
-        <div class="card-header d-flex">
+    <header>
+        <?php if (!empty($pageTitle)): ?>
+            <h1 class="text-body-secondary mb-0"><?= $pageTitle ?></h1>
+        <?php endif; ?>
+    </header>
+    <main class="container">
+        <div class="card bg-body-tertiary w-100 min-h-100">
+            <div class="card-header d-flex">
 
-            <div>
-                <?php if (!empty($title)): ?>
-                    <h5 class="card-title"><?= $title ?></h5>
-                    <?php if (!empty($subTitle)): ?>
-                        <h6 class="card-subtitle text-body-secondary ms-2 fst-italic"><?= $subTitle ?></h6>
+                <div>
+                    <?php if (!empty($title)): ?>
+                        <h5 class="card-title"><?= $title ?></h5>
+                        <?php if (!empty($subTitle)): ?>
+                            <h6 class="card-subtitle text-body-secondary ms-2 fst-italic"><?= $subTitle ?></h6>
                     <?php endif;
-                endif; ?>
-            </div>
-
-
-            <div class="form-check form-switch ms-auto user-select-none">
-                <label class="form-check-label visually-hidden" for="darkModeSwitch">Dark Mode</label>
-                <div class="d-flex align-items-center">
-                    <div class="text-uppercase cursor-pointer"></div>
-                    <input class="form-check-input cursor-pointer ms-2" type="range" min="0" max="2" id="darkModeSwitch"
-                           title="Toggle dark Mode">
+                    endif; ?>
                 </div>
 
 
+                <div class="form-check form-switch ms-auto user-select-none">
+                    <label class="form-check-label visually-hidden" for="darkModeSwitch">Dark Mode</label>
+                    <div class="d-flex align-items-center">
+                        <div class="text-uppercase cursor-pointer"></div>
+                        <input class="form-check-input cursor-pointer ms-2" type="range" min="0" max="2" id="darkModeSwitch"
+                            title="Toggle dark Mode">
+                    </div>
+
+
+                </div>
+            </div>
+
+
+            <div class="card-body p-4 d-flex">
+                <?= !empty($body) ? $body : "" ?>
             </div>
         </div>
 
-
-        <div class="card-body p-4 d-flex">
-            <?= !empty($body) ? $body : "" ?>
-        </div>
-    </div>
-
-</main>
-<footer><?= !empty($footer) ? $footer : "" ?></footer>
+    </main>
+    <footer><?= !empty($footer) ? $footer : "" ?></footer>
 </body>
 
 </html>

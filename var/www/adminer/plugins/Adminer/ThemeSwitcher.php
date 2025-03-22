@@ -1,18 +1,20 @@
 <?php
 
+namespace Adminer;
+
 class ThemeSwitcher
 {
     const THEMES_LOCATION = '%s/themes/';
     const BACKUP_LOCATION = '%s/themes/backup/';
     const GH_THEME_LIST = 'https://api.github.com/repos/%s/contents/designs';
     const GH_THEME_DOWNLOAD = 'https://raw.githubusercontent.com/%s/master/designs/%s/adminer.css';
+    const GH_THEME_DOWNLOAD_ALT = 'https://raw.githubusercontent.com/%s/master/designs/%s/adminer-dark.css';
 
     const PROMPT = 'Type the number of the theme you want to use: ';
     const THEME_FILE = 'adminer.css';
     public static $themeList = [];
     private static $option = '';
     private static $theme = null;
-    private static $sessionFile = "adminer.session";
 
     public static $product = "Adminer";
     public static $repo = [
@@ -28,7 +30,7 @@ class ThemeSwitcher
         if (isset($_SESSION["token"])) {
             $token = $_SESSION["token"];
         } ?>
-        <script<?php echo nonce(); ?> type="text/javascript">
+        <script <?= nonce(); ?> type="text/javascript">
             addEventListener("DOMContentLoaded", () => {
                 let
                     menu = document.getElementById('menu'),
@@ -41,8 +43,8 @@ class ThemeSwitcher
                     const c = document.createElement('div');
                     c.style = `padding: 8px; display:flex; column-gap:8px;justify-content: space-between;`;
                     c.innerHTML = [
-                        `<a href="./theme-switcher.php?action=select-theme&token=<?=$token?>&product=${product}">Switch theme</a>`,
-                        `<a href="./info.php?token=<?=$token?>">PHP Infos</a>`
+                        `<a href="./theme-switcher.php?action=select-theme&token=<?= $token ?>&product=${product}">Switch theme</a>`,
+                        `<a href="./info.php?token=<?= $token ?>">PHP Infos</a>`
                     ].join('');
                     h1.parentElement.insertBefore(c, h1.nextElementSibling)
                 }
@@ -55,7 +57,7 @@ class ThemeSwitcher
                 flex-wrap: wrap;
             }
 
-            #menu > h1 {
+            #menu>h1 {
                 border-top: 1px solid transparent;
             }
 
@@ -68,7 +70,7 @@ class ThemeSwitcher
                 margin: 0 2px;
             }
         </style>
-        <?php
+<?php
     }
 
 
@@ -106,7 +108,7 @@ class ThemeSwitcher
     public static function isLoggedInAdminer()
     {
         self::startAdminerSession();
-        
+
         if (!isset($_SESSION["token"])) {
             return false;
         }
@@ -144,7 +146,7 @@ class ThemeSwitcher
 
     public static function getAdminerLocation()
     {
-        return dirname(__DIR__);
+        return dirname(dirname(__DIR__));
     }
 
     public static function isRunningFromCommandLine()
@@ -197,6 +199,11 @@ class ThemeSwitcher
         }
 
         return sprintf(self::GH_THEME_DOWNLOAD, self::getRepo(), $theme);
+    }
+
+    public static function getAltThemeLocation($theme)
+    {
+        return sprintf(self::GH_THEME_DOWNLOAD_ALT, self::getRepo(), $theme);
     }
 
 
@@ -425,7 +432,13 @@ class ThemeSwitcher
 
         if (isset($index) && $name = self::getThemeName($index)) {
             self::makeBackup();
-            if ($contents = file_get_contents($loc = self::getThemeLocation($name))) {
+            $loc = self::getThemeLocation($name);
+            $contents = @file_get_contents($loc);
+            if (!$contents) {
+                $loc = self::getAltThemeLocation($name);
+                $contents = @file_get_contents($loc);
+            }
+            if ($contents) {
                 $bck = self::getBackupLocation($name);
 
                 if ($loc !== $bck) {

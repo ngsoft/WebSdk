@@ -1,5 +1,7 @@
 <?php
 
+namespace Adminer;
+
 /** Check IP address and allow empty password.
  * @see https://www.adminer.org/plugins/#use
  *

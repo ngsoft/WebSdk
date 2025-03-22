@@ -1,5 +1,7 @@
 <?php
 
+namespace Adminer;
+
 /**
  * Autocomplete for keywords, tables and columns.
  * @author David Grudl
@@ -88,11 +90,11 @@ class AdminerAutocomplete
                 font-feature-settings: "liga" 0;
             }
         </style>
-        <script<?php echo nonce(); ?> src="static/ace/ace.js">
+        <script <?= nonce(); ?> src="static/ace/ace.js">
         </script>
-        <script<?php echo nonce(); ?> src="static/ace/ext-language_tools.js">
+        <script <?= nonce(); ?> src="static/ace/ext-language_tools.js">
         </script>
-        <script<?php echo nonce(); ?>>
+        <script <?= nonce(); ?>>
             document.addEventListener('DOMContentLoaded', () => {
 
                 let keywords = <?= json_encode($this->keywords) ?>,
@@ -116,12 +118,28 @@ class AdminerAutocomplete
                             // there is a limit to the length of the Array so we filter the results
 
                             let matches = [
-                                ...keywords.map((word) => ({value: word + ' ', score: 1, meta: 'keyword'}))
-                                    .filter(x => prefix.toLowerCase().startsWith(x.value.toLowerCase().slice(0, 1))),
-                                ...tables.map((word) => ({value: word + ' ', score: 2, meta: 'table'}))
-                                    .filter(() => prefix.toLowerCase() === prefix),
-                                ...fields.map((word) => ({value: word + ' ', score: 2, meta: 'field'})),
-                                ...suggests.map((word) => ({value: word + ' ', score: 2, meta: 'field'})),
+                                ...keywords.map((word) => ({
+                                    value: word + ' ',
+                                    score: 1,
+                                    meta: 'keyword'
+                                }))
+                                .filter(x => prefix.toLowerCase().startsWith(x.value.toLowerCase().slice(0, 1))),
+                                ...tables.map((word) => ({
+                                    value: word + ' ',
+                                    score: 2,
+                                    meta: 'table'
+                                }))
+                                .filter(() => prefix.toLowerCase() === prefix),
+                                ...fields.map((word) => ({
+                                    value: word + ' ',
+                                    score: 2,
+                                    meta: 'field'
+                                })),
+                                ...suggests.map((word) => ({
+                                    value: word + ' ',
+                                    score: 2,
+                                    meta: 'field'
+                                })),
                             ];
 
                             // add alias autocompletion
@@ -148,6 +166,6 @@ class AdminerAutocomplete
                 });
             });
         </script>
-        <?php
+<?php
     }
 }

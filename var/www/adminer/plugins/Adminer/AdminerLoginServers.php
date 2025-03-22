@@ -1,5 +1,7 @@
 <?php
 
+namespace Adminer;
+
 /** Display constant list of servers in login form
  * @link https://www.adminer.org/plugins/#use
  * @author Jakub Vrana, https://www.vrana.cz/
@@ -169,6 +171,8 @@ class AdminerLoginServers
                 $address = $key;
             }
 
+
+
             if (!empty($key)) {
                 if (!isset($this->servers[$key])) {
                     $this->servers[$key] = [
@@ -176,7 +180,6 @@ class AdminerLoginServers
                         "server" => $address,
                     ];
                     $_SESSION[$this->sessionKey] = $this->servers;
-
                     if (is_string($save)) {
                         @file_put_contents($save, json_encode($this->servers));
                     }
@@ -248,13 +251,11 @@ class AdminerLoginServers
 
     protected function getAvailableDrivers()
     {
-
-
         static $drivers = null;
         if (!$drivers) {
             $drivers = [];
             foreach ($GLOBALS as $var) {
-                if (is_array($var) && $var["server"] === "MySQL" && !isset($var["username"])) {
+                if (is_array($var) && isset($var["server"]) && false !== strpos($var["server"], "MySQL") && !isset($var["username"])) {
                     $drivers = $var;
                     break;
                 }
@@ -389,7 +390,7 @@ class AdminerLoginServers
 
                         });
                     </script>
-                    <?php $html .= ob_get_clean();
+            <?php $html .= ob_get_clean();
 
                     return $heading . $html;
                 }
@@ -407,7 +408,6 @@ class AdminerLoginServers
                     $html .= "</select>";
                     $html .= '<input type="text" value="" name="custom-server" style="display: none;" placeholder="localhost" title="Server name">';
                     $html .= '<input type="text" value="" name="custom-server-address" style="display: none;" placeholder="127.0.0.1" title="Server address">';
-
                 } else {
                     $html = '<input requied type="text" value="" name="custom-server" style="display: block;" placeholder="localhost" title="Server name">';
                     $html .= '<input requied type="text" value="" name="custom-server-address" style="display: block;" placeholder="127.0.0.1" title="Server address">';
@@ -422,9 +422,8 @@ class AdminerLoginServers
             ob_start();
             ?>
             <script <?= nonce() ?>
-                    type="text/javascript">
-                document.querySelector(`[name="auth[driver]"]`).onchange = () => {
-                };
+                type="text/javascript">
+                document.querySelector(`[name="auth[driver]"]`).onchange = () => {};
             </script>
             <?php if ($this->dynamic): ?>
                 <script <?= nonce() ?> type="text/javascript">
@@ -486,7 +485,7 @@ class AdminerLoginServers
                         });
                     });
                 </script>
-                <?php $html .= ob_get_clean();
+            <?php $html .= ob_get_clean();
             else: ob_start(); ?>
                 <script <?= nonce() ?> type="text/javascript">
                     addEventListener("DOMContentLoaded", () => {
@@ -515,7 +514,7 @@ class AdminerLoginServers
                         });
                     });
                 </script>
-                <?php $html .= ob_get_clean();
+<?php $html .= ob_get_clean();
             endif;
 
             return $heading . "$html\n";

@@ -1,25 +1,36 @@
 <?php
+
+use Adminer\AdminerAutocomplete;
+use Adminer\AdminerBootstrapSelect;
+use Adminer\AdminerDisableJush;
+use Adminer\AdminerLoginIp;
+use Adminer\AdminerLoginServers;
+use Adminer\AdminerTheme;
+use Adminer\ThemeSwitcher;
+
 error_reporting(0);
-ini_set("display_errors", 0);
-require_once __DIR__ . "/autoloader.php";
+ini_set('display_errors', 0);
+
+require_once __DIR__ . '/autoloader.php';
 function adminer_object()
 {
+
     error_reporting(0);
-    ini_set("display_errors", 0);
-    //    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-    //    ini_set("display_errors", 1);
-    if (isset($_SESSION["themeData"])) {
-        $themeData = $_SESSION["themeData"];
+    ini_set('display_errors', 0);
+
+    // error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+    // ini_set("display_errors", 1);
+    if (isset($_SESSION['themeData'])) {
+        $themeData = $_SESSION['themeData'];
     } else {
-        $themeData = $_SESSION["themeData"] = ThemeSwitcher::loadJsonData();
+        $themeData = $_SESSION['themeData'] = ThemeSwitcher::loadJsonData();
     }
 
-
-    $select = $themeData["select"];
-    $dark = $themeData["dark"];
-    $theme = $themeData["theme"];
-    $type = $themeData["type"];
-    $fix = $themeData["fix"];
+    $select = $themeData['select'];
+    $dark = $themeData['dark'];
+    $theme = $themeData['theme'];
+    $type = $themeData['type'];
+    $fix = $themeData['fix'];
 
     $plugins = [
         new ThemeSwitcher(),
@@ -28,32 +39,32 @@ function adminer_object()
         new AdminerLoginIp(['127.0', '192.168', '::1']),
         new AdminerLoginServers(
             [
-                "MySql" => ["driver" => "mysql", "server" => "127.0.0.1"],
-                "PostgreSql" => ["driver" => "pgsql", "server" => "127.0.0.1"],
-                "SqLite" => ["driver" => "sqlite", "server" => "sqlite"]
+                'MySql' => ['driver' => 'mysql', 'server' => '127.0.0.1'],
+                'PostgreSql' => ['driver' => 'pgsql', 'server' => '127.0.0.1'],
+                'SqLite' => ['driver' => 'sqlite', 'server' => 'sqlite'],
             ],
             ['mysql', 'pgsql', 'sqlite'],
-            __DIR__ . "/../../../tmp/adminer-servers",
+            __DIR__ . '/../../../tmp/adminer.servers',
             true,
             true
         ),
-
 
     ];
 
     $plugins[] = new AdminerBootstrapSelect($theme, $dark, $fix, $select);
 
-    if ($type === "custom") {
+    if ('custom' === $type) {
         $plugins[] = new AdminerTheme($theme);
     }
 
+    if (class_exists("Adminer\\Adminer")) {
+        $instance = new \Adminer\AdminerPlugin($plugins);
+    } else {
+        $instance = new AdminerPlugin($plugins);
+    }
 
-    return new AdminerPlugin($plugins);
+    return $instance;
 }
 
 
-if (PHP_VERSION_ID < 70000) {
-    require_once __DIR__ . '/adminer-legacy.php';
-    exit;
-}
 require_once __DIR__ . '/adminer.php';

@@ -1,10 +1,6 @@
 <?php
 
-use Adminer\AdminerAutocomplete;
 use Adminer\AdminerBootstrapSelect;
-use Adminer\AdminerDisableJush;
-use Adminer\AdminerLoginIp;
-use Adminer\AdminerLoginServers;
 use Adminer\AdminerTheme;
 use Adminer\ThemeSwitcher;
 
@@ -31,27 +27,12 @@ function adminer_object()
     $theme = $themeData['theme'];
     $type = $themeData['type'];
     $fix = $themeData['fix'];
+    $lang = $themeData['lang'];
 
-    $plugins = [
-        new ThemeSwitcher(),
-        new AdminerDisableJush(),
-        new AdminerAutocomplete(),
-        new AdminerLoginIp(['127.0', '192.168', '::1']),
-        new AdminerLoginServers(
-            [
-                'MySql' => ['driver' => 'mysql', 'server' => '127.0.0.1'],
-                'PostgreSql' => ['driver' => 'pgsql', 'server' => '127.0.0.1'],
-                'SqLite' => ['driver' => 'sqlite', 'server' => 'sqlite'],
-            ],
-            ['mysql', 'pgsql', 'sqlite'],
-            __DIR__ . '/../../../tmp/adminer.servers',
-            true,
-            true
-        ),
+    $plugins = require_once __DIR__ . "/plugins.php";
 
-    ];
-
-    $plugins[] = new AdminerBootstrapSelect($theme, $dark, $fix, $select);
+    array_unshift($plugins, new ThemeSwitcher());
+    $plugins[] = new AdminerBootstrapSelect($theme, $dark, $fix, $select, $lang);
 
     if ('custom' === $type) {
         $plugins[] = new AdminerTheme($theme);

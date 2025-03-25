@@ -48,6 +48,7 @@ class AdminerTheme
      */
     public function head()
     {
+
         $userAgent = filter_input(INPUT_SERVER, "HTTP_USER_AGENT");
         $basepath = $this->basePath;
 ?>

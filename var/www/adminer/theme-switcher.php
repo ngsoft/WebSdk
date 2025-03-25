@@ -215,7 +215,13 @@ elseif (!$loggedIn) : ?>
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["fix"]]) ?>
                     type="checkbox"
                     role="switch" id="bsSelectFix" name="bsSelectFix">
-                <label class="form-check-label cursor-pointer fw-bold" for="bsSelectFix">Fix input sizes</label>
+                <label class="form-check-label cursor-pointer fw-bold" for="bsSelectFix">Fix input sizes and some UI components</label>
+            </div>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["lang"]]) ?>
+                    type="checkbox"
+                    role="switch" id="bsSelectLang" name="bsSelectLang">
+                <label class="form-check-label cursor-pointer fw-bold" for="bsSelectLang">Display language selection</label>
             </div>
 
             <div class="form-check form-switch mb-2">
@@ -291,6 +297,7 @@ elseif (!$loggedIn) : ?>
     $select = !empty($_GET["bsSelectOn"]);
     $dark = !empty($_GET["bsSelectDark"]);
     $fix = !empty($_GET["bsSelectFix"]);
+    $lang = !empty($_GET["bsSelectLang"]);
 
     $theme = "none";
     if ($type === "custom") {
@@ -312,7 +319,7 @@ elseif (!$loggedIn) : ?>
     if ($type === "custom") {
         $select = $fix = $dark = false;
     }
-    if ($ok && $ok = ThemeSwitcher::saveJsonData("adminer.json", $type, $theme, $select, $dark, $fix)) {
+    if ($ok && $ok = ThemeSwitcher::saveJsonData("adminer.json", $type, $theme, $select, $dark, $fix, $lang)) {
 
         switch ($type) {
             case "none":
@@ -320,6 +327,9 @@ elseif (!$loggedIn) : ?>
                 break;
             case "adminer":
                 $ok = ThemeSwitcher::downloadTheme();
+                break;
+            case "custom":
+                @file_put_contents(ThemeSwitcher::getAdminerLocation() . DIRECTORY_SEPARATOR . ThemeSwitcher::THEME_FILE, '');
         }
     }
 ?>

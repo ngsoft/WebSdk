@@ -2,6 +2,9 @@
 
 namespace Adminer;
 
+/**
+ * Manages adminer themes
+ */
 class ThemeSwitcher
 {
     const THEMES_LOCATION = '%s/themes/';
@@ -216,6 +219,7 @@ class ThemeSwitcher
             "select" => false,
             "dark" => false,
             "fix" => false,
+            "lang" => true
         ];
 
 
@@ -224,7 +228,7 @@ class ThemeSwitcher
         if (is_file($file)) {
             $newData = json_decode(file_get_contents($file), true);
             foreach (array_keys($data) as $key) {
-                if (gettype($data[$key]) === gettype($newData[$key])) {
+                if (isset($newData[$key]) && gettype($data[$key]) === gettype($newData[$key])) {
                     $data[$key] = $newData[$key];
                 }
             }
@@ -233,7 +237,7 @@ class ThemeSwitcher
         return $data;
     }
 
-    public static function saveJsonData($file = "adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false, $fix = false)
+    public static function saveJsonData($file = "adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false, $fix = false, $lang = true)
     {
 
         $data = [
@@ -242,6 +246,7 @@ class ThemeSwitcher
             "select" => $useBootstrapSelect,
             "dark" => $darkMode,
             "fix" => $fix,
+            "lang" => $lang
         ];
         $file = self::getAdminerLocation() . DIRECTORY_SEPARATOR . $file;
 

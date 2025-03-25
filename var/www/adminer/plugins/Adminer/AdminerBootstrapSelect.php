@@ -2,6 +2,9 @@
 
 namespace Adminer;
 
+/**
+ * Use Bootstrap Select component
+ */
 class AdminerBootstrapSelect
 {
 
@@ -11,14 +14,17 @@ class AdminerBootstrapSelect
     protected $fix;
     protected $select;
 
+    protected $lang;
+
     protected $theme = "";
 
-    public function __construct($theme = "", $dark = false, $fix = false, $select = true)
+    public function __construct($theme = "", $dark = false, $fix = false, $select = true, $lang = true)
     {
         $this->dark = $dark;
         $this->theme = $theme;
         $this->fix = $fix;
         $this->select = $select;
+        $this->lang = $lang;
     }
 
 
@@ -46,6 +52,7 @@ class AdminerBootstrapSelect
             if ($this->fix): ?>
                 document.documentElement.dataset.fix = `true`;
             <?php endif; ?>
+            document.documentElement.dataset.lang = `<?= json_encode($this->lang) ?>`;
         </script>
 <?php
     }

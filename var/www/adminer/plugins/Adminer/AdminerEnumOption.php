@@ -11,33 +11,37 @@ namespace Adminer;
 class AdminerEnumOption
 {
 
-	function editInput($table, $field, $attrs, $value)
-	{
-		if ($field["type"] == "enum") {
-			$options = array();
-			$selected = $value;
-			if (isset($_GET["select"])) {
-				$options[-1] = lang('original');
-				if ($selected === null) {
-					$selected = -1;
-				}
-			}
-			if ($field["null"]) {
-				$options[""] = "NULL";
-				if ($value === null && !isset($_GET["select"])) {
-					$selected = "";
-				}
-			}
-			$options[0] = lang('empty');
-			preg_match_all("~'((?:[^']|'')*)'~", $field["length"], $matches);
-			foreach ($matches[1] as $i => $val) {
-				$val = stripcslashes(str_replace("''", "'", $val));
-				$options[$i + 1] = $val;
-				if ($value === $val) {
-					$selected = $i + 1;
-				}
-			}
-			return "<select$attrs>" . optionlist($options, (string) $selected, 1) . "</select>"; // 1 - use keys
-		}
-	}
+    function editInput($table, $field, $attrs, $value)
+    {
+        if ($field["type"] == "enum") {
+            $options = array();
+            $selected = $value;
+            if (isset($_GET["select"])) {
+                $options[-1] = lang('original');
+                if ($selected === null) {
+                    $selected = -1;
+                }
+            }
+            if ($field["null"]) {
+                $options[""] = "NULL";
+                if ($selected === null) {
+                    $selected = "";
+                }
+            }
+            preg_match_all("~'((?:[^']|'')*)'~", $field["length"], $matches);
+            foreach ($matches[1] as $val) {
+                $val = stripcslashes(str_replace("''", "'", $val));
+                $options[$val] = $val;
+            }
+            return "<select$attrs>" . optionlist($options, $selected, 1) . "</select>"; // 1 - use keys
+        }
+    }
+
+    protected $translations = array(
+        'cs' => array('' => 'Editace políčka enum pomocí <select><option> místo <input type="radio">'),
+        'de' => array('' => 'Verwenden Sie <select><option> für die enum-Bearbeitung anstelle von <input type="radio">'),
+        'pl' => array('' => 'Użyj <select><option> do edycji enum zamiast <input type="radio">'),
+        'ro' => array('' => 'Utilizați <select><option> pentru editarea enum în loc de <input type="radio">'),
+        'ja' => array('' => '列挙型の編集に <input type="radio"> ではなく <select><option> を使用'),
+    );
 }

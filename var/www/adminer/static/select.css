@@ -548,6 +548,11 @@ textarea.form-control-lg
     }
 }
 
+[data-fix] #content .plugins
+{
+    display: none;
+}
+
 [data-lang="false"] #lang
 {
     display: none;

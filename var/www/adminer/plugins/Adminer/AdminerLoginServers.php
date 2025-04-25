@@ -2,6 +2,8 @@
 
 namespace Adminer;
 
+use ReflectionClass;
+
 /** Display constant list of servers in login form
  * @link https://www.adminer.org/plugins/#use
  * @author Jakub Vrana, https://www.vrana.cz/
@@ -22,6 +24,14 @@ class AdminerLoginServers
         "mongo" => "MongoDB",
         "elastic" => "Elasticsearch",
         "elastic7" => "Elasticsearch 7",
+    ];
+
+    protected static $basicDrivers = [
+        "server" => "MySQL",
+        "sqlite" => "SQLite 3",
+        "pgsql" => "PostgreSQL",
+        "oracle" => "Oracle",
+        "mssql" => "MS SQL",
     ];
     protected static $passwordLess = [
         "sqlite" => "ADMINER_SQLITE_PASSWORD",
@@ -44,9 +54,9 @@ class AdminerLoginServers
     protected $passwordHashes = [];
 
     /** Set supported servers
-     * @param array $servers array($description => array("server" => "127.0.0.1", "driver" => "server|pgsql|sqlite|..."))
+     * @param array<string|int,array{driver:string|null,name:string|null,server:string|null}|string> $servers array($description => array("server" => "127.0.0.1", "driver" => "server|pgsql|sqlite|..."))
      * @param string|string[] $defaultDriver
-     * @param string|false $save
+     * @param string|false $save save filename
      * @param bool $dynamic Authorize dynamic login form
      * @param bool $passwordLess Authorize empty passwords
      *
@@ -255,9 +265,21 @@ class AdminerLoginServers
         if (!$drivers) {
             $drivers = [];
             foreach ($GLOBALS as $var) {
-                if (is_array($var) && isset($var["server"]) && false !== strpos($var["server"], "MySQL") && !isset($var["username"])) {
+                if (is_array($var) && isset($var["server"]) && false !== stripos($var["server"], "MySQL") && !isset($var["username"])) {
                     $drivers = $var;
                     break;
+                }
+            }
+
+            // from adminer 5.2
+            if (empty($drivers) && class_exists(SqlDriver::class)) {
+                $refl = new ReflectionClass(SqlDriver::class);
+                foreach ($refl->getProperties() as $prop) {
+                    $var = $prop->getValue();
+                    if (is_array($var) && isset($var["server"]) && false !== stripos($var["server"], "MySQL")) {
+                        $drivers = $var;
+                        break;
+                    }
                 }
             }
         }
@@ -329,7 +351,19 @@ class AdminerLoginServers
                         '<tr id="driver-select-form">',
                         $heading
                     );
-                    $availableDrivers = $this->getAvailableDrivers();
+
+                    $availableDrivers = [];
+
+                    if (preg_match_all(
+                        '#value="([^"]+)"[^>]*[>]([^<]+)#',
+                        $value,
+                        $matches,
+                        PREG_SET_ORDER
+                    )) {
+                        foreach ($matches as $entry) {
+                            $availableDrivers[$entry[1]] = $entry[2];
+                        }
+                    }
 
                     $html = '<select id="driver-select" style="width: 100%;">';
                     foreach (array_keys($availableDrivers) as $value) {
@@ -341,7 +375,7 @@ class AdminerLoginServers
                         }
                         $label = self::$driverList[$value];
                         $selected = $value === ($this->currentDriver) ? "selected" : "";
-                        $html .= sprintf('<option %s value="%s" >%s</option>', $selected, $value, $label);
+                        $html .= sprintf('<option %s value="%s">%s</option>', $selected, $value, $label);
                     }
                     $html .= '</select>';
                     $html .= sprintf('<input type="hidden" name="auth[driver]" value="%s">', $this->currentDriver);
@@ -409,8 +443,8 @@ class AdminerLoginServers
                     $html .= '<input type="text" value="" name="custom-server" style="display: none;" placeholder="localhost" title="Server name">';
                     $html .= '<input type="text" value="" name="custom-server-address" style="display: none;" placeholder="127.0.0.1" title="Server address">';
                 } else {
-                    $html = '<input requied type="text" value="" name="custom-server" style="display: block;" placeholder="localhost" title="Server name">';
-                    $html .= '<input requied type="text" value="" name="custom-server-address" style="display: block;" placeholder="127.0.0.1" title="Server address">';
+                    $html = '<input required type="text" value="" name="custom-server" style="display: block;" placeholder="localhost" title="Server name">';
+                    $html .= '<input required type="text" value="" name="custom-server-address" style="display: block;" placeholder="127.0.0.1" title="Server address">';
                 }
             } else {
                 $html = '<select name="auth[server]" style="width: 100%;">';
@@ -476,6 +510,7 @@ class AdminerLoginServers
                             }
 
                             if (selectDriver) {
+                                console.debug('servers', servers);
                                 if (servers[el.value]) {
                                     selectDriver.value = servers[el.value]["driver"];
                                 }

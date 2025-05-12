@@ -1,0 +1,9 @@
+#lang
+{
+    right: 64px;
+}
+
+.logout>span
+{
+    display: none;
+}

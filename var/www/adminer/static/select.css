@@ -548,7 +548,8 @@ textarea.form-control-lg
     }
 }
 
-[data-fix] #content .plugins
+[data-fix] #content .plugins,
+[data-fix] .logout>span
 {
     display: none;
 }

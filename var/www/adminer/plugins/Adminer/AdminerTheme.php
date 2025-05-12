@@ -81,7 +81,8 @@ class AdminerTheme
 
         <link rel="stylesheet" type="text/css"
             href="<?= $basepath ?>css/<?php echo htmlspecialchars($this->themeName) ?>.css?<?php echo self::CSS_VERSION ?>">
-
+        <link rel="stylesheet" type="text/css"
+            href="<?= $basepath ?>css/custom.css">
         <script <?= nonce(); ?>>
             (function(document) {
                 "use strict";

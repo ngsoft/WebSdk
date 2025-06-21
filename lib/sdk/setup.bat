@@ -74,6 +74,11 @@ pushd "%gvm%"
     call setup.bat
 popd
 
+@REM Setup Dev Root Certificate
+pushd "%ca%"
+    call generate-certs.bat
+popd
+
 @REM Add Tray Icon App
 REG query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "WebSDK" > NUL 2>&1
 if ERRORLEVEL 1 (

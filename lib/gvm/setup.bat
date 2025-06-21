@@ -69,4 +69,5 @@ if not exist "%go%bin\go.exe" (
 echo Setting up go %goversion% environement ...
 "%go%bin\go.exe" env -w CGO_ENABLED=1
 "%go%bin\go.exe" env -w GO111MODULE=on
+"%go%bin\go.exe" install github.com/jsha/minica@latest
 @rem its done !

@@ -11,12 +11,13 @@ use Adminer\AdminerLoginIp;
 use Adminer\AdminerLoginServers;
 use Adminer\AdminerPrettyJsonColumn;
 use Adminer\AdminerDatabaseHide;
+use Adminer\AdminerTablesFilter;
 
 $plugins = [];
 
-$plugins[] = new AdminerDumpJson();
 
 $plugins[] = new AdminerEnumOption();
+$plugins[] = new AdminerDumpJson();
 $plugins[] = new AdminerDumpPhp();
 
 if (class_exists("Adminer\\Adminer")) {
@@ -28,6 +29,9 @@ if (class_exists("Adminer\\Adminer")) {
     $plugins[] = new AdminerAutocomplete();
 }
 
+
+
+$plugins[] = new AdminerTablesFilter();
 $plugins[] = new AdminerDatabaseHide(['sys', 'mysql', 'information_schema', 'performance_schema']);
 $plugins[] = new AdminerLoginIp(['127.0', '192.168', '::1']);
 $plugins[] = new AdminerLoginServers(

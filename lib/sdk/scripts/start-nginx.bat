@@ -14,10 +14,13 @@ goto :eof
 :script
 @REM Run Script Elevated
 call "%~dp0stop-nginx.bat" > NUL 2>&1
-
 taskkill /F /IM httpd.exe > NUL 2>&1
+set "config_file=conf\nginx.conf"
+if exist "%ca%localhost\cert.pem" (
+    set "config_file=conf\nginx-ssl.conf"
+)
 pushd "%nginx%"
-    "%daemonize%" .\nginx.exe
+    "%daemonize%" .\nginx.exe -c %config_file%
 popd
 
 

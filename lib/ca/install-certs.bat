@@ -7,7 +7,7 @@ call "%~dp0..\sdk\loadenv.bat"
 NET FILE > NUL 2>&1
 if "%ERRORLEVEL%" == "0" goto script
 @REM Run elevated
-"%elevate%" cmd.exe /C "%~fx0"
+"%elevate%" "%daemonize%" cmd.exe /C "%~fx0"
 goto :eof
 
 :error

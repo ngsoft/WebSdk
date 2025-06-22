@@ -38,12 +38,7 @@ goto main
 pushd "%~dp0"
 set "hostname=%computername%"
 call :to_lowercase hostname
-
-echo Création des certificats pour %hostname%
-"%USERPROFILE%\go\bin\minica.exe" --domains "%hostname%,%hostname%.local"
-echo Création des certificats pour localhost
-"%USERPROFILE%\go\bin\minica.exe" --domains "localhost,localhost.local"
+echo Creating certificates for %hostname%, localhost
+"%USERPROFILE%\go\bin\minica.exe" --domains "localhost,localhost.local,*.localhost.local,%hostname%,%hostname%.local,*.%hostname%.local" -ip-addresses 127.0.0.1
 call install-certs.bat
-
-:end
 popd

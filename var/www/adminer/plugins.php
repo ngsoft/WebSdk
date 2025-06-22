@@ -10,6 +10,7 @@ use Adminer\AdminerJsonColumn;
 use Adminer\AdminerLoginIp;
 use Adminer\AdminerLoginServers;
 use Adminer\AdminerPrettyJsonColumn;
+use Adminer\AdminerDatabaseHide;
 
 $plugins = [];
 
@@ -27,6 +28,7 @@ if (class_exists("Adminer\\Adminer")) {
     $plugins[] = new AdminerAutocomplete();
 }
 
+$plugins[] = new AdminerDatabaseHide(['sys', 'mysql', 'information_schema', 'performance_schema']);
 $plugins[] = new AdminerLoginIp(['127.0', '192.168', '::1']);
 $plugins[] = new AdminerLoginServers(
     [

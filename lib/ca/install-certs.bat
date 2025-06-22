@@ -12,7 +12,7 @@ goto :eof
 
 :error
 echo minica.pem not found >&2
-goto :eof
+goto end
 
 :script
 @REM Run Script Elevated
@@ -20,5 +20,6 @@ pushd "%~dp0"
     if not exist minica.pem goto error
     echo Root certificate installation ...
     certutil.exe -addstore -f "ROOT" minica.pem
+:end
 popd
 

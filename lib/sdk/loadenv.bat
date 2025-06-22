@@ -7,6 +7,7 @@ set "etc=%WEB_SDK%etc\"
 set "sdk=%lib%sdk\"
 @REM nodejs
 set "nvm=%lib%nvm\"
+set "node_version=22"
 @REM mariadb
 set "mariadb=%lib%mariadb\"
 @REM pgsql

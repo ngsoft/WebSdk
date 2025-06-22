@@ -33,8 +33,8 @@ goto main
     call :addpath "%%%%NVM_SYMLINK%%%%" false
     if not exist "%NVM_SYMLINK%\node.exe" (
         pushd "%NVM_HOME%"
-            .\nvm.exe install 22
-            .\nvm.exe use 22
+            .\nvm.exe install %node_version%
+            .\nvm.exe use %node_version%
         popd
     )
     exit /b

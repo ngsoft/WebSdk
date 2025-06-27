@@ -28,6 +28,7 @@ websdk-tray.json
 lib/nvm/*.log
 lib/pgs*/
 /etc/.*
+lib/laravel
 
 # dev versions tests and sql exports
 *.sql.gz

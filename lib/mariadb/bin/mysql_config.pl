@@ -27,7 +27,7 @@
 #  All unrecognized arguments to this script are passed to mysqld.
 #
 #  NOTE: This script will only be used on Windows until solved how to
-#        handle -lmariadb  ws2_32 advapi32 kernel32 shlwapi crypt32 bcrypt secur32   and other strings inserted that might contain
+#        handle -lmariadb    and other strings inserted that might contain
 #        several arguments, possibly with spaces in them.
 #
 #  NOTE: This script was deliberately written to be as close to the shell
@@ -53,7 +53,7 @@ my $cwd = cwd();
 my $basedir;
 
 my $socket  = '/tmp/mysql.sock';
-my $version = '11.6.2';
+my $version = '11.8.2';
 
 sub which
 {
@@ -149,7 +149,7 @@ sub quote_options {
 my $me = get_full_path($0);
 $basedir = dirname(dirname($me)); # Remove "/bin/mysql_config" part
 
-my $ldata   = 'C:/Program Files/MariaDB 11.6/data';
+my $ldata   = 'C:/Program Files/MariaDB 11.8/data';
 my $execdir = 'C:/Program Files/MariaDB/bin';
 my $bindir  = 'C:/Program Files/MariaDB/bin';
 
@@ -199,9 +199,9 @@ my $flags;
 $flags->{libs} =
   [@ldflags,@lib_opts,'','','',''];
 $flags->{libs_r} =
-  [@ldflags,@lib_r_opts,'','-lmariadb  ws2_32 advapi32 kernel32 shlwapi crypt32 bcrypt secur32  ',''];
+  [@ldflags,@lib_r_opts,'','-lmariadb   ',''];
 $flags->{embedded_libs} =
-  [@ldflags,@lib_e_opts,'','','-lmariadb  ws2_32 advapi32 kernel32 shlwapi crypt32 bcrypt secur32  ','',''];
+  [@ldflags,@lib_e_opts,'','','-lmariadb   ','',''];
 
 $flags->{include} = ["-I$pkgincludedir"];
 $flags->{cflags}  = [@{$flags->{include}},split(" ",'')];

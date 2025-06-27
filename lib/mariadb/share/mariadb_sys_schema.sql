@@ -2179,8 +2179,8 @@ VIEW innodb_buffer_stats_by_schema (
   rows_cached
 ) AS
 SELECT IF(LOCATE('.', ibp.table_name) = 0, 'InnoDB System', REPLACE(SUBSTRING_INDEX(ibp.table_name, '.', 1), '`', '')) AS object_schema,
-       sys.format_bytes(SUM(IF(ibp.compressed_size = 0, 16384, compressed_size))) AS allocated,
-       sys.format_bytes(SUM(ibp.data_size)) AS data,
+       format_bytes(SUM(IF(ibp.compressed_size = 0, 16384, compressed_size))) AS allocated,
+       format_bytes(SUM(ibp.data_size)) AS data,
        COUNT(ibp.page_number) AS pages,
        COUNT(IF(ibp.is_hashed = 'YES', 1, NULL)) AS pages_hashed,
        COUNT(IF(ibp.is_old = 'YES', 1, NULL)) AS pages_old,
@@ -2311,8 +2311,8 @@ VIEW innodb_buffer_stats_by_table (
 ) AS
 SELECT IF(LOCATE('.', ibp.table_name) = 0, 'InnoDB System', REPLACE(SUBSTRING_INDEX(ibp.table_name, '.', 1), '`', '')) AS object_schema,
        REPLACE(SUBSTRING_INDEX(ibp.table_name, '.', -1), '`', '') AS object_name,
-       sys.format_bytes(SUM(IF(ibp.compressed_size = 0, 16384, compressed_size))) AS allocated,
-       sys.format_bytes(SUM(ibp.data_size)) AS data,
+       format_bytes(SUM(IF(ibp.compressed_size = 0, 16384, compressed_size))) AS allocated,
+       format_bytes(SUM(ibp.data_size)) AS data,
        COUNT(ibp.page_number) AS pages,
        COUNT(IF(ibp.is_hashed = 'YES', 1, NULL)) AS pages_hashed,
        COUNT(IF(ibp.is_old = 'YES', 1, NULL)) AS pages_old,
@@ -3073,7 +3073,7 @@ SELECT IF(id IS NULL,
        sys.format_path(object_name) file, 
        format_pico_time(timer_wait) AS latency,
        operation, 
-       sys.format_bytes(number_of_bytes) AS requested
+       format_bytes(number_of_bytes) AS requested
   FROM performance_schema.events_waits_history_long 
   JOIN performance_schema.threads USING (thread_id)
   LEFT JOIN information_schema.processlist ON processlist_id = id
@@ -3330,12 +3330,12 @@ VIEW io_global_by_file_by_bytes (
 ) AS
 SELECT sys.format_path(file_name) AS file, 
        count_read, 
-       sys.format_bytes(sum_number_of_bytes_read) AS total_read,
-       sys.format_bytes(IFNULL(sum_number_of_bytes_read / NULLIF(count_read, 0), 0)) AS avg_read,
+       format_bytes(sum_number_of_bytes_read) AS total_read,
+       format_bytes(IFNULL(sum_number_of_bytes_read / NULLIF(count_read, 0), 0)) AS avg_read,
        count_write, 
-       sys.format_bytes(sum_number_of_bytes_write) AS total_written,
-       sys.format_bytes(IFNULL(sum_number_of_bytes_write / NULLIF(count_write, 0), 0.00)) AS avg_write,
-       sys.format_bytes(sum_number_of_bytes_read + sum_number_of_bytes_write) AS total, 
+       format_bytes(sum_number_of_bytes_write) AS total_written,
+       format_bytes(IFNULL(sum_number_of_bytes_write / NULLIF(count_write, 0), 0.00)) AS avg_write,
+       format_bytes(sum_number_of_bytes_read + sum_number_of_bytes_write) AS total,
        IFNULL(ROUND(100-((sum_number_of_bytes_read/ NULLIF((sum_number_of_bytes_read+sum_number_of_bytes_write), 0))*100), 2), 0.00) AS write_pct 
   FROM performance_schema.file_summary_by_instance
  ORDER BY sum_number_of_bytes_read + sum_number_of_bytes_write DESC;
@@ -3586,12 +3586,12 @@ SELECT SUBSTRING_INDEX(event_name, '/', -2) event_name,
        format_pico_time(avg_timer_wait) AS avg_latency,
        format_pico_time(max_timer_wait) AS max_latency,
        count_read,
-       sys.format_bytes(sum_number_of_bytes_read) AS total_read,
-       sys.format_bytes(IFNULL(sum_number_of_bytes_read / NULLIF(count_read, 0), 0)) AS avg_read,
+       format_bytes(sum_number_of_bytes_read) AS total_read,
+       format_bytes(IFNULL(sum_number_of_bytes_read / NULLIF(count_read, 0), 0)) AS avg_read,
        count_write,
-       sys.format_bytes(sum_number_of_bytes_write) AS total_written,
-       sys.format_bytes(IFNULL(sum_number_of_bytes_write / NULLIF(count_write, 0), 0)) AS avg_written,
-       sys.format_bytes(sum_number_of_bytes_write + sum_number_of_bytes_read) AS total_requested
+       format_bytes(sum_number_of_bytes_write) AS total_written,
+       format_bytes(IFNULL(sum_number_of_bytes_write / NULLIF(count_write, 0), 0)) AS avg_written,
+       format_bytes(sum_number_of_bytes_write + sum_number_of_bytes_read) AS total_requested
   FROM performance_schema.file_summary_by_event_name
  WHERE event_name LIKE 'wait/io/file/%' 
    AND count_star > 0
@@ -3744,11 +3744,11 @@ SELECT SUBSTRING_INDEX(event_name, '/', -2) AS event_name,
        format_pico_time(sum_timer_write) AS write_latency,
        format_pico_time(sum_timer_misc) AS misc_latency,
        count_read,
-       sys.format_bytes(sum_number_of_bytes_read) AS total_read,
-       sys.format_bytes(IFNULL(sum_number_of_bytes_read / NULLIF(count_read, 0), 0)) AS avg_read,
+       format_bytes(sum_number_of_bytes_read) AS total_read,
+       format_bytes(IFNULL(sum_number_of_bytes_read / NULLIF(count_read, 0), 0)) AS avg_read,
        count_write,
-       sys.format_bytes(sum_number_of_bytes_write) AS total_written,
-       sys.format_bytes(IFNULL(sum_number_of_bytes_write / NULLIF(count_write, 0), 0)) AS avg_written
+       format_bytes(sum_number_of_bytes_write) AS total_written,
+       format_bytes(IFNULL(sum_number_of_bytes_write / NULLIF(count_write, 0), 0)) AS avg_written
   FROM performance_schema.file_summary_by_event_name 
  WHERE event_name LIKE 'wait/io/file/%'
    AND count_star > 0
@@ -3882,10 +3882,10 @@ VIEW memory_by_user_by_current_bytes (
 ) AS
 SELECT IF(user IS NULL, 'background', user) AS user,
        SUM(current_count_used) AS current_count_used,
-       sys.format_bytes(SUM(current_number_of_bytes_used)) AS current_allocated,
-       sys.format_bytes(IFNULL(SUM(current_number_of_bytes_used) / NULLIF(SUM(current_count_used), 0), 0)) AS current_avg_alloc,
-       sys.format_bytes(MAX(current_number_of_bytes_used)) AS current_max_alloc,
-       sys.format_bytes(SUM(sum_number_of_bytes_alloc)) AS total_allocated
+       format_bytes(SUM(current_number_of_bytes_used)) AS current_allocated,
+       format_bytes(IFNULL(SUM(current_number_of_bytes_used) / NULLIF(SUM(current_count_used), 0), 0)) AS current_avg_alloc,
+       format_bytes(MAX(current_number_of_bytes_used)) AS current_max_alloc,
+       format_bytes(SUM(sum_number_of_bytes_alloc)) AS total_allocated
   FROM performance_schema.memory_summary_by_user_by_event_name
  GROUP BY IF(user IS NULL, 'background', user)
  ORDER BY SUM(current_number_of_bytes_used) DESC;
@@ -3988,10 +3988,10 @@ VIEW memory_by_host_by_current_bytes (
 ) AS
 SELECT IF(host IS NULL, 'background', host) AS host,
        SUM(current_count_used) AS current_count_used,
-       sys.format_bytes(SUM(current_number_of_bytes_used)) AS current_allocated,
-       sys.format_bytes(IFNULL(SUM(current_number_of_bytes_used) / NULLIF(SUM(current_count_used), 0), 0)) AS current_avg_alloc,
-       sys.format_bytes(MAX(current_number_of_bytes_used)) AS current_max_alloc,
-       sys.format_bytes(SUM(sum_number_of_bytes_alloc)) AS total_allocated
+       format_bytes(SUM(current_number_of_bytes_used)) AS current_allocated,
+       format_bytes(IFNULL(SUM(current_number_of_bytes_used) / NULLIF(SUM(current_count_used), 0), 0)) AS current_avg_alloc,
+       format_bytes(MAX(current_number_of_bytes_used)) AS current_max_alloc,
+       format_bytes(SUM(sum_number_of_bytes_alloc)) AS total_allocated
   FROM performance_schema.memory_summary_by_host_by_event_name
  GROUP BY IF(host IS NULL, 'background', host)
  ORDER BY SUM(current_number_of_bytes_used) DESC;
@@ -4101,10 +4101,10 @@ SELECT thread_id,
           CONCAT(t.processlist_user, '@', t.processlist_host), 
           REPLACE(t.name, 'thread/', '')) user,
        SUM(mt.current_count_used) AS current_count_used,
-       sys.format_bytes(SUM(mt.current_number_of_bytes_used)) AS current_allocated,
-       sys.format_bytes(IFNULL(SUM(mt.current_number_of_bytes_used) / NULLIF(SUM(current_count_used), 0), 0)) AS current_avg_alloc,
-       sys.format_bytes(MAX(mt.current_number_of_bytes_used)) AS current_max_alloc,
-       sys.format_bytes(SUM(mt.sum_number_of_bytes_alloc)) AS total_allocated
+       format_bytes(SUM(mt.current_number_of_bytes_used)) AS current_allocated,
+       format_bytes(IFNULL(SUM(mt.current_number_of_bytes_used) / NULLIF(SUM(current_count_used), 0), 0)) AS current_avg_alloc,
+       format_bytes(MAX(mt.current_number_of_bytes_used)) AS current_max_alloc,
+       format_bytes(SUM(mt.sum_number_of_bytes_alloc)) AS total_allocated
   FROM performance_schema.memory_summary_by_thread_by_event_name AS mt
   JOIN performance_schema.threads AS t USING (thread_id)
  GROUP BY thread_id, IF(t.name = 'thread/sql/one_connection', 
@@ -4223,11 +4223,11 @@ VIEW memory_global_by_current_bytes (
 ) AS
 SELECT event_name,
        current_count_used AS current_count,
-       sys.format_bytes(current_number_of_bytes_used) AS current_alloc,
-       sys.format_bytes(IFNULL(current_number_of_bytes_used / NULLIF(current_count_used, 0), 0)) AS current_avg_alloc,
+       format_bytes(current_number_of_bytes_used) AS current_alloc,
+       format_bytes(IFNULL(current_number_of_bytes_used / NULLIF(current_count_used, 0), 0)) AS current_avg_alloc,
        high_count_used AS high_count,
-       sys.format_bytes(high_number_of_bytes_used) AS high_alloc,
-       sys.format_bytes(IFNULL(high_number_of_bytes_used / NULLIF(high_count_used, 0), 0)) AS high_avg_alloc
+       format_bytes(high_number_of_bytes_used) AS high_alloc,
+       format_bytes(IFNULL(high_number_of_bytes_used / NULLIF(high_count_used, 0), 0)) AS high_avg_alloc
   FROM performance_schema.memory_summary_global_by_event_name
  WHERE current_number_of_bytes_used > 0
  ORDER BY current_number_of_bytes_used DESC;
@@ -4324,7 +4324,7 @@ CREATE OR REPLACE
 VIEW memory_global_total (
   total_allocated
 ) AS
-SELECT sys.format_bytes(SUM(CURRENT_NUMBER_OF_BYTES_USED)) total_allocated
+SELECT format_bytes(SUM(CURRENT_NUMBER_OF_BYTES_USED)) total_allocated
   FROM performance_schema.memory_summary_global_by_event_name;
 
 -- Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
@@ -4644,10 +4644,10 @@ SELECT pst.object_schema AS table_schema,
        pst.count_delete AS rows_deleted,
        format_pico_time(pst.sum_timer_delete) AS delete_latency,
        fsbi.count_read AS io_read_requests,
-       sys.format_bytes(fsbi.sum_number_of_bytes_read) AS io_read,
+       format_bytes(fsbi.sum_number_of_bytes_read) AS io_read,
        format_pico_time(fsbi.sum_timer_read) AS io_read_latency,
        fsbi.count_write AS io_write_requests,
-       sys.format_bytes(fsbi.sum_number_of_bytes_write) AS io_write,
+       format_bytes(fsbi.sum_number_of_bytes_write) AS io_write,
        format_pico_time(fsbi.sum_timer_write) AS io_write_latency,
        fsbi.count_misc AS io_misc_requests,
        format_pico_time(fsbi.sum_timer_misc) AS io_misc_latency
@@ -4849,16 +4849,16 @@ SELECT pst.object_schema AS table_schema,
        pst.count_delete AS rows_deleted,
        format_pico_time(pst.sum_timer_delete) AS delete_latency,
        fsbi.count_read AS io_read_requests,
-       sys.format_bytes(fsbi.sum_number_of_bytes_read) AS io_read,
+       format_bytes(fsbi.sum_number_of_bytes_read) AS io_read,
        format_pico_time(fsbi.sum_timer_read) AS io_read_latency,
        fsbi.count_write AS io_write_requests,
-       sys.format_bytes(fsbi.sum_number_of_bytes_write) AS io_write,
+       format_bytes(fsbi.sum_number_of_bytes_write) AS io_write,
        format_pico_time(fsbi.sum_timer_write) AS io_write_latency,
        fsbi.count_misc AS io_misc_requests,
        format_pico_time(fsbi.sum_timer_misc) AS io_misc_latency,
-       sys.format_bytes(ibp.allocated) AS innodb_buffer_allocated,
-       sys.format_bytes(ibp.data) AS innodb_buffer_data,
-       sys.format_bytes(ibp.allocated - ibp.data) AS innodb_buffer_free,
+       format_bytes(ibp.allocated) AS innodb_buffer_allocated,
+       format_bytes(ibp.data) AS innodb_buffer_data,
+       format_bytes(ibp.allocated - ibp.data) AS innodb_buffer_free,
        ibp.pages AS innodb_buffer_pages,
        ibp.pages_hashed AS innodb_buffer_pages_hashed,
        ibp.pages_old AS innodb_buffer_pages_old,
@@ -7049,8 +7049,8 @@ SELECT IF(accounts.user IS NULL, 'background', accounts.user) AS user,
        SUM(accounts.current_connections) AS current_connections,
        SUM(accounts.total_connections) AS total_connections,
        COUNT(DISTINCT host) AS unique_hosts,
-       sys.format_bytes(SUM(mem.current_allocated)) AS current_memory,
-       sys.format_bytes(SUM(mem.total_allocated)) AS total_memory_allocated
+       format_bytes(SUM(mem.current_allocated)) AS current_memory,
+       format_bytes(SUM(mem.total_allocated)) AS total_memory_allocated
   FROM performance_schema.accounts
   LEFT JOIN sys.x$user_summary_by_statement_latency AS stmt ON IF(accounts.user IS NULL, 'background', accounts.user) = stmt.user
   LEFT JOIN sys.x$user_summary_by_file_io AS io ON IF(accounts.user IS NULL, 'background', accounts.user) = io.user
@@ -7791,8 +7791,8 @@ SELECT IF(accounts.host IS NULL, 'background', accounts.host) AS host,
        SUM(accounts.current_connections) AS current_connections,
        SUM(accounts.total_connections) AS total_connections,
        COUNT(DISTINCT user) AS unique_users,
-       sys.format_bytes(SUM(mem.current_allocated)) AS current_memory,
-       sys.format_bytes(SUM(mem.total_allocated)) AS total_memory_allocated
+       format_bytes(SUM(mem.current_allocated)) AS current_memory,
+       format_bytes(SUM(mem.total_allocated)) AS total_memory_allocated
   FROM performance_schema.accounts
   JOIN sys.x$host_summary_by_statement_latency AS stmt ON accounts.host = stmt.host
   JOIN sys.x$host_summary_by_file_io AS io ON accounts.host = io.host
@@ -8687,7 +8687,7 @@ SELECT pps.thread_id AS thd_id,
        IF(esc.end_event_id IS NOT NULL,
           format_pico_time(esc.timer_wait),
           NULL) AS last_statement_latency,
-       sys.format_bytes(mem.current_allocated) AS current_memory,
+       format_bytes(mem.current_allocated) AS current_memory,
        ewc.event_name AS last_wait,
        IF(ewc.end_event_id IS NULL AND ewc.event_name IS NOT NULL,
           'Still Waiting',
@@ -9641,12 +9641,12 @@ BEGIN
                                 (''io_global_by_file_by_bytes'', ''total''),
                                 (''io_global_by_wait_by_bytes'', ''total_requested'')
                          )
-                         THEN CONCAT(''sys.format_bytes('', COLUMN_NAME, '') AS '', COLUMN_NAME)
+                         THEN CONCAT(''format_bytes('', COLUMN_NAME, '') AS '', COLUMN_NAME)
                     WHEN SUBSTRING(COLUMN_NAME, -8) = ''_latency''
                          THEN CONCAT(''format_pico_time('', COLUMN_NAME, '') AS '', COLUMN_NAME)
                     WHEN SUBSTRING(COLUMN_NAME, -7) = ''_memory'' OR SUBSTRING(COLUMN_NAME, -17) = ''_memory_allocated''
                          OR ((SUBSTRING(COLUMN_NAME, -5) = ''_read'' OR SUBSTRING(COLUMN_NAME, -8) = ''_written'' OR SUBSTRING(COLUMN_NAME, -6) = ''_write'') AND SUBSTRING(COLUMN_NAME, 1, 6) <> ''COUNT_'')
-                         THEN CONCAT(''sys.format_bytes('', COLUMN_NAME, '') AS '', COLUMN_NAME)
+                         THEN CONCAT(''format_bytes('', COLUMN_NAME, '') AS '', COLUMN_NAME)
                     ELSE COLUMN_NAME
                END
                ORDER BY ORDINAL_POSITION
@@ -9671,7 +9671,7 @@ BEGIN
                                 (''io_global_by_file_by_bytes'', ''total''),
                                 (''io_global_by_wait_by_bytes'', ''total_requested'')
                          )
-                         THEN CONCAT(''sys.format_bytes(e.'', COLUMN_NAME, ''-IFNULL(s.'', COLUMN_NAME, '', 0)) AS '', COLUMN_NAME)
+                         THEN CONCAT(''format_bytes(e.'', COLUMN_NAME, ''-IFNULL(s.'', COLUMN_NAME, '', 0)) AS '', COLUMN_NAME)
                     WHEN SUBSTRING(COLUMN_NAME, 1, 4) IN (''max_'', ''min_'') AND SUBSTRING(COLUMN_NAME, -8) = ''_latency''
                          THEN CONCAT(''format_pico_time(e.'', COLUMN_NAME, '') AS '', COLUMN_NAME)
                     WHEN COLUMN_NAME = ''avg_latency''
@@ -9683,12 +9683,12 @@ BEGIN
                     WHEN SUBSTRING(COLUMN_NAME, -8) = ''_latency''
                          THEN CONCAT(''format_pico_time(e.'', COLUMN_NAME, '' - IFNULL(s.'', COLUMN_NAME, '', 0)) AS '', COLUMN_NAME)
                     WHEN COLUMN_NAME IN (''avg_read'', ''avg_write'', ''avg_written'')
-                         THEN CONCAT(''sys.format_bytes(IFNULL((e.total_'', IF(COLUMN_NAME = ''avg_read'', ''read'', ''written''), ''-IFNULL(s.total_'', IF(COLUMN_NAME = ''avg_read'', ''read'', ''written''), '', 0))'',
+                         THEN CONCAT(''format_bytes(IFNULL((e.total_'', IF(COLUMN_NAME = ''avg_read'', ''read'', ''written''), ''-IFNULL(s.total_'', IF(COLUMN_NAME = ''avg_read'', ''read'', ''written''), '', 0))'',
                                      ''/NULLIF(e.count_'', IF(COLUMN_NAME = ''avg_read'', ''read'', ''write''), ''-IFNULL(s.count_'', IF(COLUMN_NAME = ''avg_read'', ''read'', ''write''), '', 0), 0), 0)) AS '',
                                      COLUMN_NAME)
                     WHEN SUBSTRING(COLUMN_NAME, -7) = ''_memory'' OR SUBSTRING(COLUMN_NAME, -17) = ''_memory_allocated''
                          OR ((SUBSTRING(COLUMN_NAME, -5) = ''_read'' OR SUBSTRING(COLUMN_NAME, -8) = ''_written'' OR SUBSTRING(COLUMN_NAME, -6) = ''_write'') AND SUBSTRING(COLUMN_NAME, 1, 6) <> ''COUNT_'')
-                         THEN CONCAT(''sys.format_bytes(e.'', COLUMN_NAME, '' - IFNULL(s.'', COLUMN_NAME, '', 0)) AS '', COLUMN_NAME)
+                         THEN CONCAT(''format_bytes(e.'', COLUMN_NAME, '' - IFNULL(s.'', COLUMN_NAME, '', 0)) AS '', COLUMN_NAME)
                     ELSE CONCAT(''(e.'', COLUMN_NAME, '' - IFNULL(s.'', COLUMN_NAME, '', 0)) AS '', COLUMN_NAME)
                END
                ORDER BY ORDINAL_POSITION
@@ -10073,7 +10073,7 @@ SELECT ''UNIX_TIMESTAMP()'' AS Variable_name, ROUND(UNIX_TIMESTAMP(NOW(3)), 3) A
             EXECUTE stmt_ndbcluster_status;
 
             SELECT 'ndbinfo.memoryusage' AS 'The following output is:';
-            SELECT node_id, memory_type, sys.format_bytes(used) AS used, used_pages, sys.format_bytes(total) AS total, total_pages,
+            SELECT node_id, memory_type, format_bytes(used) AS used, used_pages, format_bytes(total) AS total, total_pages,
                    ROUND(100*(used/total), 2) AS 'Used %'
             FROM ndbinfo.memoryusage;
 
@@ -10158,9 +10158,9 @@ SELECT ''UNIX_TIMESTAMP()'' AS Variable_name, ROUND(UNIX_TIMESTAMP(NOW(3)), 3) A
     IF (@sys.diagnostics.allow_i_s_tables = 'ON') THEN
         SELECT 'Storage Engine Usage' AS 'The following output is:';
         SELECT ENGINE, COUNT(*) AS NUM_TABLES,
-                sys.format_bytes(SUM(DATA_LENGTH)) AS DATA_LENGTH,
-                sys.format_bytes(SUM(INDEX_LENGTH)) AS INDEX_LENGTH,
-                sys.format_bytes(SUM(DATA_LENGTH+INDEX_LENGTH)) AS TOTAL
+                format_bytes(SUM(DATA_LENGTH)) AS DATA_LENGTH,
+                format_bytes(SUM(INDEX_LENGTH)) AS INDEX_LENGTH,
+                format_bytes(SUM(DATA_LENGTH+INDEX_LENGTH)) AS TOTAL
             FROM information_schema.TABLES
             GROUP BY ENGINE;
 

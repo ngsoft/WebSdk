@@ -100,6 +100,9 @@ typedef ulonglong nested_join_map;
 #define TMP_TABLE_KEY_EXTRA 8
 #define ROCKSDB_DIRECTORY_NAME "#rocksdb"
 
+#define HLINDEX_TEMPLATE "#i#%02u"
+#define HLINDEX_BUF_LEN  16 /* with extension .ibd/.MYI/etc and safety margin */
+
 /**
   Enumerate possible types of a table from re-execution
   standpoint.
@@ -574,6 +577,7 @@ class Table_check_intact
 {
 protected:
   bool has_keys;
+  ATTRIBUTE_FORMAT(printf, 3, 4) // 1st arg is the implicit `this`
   virtual void report_error(uint code, const char *fmt, ...)= 0;
 
 public:
@@ -591,6 +595,7 @@ public:
 class Table_check_intact_log_error : public Table_check_intact
 {
 protected:
+  ATTRIBUTE_FORMAT(printf, 3, 4)
   void report_error(uint, const char *fmt, ...) override;
 public:
   Table_check_intact_log_error() : Table_check_intact(true) {}
@@ -726,6 +731,9 @@ struct TABLE_SHARE
   mysql_mutex_t LOCK_share;             /* To protect TABLE_SHARE */
   mysql_mutex_t LOCK_statistics;        /* To protect against concurrent load */
 
+  void lock_share() { if (!tmp_table) mysql_mutex_lock(&LOCK_share); }
+  void unlock_share() { if (!tmp_table) mysql_mutex_unlock(&LOCK_share); }
+
   TDC_element *tdc;
 
   LEX_CUSTRING tabledef_version;
@@ -739,7 +747,12 @@ struct TABLE_SHARE
   KEY  *key_info;			/* data of keys in database */
   Virtual_column_info **check_constraints;
   uint	*blob_field;			/* Index to blobs in Field arrray*/
-  LEX_CUSTRING vcol_defs;              /* definitions of generated columns */
+  LEX_CUSTRING vcol_defs;               /* definitions of generated columns */
+
+  union {
+    void *hlindex_data;                 /* for hlindex tables */
+    TABLE_SHARE *hlindex;               /* for normal tables  */
+  };
 
   /*
     EITS statistics data from the last time the table was opened or ANALYZE
@@ -835,7 +848,12 @@ struct TABLE_SHARE
   uint table_check_constraints, field_check_constraints;
 
   uint rec_buff_length;                 /* Size of table->record[] buffer */
-  uint keys, key_parts;
+  uint keys;                            /* Number of KEY's for the engine */
+  uint total_keys;                      /* total number of KEY's, including
+                                           high level indexes             */
+  uint hlindexes() { return total_keys - keys; }
+
+  uint key_parts;
   uint ext_key_parts;       /* Total number of key parts in extended keys */
   uint max_key_length, max_unique_length;
 
@@ -1358,12 +1376,16 @@ public:
   /* Tables used in DEFAULT and CHECK CONSTRAINT (normally sequence tables) */
   TABLE_LIST *internal_tables;
 
+  TABLE *hlindex;
   /*
     Not-null for temporary tables only. Non-null values means this table is
     used to compute GROUP BY, it has a unique of GROUP BY columns.
     (set by create_tmp_table)
   */
-  ORDER		*group;
+  union {
+    ORDER       *group;                   /* only for temporary tables */
+    void        *context;                 /* only for hlindexes */
+  };
   String	alias;            	  /* alias or table name */
   uchar		*null_flags;
   MY_BITMAP     def_read_set, def_write_set, tmp_set;
@@ -1749,6 +1771,7 @@ public:
   bool is_filled_at_execution();
 
   bool update_const_key_parts(COND *conds);
+  void update_keypart_vcol_info();
 
   inline void initialize_opt_range_structures();
 
@@ -1773,6 +1796,19 @@ public:
   void evaluate_update_default_function();
   void reset_default_fields();
   inline ha_rows stat_records() { return used_stat_records; }
+
+  int hlindex_open(uint nr);
+  int hlindex_lock(uint nr);
+  int hlindex_read_first(uint nr, Item *item, ulonglong limit);
+  int hlindex_read_next();
+  int hlindex_read_end();
+
+  int open_hlindexes_for_write();
+  int hlindexes_on_insert();
+  int hlindexes_on_update();
+  int hlindexes_on_delete(const uchar *buf);
+  int hlindexes_on_delete_all(bool truncate);
+  int unlock_hlindexes();
 
   void prepare_triggers_for_insert_stmt_or_event();
   bool prepare_triggers_for_delete_stmt_or_event();
@@ -1935,6 +1971,7 @@ public:
   bool vers_switch_partition(THD *thd, TABLE_LIST *table_list,
                              Open_table_context *ot_ctx);
 #endif
+  bool vers_implicit() const;
 
   int update_generated_fields();
   void period_prepare_autoinc();
@@ -2369,6 +2406,7 @@ struct vers_select_conds_t
 
 struct LEX;
 class Index_hint;
+class Lex_ident_sys;
 
 /*
   @struct TABLE_CHAIN
@@ -2635,9 +2673,18 @@ struct TABLE_LIST
      @note Inside views, a subquery in the @c FROM clause is not allowed.
      @note Do not use this field to separate views/base tables/anonymous
      derived tables. Use TABLE_LIST::is_anonymous_derived_table().
+     @note _column_names_ below are associated with these derived tables
+       SELECT * FROM (SELECT a FROM t1) b (list of column names)
+     @note _original_names_ below are used to save *item_list.name in the
+       select_lex for multiple executions
   */
   st_select_lex_unit *derived;		/* SELECT_LEX_UNIT of derived table */
   With_element *with;          /* With element defining this table (if any) */
+  List<Lex_ident_sys>   *column_names;  /* list of correlation column names */
+  List<Lex_ident_sys>   *original_names;/* list of original column names    */
+  st_select_lex         *original_names_source;
+  bool save_original_names(st_select_lex *derived);
+
   /* Bitmap of the defining with element */
   table_map with_internal_reference_map;
   TABLE_LIST * next_with_rec_ref;
@@ -2679,7 +2726,7 @@ struct TABLE_LIST
   List<TABLE_LIST> *view_tables;
   /* most upper view this table belongs to */
   TABLE_LIST	*belong_to_view;
-  /* A derived table this table belongs to */
+  /* A merged derived table this table belongs to */
   TABLE_LIST    *belong_to_derived;
   /*
     The view directly referencing this table
@@ -2936,7 +2983,7 @@ struct TABLE_LIST
   bool check_single_table(TABLE_LIST **table, table_map map,
                           TABLE_LIST *view);
   bool set_insert_values(MEM_ROOT *mem_root);
-  void hide_view_error(THD *thd);
+  void replace_view_error_with_generic(THD *thd);
   TABLE_LIST *find_underlying_table(TABLE *table);
   TABLE_LIST *first_leaf_for_name_resolution();
   TABLE_LIST *last_leaf_for_name_resolution();
@@ -3183,6 +3230,8 @@ private:
   /** See comments for set_table_ref_id() */
   ulonglong m_table_ref_version;
 };
+
+#define ERROR_TABLE  ((TABLE_LIST*) 0x1)
 
 class Item;
 
@@ -3483,8 +3532,8 @@ bool parse_vcol_defs(THD *thd, MEM_ROOT *mem_root, TABLE *table,
 TABLE_SHARE *alloc_table_share(const char *db, const char *table_name,
                                const char *key, uint key_length);
 void init_tmp_table_share(THD *thd, TABLE_SHARE *share, const char *key,
-                          uint key_length,
-                          const char *table_name, const char *path);
+                          uint key_length, const char *table_name,
+                          const char *path, bool thread_specific);
 void free_table_share(TABLE_SHARE *share);
 enum open_frm_error open_table_def(THD *thd, TABLE_SHARE *share,
                                    uint flags = GTS_TABLE);
@@ -3492,9 +3541,7 @@ enum open_frm_error open_table_def(THD *thd, TABLE_SHARE *share,
 void open_table_error(TABLE_SHARE *share, enum open_frm_error error,
                       int db_errno);
 void update_create_info_from_table(HA_CREATE_INFO *info, TABLE *form);
-
-bool check_column_name(const char *name);
-bool check_period_name(const char *name);
+bool check_column_name(const Lex_cstring &name);
 int rename_file_ext(const char * from,const char * to,const char * ext);
 char *get_field(MEM_ROOT *mem, Field *field);
 

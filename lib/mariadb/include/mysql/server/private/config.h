@@ -43,6 +43,7 @@
 /* #undef HAVE_IA64INTRIN_H */
 /* #undef HAVE_IEEEFP_H */
 /* #undef HAVE_INTTYPES_H */
+#define HAVE_IMMINTRIN_H 1
 /* #undef HAVE_KQUEUE */
 #define HAVE_LIMITS_H 1
 /* #undef HAVE_LINK_H */
@@ -364,7 +365,7 @@
 /* #undef HAVE_WCHAR_T */
 
 
-#define HAVE_STRCASECMP 1
+/* #undef HAVE_STRCASECMP */
 /* #undef HAVE_TCGETATTR */
 
 /* #undef HAVE_WEAK_SYMBOL */
@@ -401,38 +402,27 @@
 #define SIGNAL_WITH_VIO_CLOSE 1
 
 /* Windows stuff, mostly functions, that have Posix analogs but named differently */
+#ifdef _WIN32
 #define S_IROTH _S_IREAD
 #define S_IFIFO _S_IFIFO
-/* #undef IPPROTO_IPV6 */
-/* #undef IPV6_V6ONLY */
-#define sigset_t int
-#define mode_t int
 #define SIGQUIT SIGTERM
 #define SIGPIPE SIGINT
+#define sigset_t int
+#define mode_t int
 #define popen _popen
 #define pclose _pclose
 #define ssize_t SSIZE_T
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
-/* #undef snprintf */
 #define strtok_r strtok_s
-#define strtoll _strtoi64
-#define strtoull _strtoui64
-/* #undef vsnprintf */
-#if defined(_MSC_VER) && (_MSC_VER > 1800)
 #define tzname _tzname
 #define P_tmpdir "C:\\TEMP"
-#endif
-#if defined(_MSC_VER) && (_MSC_VER > 1310)
-# define HAVE_SETENV
 #define setenv(a,b,c) _putenv_s(a,b)
-#endif
-#define PSAPI_VERSION 1     /* for GetProcessMemoryInfo() */
 
-/* We don't want the min/max macros */
-#ifdef _WIN32
+#define HAVE_SETENV
 #define NOMINMAX 1
-#endif
+#define PSAPI_VERSION 2     /* for GetProcessMemoryInfo() */
+#endif /* _WIN32 */
 
 /*
   MySQL features
@@ -455,6 +445,11 @@
 
 /* This should mean case insensitive file system */
 #define FN_NO_CASE_SENSE 1
+
+/* Whether an anonymous private mapping is unaccessible after
+madvise(MADV_DONTNEED) or madvise(MADV_FREE) or similar has been invoked;
+this is the case with Microsoft Windows VirtualFree(MEM_DECOMMIT) */
+#define HAVE_UNACCESSIBLE_AFTER_MEM_DECOMMIT 1
 
 #define HAVE_CHARSET_armscii8 1
 #define HAVE_CHARSET_ascii 1
@@ -502,14 +497,6 @@
 #define HAVE_hkdf 1
 
 /*
-  Stuff that always need to be defined (compile breaks without it)
-*/
-#define HAVE_SPATIAL 1
-#define HAVE_RTREE_KEYS 1
-#define HAVE_QUERY_CACHE 1
-#define BIG_TABLES 1
-
-/*
   Important storage engines (those that really need define 
   WITH_<ENGINE>_STORAGE_ENGINE for the whole server)
 */
@@ -519,29 +506,29 @@
 #define WITH_ARIA_STORAGE_ENGINE 1
 #define USE_ARIA_FOR_TMP_TABLES 1
 
-#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 11.6"
+#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 11.8"
 #define SHAREDIR "share"
-#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 11.6"
-#define MYSQL_DATADIR "C:/Program Files/MariaDB 11.6/data"
-#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 11.6"
-#define PLUGINDIR "C:/Program Files/MariaDB 11.6/lib/plugin"
+#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 11.8"
+#define MYSQL_DATADIR "C:/Program Files/MariaDB 11.8/data"
+#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 11.8"
+#define PLUGINDIR "C:/Program Files/MariaDB 11.8/lib/plugin"
 /* #undef DEFAULT_SYSCONFDIR */
 #define DEFAULT_TMPDIR P_tmpdir
 
 /* #undef SO_EXT */
 
 #define MYSQL_VERSION_MAJOR 11
-#define MYSQL_VERSION_MINOR 6
+#define MYSQL_VERSION_MINOR 8
 #define MYSQL_VERSION_PATCH 2
 #define MYSQL_VERSION_EXTRA ""
 
 #define PACKAGE "mysql"
 #define PACKAGE_BUGREPORT ""
 #define PACKAGE_NAME "MySQL Server"
-#define PACKAGE_STRING "MySQL Server 11.6.2"
+#define PACKAGE_STRING "MySQL Server 11.8.2"
 #define PACKAGE_TARNAME "mysql"
-#define PACKAGE_VERSION "11.6.2"
-#define VERSION "11.6.2"
+#define PACKAGE_VERSION "11.8.2"
+#define VERSION "11.8.2"
 #define PROTOCOL_VERSION 10
 #define PCRE2_CODE_UNIT_WIDTH 8
 

@@ -19,10 +19,6 @@
 
 /* compare and test functions */
 
-#ifdef USE_PRAGMA_INTERFACE
-#pragma interface			/* gcc class implementation */
-#endif
-
 #include "item_func.h"             /* Item_int_func, Item_bool_func */
 #include "item.h"
 #include "opt_rewrite_date_cmp.h"
@@ -252,6 +248,7 @@ public:
   bool fix_length_and_dec(THD *thd) override { decimals=0; max_length=1; return FALSE; }
   decimal_digits_t decimal_precision() const override { return 1; }
   bool need_parentheses_in_default() override { return true; }
+  bool with_sargable_substr(Item_field **field = NULL, int *value_idx = NULL) const;
 };
 
 
@@ -267,6 +264,19 @@ public:
   bool fix_length_and_dec(THD *thd) override;
   void print(String *str, enum_query_type query_type) override;
   enum precedence precedence() const override { return CMP_PRECEDENCE; }
+  bool count_sargable_conds(void *arg) override;
+  SEL_TREE *get_mm_tree(RANGE_OPT_PARAM *param, Item **cond_ptr) override;
+  SEL_ARG *get_mm_leaf(RANGE_OPT_PARAM *param, Field *field,
+                       KEY_PART *key_part,
+                       Item_func::Functype type, Item *value) override;
+  void add_key_fields(JOIN *join, KEY_FIELD **key_fields,
+                      uint *and_level, table_map usable_tables,
+                      SARGABLE_PARAM **sargables) override;
+  virtual Item *negated_item(THD *thd) const = 0;
+  Item *neg_transformer(THD *thd) override
+  {
+    return negated_item(thd);
+  }
 
 protected:
   Item_func_truth(THD *thd, Item *a, bool a_value, bool a_affirmative):
@@ -301,6 +311,9 @@ public:
     static LEX_CSTRING name= {STRING_WITH_LEN("istrue") };
     return name;
   }
+  SEL_TREE *get_func_mm_tree(RANGE_OPT_PARAM *param,
+                             Field *field, Item *value) override;
+  Item *negated_item(THD *thd) const override;
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_istrue>(thd, this); }
 };
@@ -321,6 +334,9 @@ public:
     static LEX_CSTRING name= {STRING_WITH_LEN("isnottrue") };
     return name;
   }
+  Item *negated_item(THD *thd) const override;
+  SEL_TREE *get_func_mm_tree(RANGE_OPT_PARAM *param,
+                             Field *field, Item *value) override;
   bool find_not_null_fields(table_map allowed) override { return false; }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_isnottrue>(thd, this); }
@@ -343,6 +359,9 @@ public:
     static LEX_CSTRING name= {STRING_WITH_LEN("isfalse") };
     return name;
   }
+  Item *negated_item(THD *thd) const override;
+  SEL_TREE *get_func_mm_tree(RANGE_OPT_PARAM *param,
+                             Field *field, Item *value) override;
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_isfalse>(thd, this); }
 };
@@ -363,7 +382,10 @@ public:
     static LEX_CSTRING name= {STRING_WITH_LEN("isnotfalse") };
     return name;
   }
+  Item *negated_item(THD *thd) const override;
   bool find_not_null_fields(table_map allowed) override { return false; }
+  SEL_TREE *get_func_mm_tree(RANGE_OPT_PARAM *param,
+                             Field *field, Item *value) override;
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_isnotfalse>(thd, this); }
   bool eval_not_null_tables(void *) override
@@ -544,8 +566,14 @@ public:
       may succeed.
     */
     if (!(ftree= get_full_func_mm_tree_for_args(param, args[0], args[1])) &&
-        !(ftree= get_full_func_mm_tree_for_args(param, args[1], args[0])))
-      ftree= Item_func::get_mm_tree(param, cond_ptr);
+        !(ftree= get_full_func_mm_tree_for_args(param, args[1], args[0])) &&
+        !(ftree= Item_func::get_mm_tree(param, cond_ptr)))
+    {
+      Item_field *field= NULL;
+      int value_idx= -1;
+      if (with_sargable_substr(&field, &value_idx))
+        DBUG_RETURN(get_full_func_mm_tree_for_args(param, field, args[value_idx]));
+    }
     DBUG_RETURN(ftree);
   }
 };
@@ -623,6 +651,7 @@ public:
     }
     return clone;
   }
+  Item* vcol_subst_transformer(THD *thd, uchar *arg) override;
 };
 
 /**
@@ -837,6 +866,7 @@ public:
   enum Functype functype() const override { return EQUAL_FUNC; }
   enum Functype rev_functype() const override { return EQUAL_FUNC; }
   cond_result eq_cmp_result() const override { return COND_TRUE; }
+  bool is_null() override { return false; }
   LEX_CSTRING func_name_cstring() const override
   {
     static LEX_CSTRING name= {STRING_WITH_LEN("<=>") };
@@ -1014,6 +1044,23 @@ public:
 
 class Item_func_between :public Item_func_opt_neg
 {
+  /*
+    If the types of the arguments to BETWEEN permit, then:
+
+    WHERE const1 BETWEEN expr2 AND field1
+      can be optimized as if it was just:
+    WHERE const1 <= field1
+
+    as expr2 could be an arbitrary expression.  More generally,
+    this optimization is permitted if aggregation for comparison
+    for three expressions (const1,const2,field1) and for two
+    expressions (const1,field1) return the same type handler.
+
+    @param [IN] field_item - This is a field from the right side
+                             of the BETWEEN operator.
+   */
+  bool can_optimize_range_const(Item_field *field_item) const;
+
 protected:
   SEL_TREE *get_func_mm_tree(RANGE_OPT_PARAM *param,
                              Field *field, Item *value) override;
@@ -1071,6 +1118,8 @@ public:
   longlong val_int_cmp_int();
   longlong val_int_cmp_real();
   longlong val_int_cmp_decimal();
+
+  Item* vcol_subst_transformer(THD *thd, uchar *arg) override;
 };
 
 
@@ -1122,7 +1171,6 @@ public:
   Item_func_interval(THD *thd, Item_row *a):
     Item_long_func(thd, a), row(a), intervals(0)
   { }
-  bool fix_fields(THD *, Item **) override;
   longlong val_int() override;
   bool fix_length_and_dec(THD *thd) override;
   LEX_CSTRING func_name_cstring() const override
@@ -1487,12 +1535,12 @@ class in_vector :public Sql_alloc
 public:
   char *base;
   uint size;
-  qsort2_cmp compare;
+  qsort_cmp2 compare;
   CHARSET_INFO *collation;
   uint count;
   uint used_count;
   in_vector() = default;
-  in_vector(THD *thd, uint elements, uint element_length, qsort2_cmp cmp_func,
+  in_vector(THD *thd, uint elements, uint element_length, qsort_cmp2 cmp_func,
   	    CHARSET_INFO *cmp_coll)
     :base((char*) thd_calloc(thd, elements * element_length)),
      size(element_length), compare(cmp_func), collation(cmp_coll),
@@ -1536,7 +1584,8 @@ public:
   /* Compare values number pos1 and pos2 for equality */
   bool compare_elems(uint pos1, uint pos2)
   {
-    return MY_TEST(compare(collation, base + pos1 * size, base + pos2 * size));
+    return MY_TEST(compare(const_cast<charset_info_st *>(collation),
+                           base + pos1 * size, base + pos2 * size));
   }
   virtual const Type_handler *type_handler() const= 0;
 };
@@ -1558,7 +1607,7 @@ class in_string :public in_vector
     }
   };
 public:
-  in_string(THD *thd, uint elements, qsort2_cmp cmp_func, CHARSET_INFO *cs);
+  in_string(THD *thd, uint elements, qsort_cmp2 cmp_func, CHARSET_INFO *cs);
   ~in_string();
   bool set(uint pos, Item *item) override;
   uchar *get_value(Item *item) override;
@@ -1600,7 +1649,7 @@ public:
   const Type_handler *type_handler() const override
   { return &type_handler_slonglong; }
 
-  friend int cmp_longlong(void *cmp_arg, packed_longlong *a,packed_longlong *b);
+  friend int cmp_longlong(void *cmp_arg, const void *a, const void *b);
 };
 
 
@@ -1635,7 +1684,7 @@ public:
     Item_datetime *dt= static_cast<Item_datetime*>(item);
     dt->set_from_packed(val->val, type_handler()->mysql_timestamp_type());
   }
-  friend int cmp_longlong(void *cmp_arg, packed_longlong *a,packed_longlong *b);
+  friend int cmp_longlong(void *cmp_arg, const void *a, const void *b);
 };
 
 
@@ -1719,7 +1768,7 @@ public:
   virtual int cmp(Item *item)= 0;
   virtual int cmp_not_null(const Value *value)= 0;
   // for optimized IN with row
-  virtual int compare(cmp_item *item)= 0;
+  virtual int compare(const cmp_item *item) const= 0;
   virtual cmp_item *make_same(THD *thd)= 0;
   /*
     Store a scalar or a ROW value into "this".
@@ -1797,7 +1846,7 @@ public:
     else
       return TRUE;
   }
-  int compare(cmp_item *ci) override
+  int compare(const cmp_item *ci) const override
   {
     cmp_item_string *l_cmp= (cmp_item_string *) ci;
     return sortcmp(value_res, l_cmp->value_res, cmp_charset);
@@ -1831,7 +1880,7 @@ public:
     const bool rc= value != arg->val_int();
     return (m_null_value || arg->null_value) ? UNKNOWN : rc;
   }
-  int compare(cmp_item *ci) override
+  int compare(const cmp_item *ci) const override
   {
     cmp_item_int *l_cmp= (cmp_item_int *)ci;
     return (value < l_cmp->value) ? -1 : ((value == l_cmp->value) ? 0 : 1);
@@ -1848,7 +1897,7 @@ protected:
   longlong value;
 public:
   cmp_item_temporal() = default;
-  int compare(cmp_item *ci) override;
+  int compare(const cmp_item *ci) const override;
 };
 
 
@@ -1894,7 +1943,7 @@ public:
   void store_value(Item *item) override;
   int cmp_not_null(const Value *val) override;
   int cmp(Item *arg) override;
-  int compare(cmp_item *ci) override;
+  int compare(const cmp_item *ci) const override;
   cmp_item *make_same(THD *thd) override;
 };
 
@@ -1920,7 +1969,7 @@ public:
     const bool rc= value != arg->val_real();
     return (m_null_value || arg->null_value) ? UNKNOWN : rc;
   }
-  int compare(cmp_item *ci) override
+  int compare(const cmp_item *ci) const override
   {
     cmp_item_real *l_cmp= (cmp_item_real *) ci;
     return (value < l_cmp->value)? -1 : ((value == l_cmp->value) ? 0 : 1);
@@ -1937,7 +1986,7 @@ public:
   void store_value(Item *item) override;
   int cmp(Item *arg) override;
   int cmp_not_null(const Value *val) override;
-  int compare(cmp_item *c) override;
+  int compare(const cmp_item *c) const override;
   cmp_item *make_same(THD *thd) override;
 };
 
@@ -1970,7 +2019,7 @@ public:
     DBUG_ASSERT(false);
     return TRUE;
   }
-  int compare(cmp_item *ci) override
+  int compare(const cmp_item *ci) const override
   {
     cmp_item_string *l_cmp= (cmp_item_string *) ci;
     return sortcmp(value_res, l_cmp->value_res, cmp_charset);
@@ -2683,6 +2732,8 @@ public:
   Item *in_predicate_to_equality_transformer(THD *thd, uchar *arg) override;
   uint32 max_length_of_left_expr();
   Item* varchar_upper_cmp_transformer(THD *thd, uchar *arg) override;
+
+  Item* vcol_subst_transformer(THD *thd, uchar *arg) override;
 };
 
 class cmp_item_row :public cmp_item
@@ -2708,7 +2759,7 @@ public:
     DBUG_ASSERT(false);
     return TRUE;
   }
-  int compare(cmp_item *arg) override;
+  int compare(const cmp_item *arg) const override;
   cmp_item *make_same(THD *thd) override;
   bool store_value_by_template(THD *thd, cmp_item *tmpl, Item *) override;
   friend class Item_func_in;
@@ -2765,6 +2816,8 @@ public:
     return FALSE;
   }
   bool count_sargable_conds(void *arg) override;
+
+  Item* vcol_subst_transformer(THD *thd, uchar *arg) override;
 };
 
 
@@ -2957,9 +3010,18 @@ public:
       TODO:
       We could still replace "expr1" to "const" in "expr1 LIKE expr2"
       in case of a "PAD SPACE" collation, but only if "expr2" has '%'
-      at the end.         
+      at the end.
     */
-    return compare_collation() == &my_charset_bin ? COND_TRUE : COND_OK;
+    if (compare_collation() == &my_charset_bin)
+    {
+      /*
+        'foo' NOT LIKE 'foo' is false,
+        'foo' LIKE 'foo' is true.
+      */
+      return negated? COND_FALSE : COND_TRUE;
+    }
+
+    return COND_OK;
   }
   void add_key_fields(JOIN *join, KEY_FIELD **key_fields, uint *and_level,
                       table_map usable_tables, SARGABLE_PARAM **sargables)

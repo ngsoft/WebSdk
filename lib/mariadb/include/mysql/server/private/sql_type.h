@@ -17,11 +17,6 @@
  along with this program; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1335  USA */
 
-#ifdef USE_PRAGMA_INTERFACE
-#pragma interface			/* gcc class implementation */
-#endif
-
-
 #include "mysqld.h"
 #include "lex_string.h"
 #include "sql_type_timeofday.h"
@@ -723,7 +718,7 @@ public:
   {
     return m_usec ?
       my_snprintf(to, nbytes, "%s%llu.%06lu",
-                  m_neg ? "-" : "", m_sec, (uint) m_usec) :
+                  m_neg ? "-" : "", m_sec, m_usec) :
       my_snprintf(to, nbytes, "%s%llu", m_neg ? "-" : "", m_sec);
   }
   void make_truncated_warning(THD *thd, const char *type_str) const;
@@ -1340,7 +1335,7 @@ public:
   {
     return is_valid_temporal() ? TIME_to_double(this) : 0;
   }
-  my_decimal *to_decimal(my_decimal *to)
+  my_decimal *to_decimal(my_decimal *to) const
   {
     return is_valid_temporal() ? Temporal::to_decimal(to) : bad_to_decimal(to);
   }
@@ -1992,7 +1987,7 @@ public:
       str->length(my_time_to_str(this, const_cast<char*>(str->ptr()), dec));
     return str;
   }
-  my_decimal *to_decimal(my_decimal *to)
+  my_decimal *to_decimal(my_decimal *to) const
   {
     return is_valid_time() ? Temporal::to_decimal(to) : bad_to_decimal(to);
   }
@@ -2351,7 +2346,7 @@ public:
       str->length(my_date_to_str(this, const_cast<char*>(str->ptr())));
     return str;
   }
-  my_decimal *to_decimal(my_decimal *to)
+  my_decimal *to_decimal(my_decimal *to) const
   {
     return is_valid_date() ? Temporal::to_decimal(to) : bad_to_decimal(to);
   }
@@ -2677,7 +2672,7 @@ public:
       str->length(my_datetime_to_str(this, const_cast<char*>(str->ptr()), dec));
     return str;
   }
-  my_decimal *to_decimal(my_decimal *to)
+  my_decimal *to_decimal(my_decimal *to) const
   {
     return is_valid_datetime() ? Temporal::to_decimal(to) : bad_to_decimal(to);
   }
@@ -4266,6 +4261,11 @@ public:
                                           const handler *file) const;
   virtual bool Key_part_spec_init_spatial(Key_part_spec *part,
                                           const Column_definition &def) const;
+  virtual bool Key_part_spec_init_vector(Key_part_spec *part,
+                                         const Column_definition &def) const
+  {
+    return true; // Error
+  }
   virtual bool Key_part_spec_init_ft(Key_part_spec *part,
                                      const Column_definition &def) const
   {
@@ -4458,6 +4458,18 @@ public:
   {
     return NULL;
   }
+
+  /**
+     normalize_cond() replaces
+     `WHERE table_column` to
+     `WHERE table_column IS TRUE`
+     This method creates a literal Item corresponding to FALSE.
+     For example:
+      - for numeric data types it returns Item_int(0)
+      - for INET6 it returns Item_literal_fbt('::')
+  */
+  virtual Item_literal *create_boolean_false_item(THD *thd) const;
+
   /**
     A builder for literals with data type name prefix, e.g.:
       TIME'00:00:00', DATE'2001-01-01', TIMESTAMP'2001-01-01 00:00:00'.

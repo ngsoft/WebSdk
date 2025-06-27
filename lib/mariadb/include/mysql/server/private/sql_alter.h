@@ -325,6 +325,9 @@ public:
   }
   uint check_vcol_field(Item_field *f) const;
 
+  bool add_alter_list(THD *thd, LEX_CSTRING name, LEX_CSTRING new_name,
+                      bool exists);
+
 private:
   Alter_info &operator=(const Alter_info &rhs); // not implemented
   Alter_info(const Alter_info &rhs);            // not implemented
@@ -436,6 +439,7 @@ public:
   /** Name of table for the above error. */
   const char *fk_error_table= nullptr;
   bool modified_primary_key= false;
+  bool fast_alter_partition= false;
   /** Indicates that we are altering temporary table */
   bool tmp_table= false;
 

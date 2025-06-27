@@ -19,10 +19,6 @@
 
 /* Function items used by mysql */
 
-#ifdef USE_PRAGMA_INTERFACE
-#pragma interface			/* gcc class implementation */
-#endif
-
 #ifdef HAVE_IEEEFP_H
 extern "C"				/* Bug in BSDI include file */
 {
@@ -110,7 +106,7 @@ public:
                   JSON_EXTRACT_FUNC, JSON_VALID_FUNC, ROWNUM_FUNC,
                   CASE_SEARCHED_FUNC, // Used by ColumnStore/Spider
                   CASE_SIMPLE_FUNC,   // Used by ColumnStore/spider,
-                  DATE_FUNC, YEAR_FUNC
+                  DATE_FUNC, YEAR_FUNC, SUBSTR_FUNC, LEFT_FUNC
                 };
 
   /*
@@ -132,6 +128,8 @@ public:
     BITMAP_BETWEEN=    1ULL << BETWEEN,
     BITMAP_IN=         1ULL << IN_FUNC,
     BITMAP_MULT_EQUAL= 1ULL << MULT_EQUAL_FUNC,
+    BITMAP_ISNULL=     1ULL << ISNULL_FUNC,
+    BITMAP_ISNOTNULL=  1ULL << ISNOTNULL_FUNC,
     BITMAP_OTHER=      1ULL << 63,
     BITMAP_ALL=        0xFFFFFFFFFFFFFFFFULL,
     BITMAP_ANY_EQUALITY= BITMAP_EQ | BITMAP_EQUAL | BITMAP_MULT_EQUAL,
@@ -2371,6 +2369,7 @@ public:
   String *val_str_native(String *str);
   double val_real_native();
   longlong val_int_native();
+  longlong val_uint_native();
   my_decimal *val_decimal_native(my_decimal *);
   bool get_date_native(THD *thd, MYSQL_TIME *res, date_mode_t fuzzydate);
   bool get_time_native(THD *thd, MYSQL_TIME *res);
@@ -3983,6 +3982,122 @@ public:
 
   const Type_handler *type_handler() const override;
 
+  uint cols() const override
+  {
+    return sp_result_field->cols();
+  }
+
+  Item* element_index(uint i) override
+  {
+    DBUG_ASSERT(sp_result_field_items.argument_count() || !i);
+    return sp_result_field_items.argument_count() ?
+           sp_result_field_items.arguments()[i] :
+           this;
+  }
+  Item** addr(uint i) override
+  {
+    DBUG_ASSERT(sp_result_field_items.argument_count() || !i);
+    return sp_result_field_items.argument_count() ?
+           &sp_result_field_items.arguments()[i] :
+           nullptr;
+  }
+
+  bool check_cols(uint c) override
+  {
+    if (cmp_type() != ROW_RESULT)
+      return Item_func::check_cols(c);
+    /*
+      We don't support ROWs with a single member yet, e.g. ROW(a INT).
+      Neither in stored function RETURNS, nor in SP variables.
+      There must be at least two members.
+      So raise an error in case of c==1, like Item_splocal does.
+      See comments in Item_splocal::check_cols() for more details.
+    */
+    if (cols() != c || c == 1)
+    {
+      my_error(ER_OPERAND_COLUMNS, MYF(0), c);
+      return true;
+    }
+    return false;
+  }
+
+  void bring_value() override
+  {
+    DBUG_ASSERT(fixed());
+    /*
+      This comment describes the difference between a single row
+      subselect and a stored function returning ROW.
+
+      In case of a single column subselect:
+        SELECT 1=(SELECT a FROM t1) FROM seq_1_to_5;
+      Item_singlerow_subselect pretends to be a scalar,
+      so its type_handler() returns the type handler of the column "a".
+      (*) This is according to the SQL scandard, which says:
+          The declared type of a <scalar subquery> is the declared
+          type of the column of QE (i.e. its query expression).
+      In the above SELECT statement Arg_comparator calls a scalar comparison
+      function e.g. compare_int_signed(), which does not call bring_value().
+      Item_singlerow_subselect::exec() is called when
+      Arg_comparator::compare_int_signed(), or another scalar comparison
+      function, calls a value method like Item_singlerow_subselect::val_int().
+
+      In case of a multiple-column subselect:
+        SELECT (1,1)=(SELECT a,a FROM t1) FROM seq_1_to_5;
+      Item_singlerow_subselect::type_handler() returns &type_handler_row.
+      Arg_comparator uses compare_row() to compare its arguments.
+      compare_row() calls bring_value(), which calls
+      Item_singlerow_subselect::exec().
+
+      Unlike a single row subselect, a stored function returning a ROW does
+      not pretend to be a scalar when there is only one column in the ROW:
+        SELECT sp_row_func_with_one_col()=sp_row_var_with_one_col FROM ...;
+      Item_function_sp::type_handler() still returns &type_handler_row when
+      the return type is a ROW with one column.
+      Arg_comparator choses compare_row() as the comparison function.
+      So the execution comes to here.
+
+      This chart summarizes how a comparison of ROW values works.
+      In particular, how Item_singlerow_subselect::exec() vs
+      Item_func_sp::execute() are called.
+
+                         Single row subselect    ROW value stored function
+                         --------------------    -------------------------
+      1. bring_value()     Yes                     Yes
+         is called when
+         cols>1
+      2. exec()/execute()  Yes                     Yes
+         is called from
+         bring_value()
+         when cols>1
+      3. Pretends          Yes                     No
+         to be a scalar
+         when cols==1
+      4. bring_value()     No                      Yes
+         is called
+         when cols==1
+      5. exec()/execute()  N/A                     No
+         is called from
+         bring_value()
+         when cols==1
+      6. exec()/execute()  Yes                     Yes
+         is called from
+         a value method,
+         like val_int()
+         when cols==1
+    */
+    if (result_type() == ROW_RESULT)
+    {
+      /*
+        The condition in the "if" above catches the *intentional* difference
+        in the chart lines 3,4,5 (between a single row subselect and a stored
+        function returning ROW). Thus the condition makes #6 work in the same
+        way. See (*) in the beginning of the comment why the difference is
+        intentional.
+      */
+      execute();
+    }
+  }
+
   Field *create_tmp_field_ex(MEM_ROOT *root, TABLE *table, Tmp_field_src *src,
                              const Tmp_field_param *param) override;
   Field *create_field_for_create_select(MEM_ROOT *root, TABLE *table) override
@@ -4244,6 +4359,7 @@ protected:
   TABLE_LIST *table_list;
   TABLE *table;
   bool print_table_list_identifier(THD *thd, String *to) const;
+  bool check_access_and_fix_fields(THD *, Item **ref, privilege_t);
 public:
   Item_func_nextval(THD *thd, TABLE_LIST *table_list_arg):
   Item_longlong_func(thd), table_list(table_list_arg) {}
@@ -4253,6 +4369,8 @@ public:
     static LEX_CSTRING name= {STRING_WITH_LEN("nextval") };
     return name;
   }
+  bool fix_fields(THD *thd, Item **ref) override
+  { return check_access_and_fix_fields(thd, ref, INSERT_ACL | SELECT_ACL); }
   bool fix_length_and_dec(THD *thd) override
   {
     if (table_list->table)
@@ -4295,6 +4413,8 @@ class Item_func_lastval :public Item_func_nextval
 public:
   Item_func_lastval(THD *thd, TABLE_LIST *table_list_arg):
   Item_func_nextval(thd, table_list_arg) {}
+  bool fix_fields(THD *thd, Item **ref) override
+  { return check_access_and_fix_fields(thd, ref, SELECT_ACL); }
   longlong val_int() override;
   LEX_CSTRING func_name_cstring() const override
   {
@@ -4319,6 +4439,8 @@ public:
     : Item_func_nextval(thd, table_list_arg),
     nextval(nextval_arg), round(round_arg), is_used(is_used_arg)
   {}
+  bool fix_fields(THD *thd, Item **ref) override
+  { return check_access_and_fix_fields(thd, ref, INSERT_ACL); }
   longlong val_int() override;
   LEX_CSTRING func_name_cstring() const override
   {

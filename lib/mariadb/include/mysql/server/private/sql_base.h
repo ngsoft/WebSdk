@@ -158,7 +158,7 @@ thr_lock_type read_lock_type_for_table(THD *thd,
 my_bool mysql_rm_tmp_tables(void);
 void close_tables_for_reopen(THD *thd, TABLE_LIST **tables,
                              const MDL_savepoint &start_of_statement_svp,
-                             bool remove_implicit_dependencies);
+                             bool remove_indirect);
 bool table_already_fk_prelocked(TABLE_LIST *tl, LEX_CSTRING *db,
                                 LEX_CSTRING *table, thr_lock_type lock_type);
 TABLE_LIST *find_table_in_list(TABLE_LIST *table,
@@ -173,12 +173,14 @@ bool fill_record_n_invoke_before_triggers(THD *thd, TABLE *table,
                                           List<Item> &fields,
                                           List<Item> &values,
                                           bool ignore_errors,
-                                          enum trg_event_type event);
+                                          enum trg_event_type event,
+                                          bool *skip_row_indicator);
 bool fill_record_n_invoke_before_triggers(THD *thd, TABLE *table,
                                           Field **field,
                                           List<Item> &values,
                                           bool ignore_errors,
-                                          enum trg_event_type event);
+                                          enum trg_event_type event,
+                                          bool *skip_row_indicator);
 bool insert_fields(THD *thd, Name_resolution_context *context,
                    const Lex_ident_db &db_name,
                    const Lex_ident_table &table_name,
@@ -301,6 +303,8 @@ bool open_tables_for_query(THD *thd, TABLE_LIST *tables,
 bool lock_tables(THD *thd, TABLE_LIST *tables, uint counter, uint flags);
 int decide_logging_format(THD *thd, TABLE_LIST *tables);
 void close_thread_table(THD *thd, TABLE **table_ptr);
+TABLE_LIST*
+unique_table_in_insert_returning_subselect(THD *thd, TABLE_LIST *table, SELECT_LEX *sel);
 TABLE_LIST *unique_table(THD *thd, TABLE_LIST *table, TABLE_LIST *table_list,
                          uint check_flag);
 bool is_equal(const LEX_CSTRING *a, const LEX_CSTRING *b);
@@ -335,10 +339,9 @@ int dynamic_column_error_message(enum_dyncol_func_result rc);
 /* open_and_lock_tables with optional derived handling */
 int open_and_lock_tables_derived(THD *thd, TABLE_LIST *tables, bool derived);
 
-extern "C" int simple_raw_key_cmp(void* arg, const void* key1,
-                                  const void* key2);
+extern "C" int simple_raw_key_cmp(void *arg, const void *key1, const void *key2);
 extern "C" int count_distinct_walk(void *elem, element_count count, void *arg);
-int simple_str_key_cmp(void* arg, uchar* key1, uchar* key2);
+int simple_str_key_cmp(void *arg, const void *key1, const void *key2);
 
 extern Item **not_found_item;
 extern Field *not_found_field;
@@ -366,6 +369,7 @@ inline void setup_table_map(TABLE *table, TABLE_LIST *table_list, uint tablenr)
     table->maybe_null= embedding->outer_join;
     embedding= embedding->embedding;
   }
+  DBUG_ASSERT(tablenr <= MAX_TABLES);
   table->tablenr= tablenr;
   table->map= (table_map) 1 << tablenr;
   table->force_index= table->force_index_join= 0;
@@ -582,23 +586,6 @@ public:
   inline ulong get_timeout() const
   {
     return m_timeout;
-  }
-
-  /**
-    Return true in case tables and routines the statement implicilty
-    dependent on should be removed, else return false.
-
-    @note The use case when routines and tables the statement implicitly
-    dependent on shouldn't be removed is the one when a new partition be
-    created on handling the INSERT statement against a versioning partitioned
-    table. For this case re-opening a versioning table would result in adding
-    implicitly dependent routines (e.g. table's triggers) that lead to
-    allocation of memory on PS mem_root and so leaking a memory until the PS
-    statement be deallocated.
-  */
-  bool remove_implicitly_used_deps() const
-  {
-    return m_action != OT_ADD_HISTORY_PARTITION;
   }
 
   uint get_flags() const { return m_flags; }

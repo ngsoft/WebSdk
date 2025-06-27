@@ -18,10 +18,6 @@
 #ifndef _SP_PCONTEXT_H_
 #define _SP_PCONTEXT_H_
 
-#ifdef USE_PRAGMA_INTERFACE
-#pragma interface			/* gcc class implementation */
-#endif
-
 #include "sql_string.h"                         // LEX_STRING
 #include "field.h"                              // Create_field
 #include "sql_array.h"                          // Dynamic_array
@@ -86,6 +82,27 @@ public:
                                          const LEX_CSTRING *field_name,
                                          uint *row_field_offset);
 };
+
+
+/*
+  This class stores FETCH statement target variables:
+    FETCH cur INTO t1, t2, t2;
+  Targets can be:
+  - Local SP variables
+  - PACKAGE BODY variables
+*/
+class sp_fetch_target: public Sql_alloc,
+                       public sp_rcontext_addr
+{
+public:
+  LEX_CSTRING name;
+
+  sp_fetch_target(const LEX_CSTRING &name_arg, const sp_rcontext_addr &addr)
+   :sp_rcontext_addr(addr),
+    name(name_arg)
+  { }
+};
+
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -324,6 +341,31 @@ public:
   { }
 };
 
+
+///////////////////////////////////////////////////////////////////////////
+
+/// This class represents 'DECLARE RECORD' statement.
+
+class sp_record : public Sql_alloc
+{
+public:
+  /// Name of the record.
+  Lex_ident_column name;
+  Row_definition_list *field;
+
+public:
+  sp_record(const Lex_ident_column &name_arg, Row_definition_list *prmfield) 
+   :Sql_alloc(),
+    name(name_arg),
+    field(prmfield)
+  { }
+  bool eq_name(const LEX_CSTRING *str) const
+  {
+    return name.streq(*str);
+  }
+};
+
+
 ///////////////////////////////////////////////////////////////////////////
 
 /// The class represents parse-time context, which keeps track of declared
@@ -459,6 +501,9 @@ public:
     DBUG_ASSERT(i < m_vars.elements());
     return m_vars.at(i);
   }
+
+  /// @return the number of variables with default values in this context.
+  uint default_context_var_count() const;
 
   /*
     Return the i-th last context variable.
@@ -700,6 +745,29 @@ public:
     return m_for_loop;
   }
 
+  /////////////////////////////////////////////////////////////////////////
+  // Record.
+  /////////////////////////////////////////////////////////////////////////
+
+  bool add_record(THD *thd,
+                  const Lex_ident_column &name,
+                  Row_definition_list *field);
+
+  sp_record *find_record(const LEX_CSTRING *name,
+                         bool current_scope_only) const;
+
+  bool declare_record(THD *thd,
+                      const Lex_ident_column &name,
+                      Row_definition_list *field)
+  {
+    if (find_record(&name, true))
+    {
+      my_error(ER_SP_DUP_DECL, MYF(0), name.str);
+      return true;
+    }
+    return add_record(thd, name, field);
+  }
+
 private:
   /// Constructor for a tree node.
   /// @param prev the parent parsing context
@@ -763,6 +831,9 @@ private:
 
   /// Stack of SQL-handlers.
   Dynamic_array<sp_handler *> m_handlers;
+
+  /// Stack of records.
+  Dynamic_array<sp_record *> m_records;
 
   /*
    In the below example the label <<lab>> has two meanings:

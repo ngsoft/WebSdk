@@ -30,6 +30,8 @@ struct TABLE_LIST;
 class Query_tables_list;
 typedef struct st_ddl_log_state DDL_LOG_STATE;
 
+#include <sql_list.h>
+
 /** Event on which trigger is invoked. */
 enum trg_event_type
 {
@@ -115,7 +117,13 @@ class Trigger :public Sql_alloc
 {
 public:
     Trigger(Table_triggers_list *base_arg, sp_head *code):
-    base(base_arg), body(code), next(0), action_order(0)
+    base(base_arg), body(code), next(0),
+    sql_mode{0},
+    hr_create_time{(unsigned long long)-1},
+    event{TRG_EVENT_MAX},
+    action_time{TRG_ACTION_MAX},
+    action_order{0},
+    updatable_columns{nullptr}
   {
     bzero((char *)&subject_table_grants, sizeof(subject_table_grants));
   }
@@ -141,6 +149,7 @@ public:
   trg_event_type event;
   trg_action_time_type action_time;
   uint action_order;
+  List<LEX_CSTRING> *updatable_columns;
 
   void get_trigger_info(LEX_CSTRING *stmt, LEX_CSTRING *body,
                         LEX_STRING *definer);
@@ -148,6 +157,8 @@ public:
   bool change_on_table_name(void* param_arg);
   bool change_table_name(void* param_arg);
   bool add_to_file_list(void* param_arg);
+
+  bool match_updatable_columns(List<Item> &fields);
 };
 
 typedef bool (Trigger::*Triggers_processor)(void *arg);
@@ -168,7 +179,7 @@ class Table_triggers_list: public Sql_alloc
     BEFORE INSERT/UPDATE triggers.
   */
   Field             **record0_field;
-  uchar              *extra_null_bitmap;
+  uchar              *extra_null_bitmap, *extra_null_bitmap_init;
   /**
     Copy of TABLE::Field array with field pointers set to TABLE::record[1]
     buffer instead of TABLE::record[0] (used for OLD values in on UPDATE
@@ -232,8 +243,8 @@ public:
   /* End of character ser context. */
 
   Table_triggers_list(TABLE *table_arg)
-    :record0_field(0), extra_null_bitmap(0), record1_field(0),
-    trigger_table(table_arg),
+    :record0_field(0), extra_null_bitmap(0), extra_null_bitmap_init(0),
+    record1_field(0), trigger_table(table_arg),
     m_has_unparseable_trigger(false), count(0)
   {
     bzero((char *) triggers, sizeof(triggers));
@@ -248,7 +259,9 @@ public:
                     String *stmt_query, DDL_LOG_STATE *ddl_log_state);
   bool process_triggers(THD *thd, trg_event_type event,
                         trg_action_time_type time_type,
-                        bool old_row_is_record1);
+                        bool old_row_is_record1,
+                        bool *skip_row_indicator,
+                        List<Item> *fields_in_update_stmt= nullptr);
   void empty_lists();
   bool create_lists_needed_for_files(MEM_ROOT *root);
   bool save_trigger_file(THD *thd, const LEX_CSTRING *db, const LEX_CSTRING *table_name);
@@ -297,6 +310,8 @@ public:
             has_triggers(TRG_EVENT_DELETE,TRG_ACTION_AFTER));
   }
 
+  bool match_updatable_columns(List<Item> *fields);
+
   void mark_fields_used(trg_event_type event);
 
   void set_parse_error_message(char *error_message);
@@ -308,11 +323,15 @@ public:
                                             TABLE_LIST *table_list);
 
   Field **nullable_fields() { return record0_field; }
-  void reset_extra_null_bitmap()
+  void clear_extra_null_bitmap()
   {
-    size_t null_bytes= (trigger_table->s->fields -
-                        trigger_table->s->null_fields + 7)/8;
-    bzero(extra_null_bitmap, null_bytes);
+    if (size_t null_bytes= extra_null_bitmap_init - extra_null_bitmap)
+      bzero(extra_null_bitmap, null_bytes);
+  }
+  void default_extra_null_bitmap()
+  {
+    if (size_t null_bytes= extra_null_bitmap_init - extra_null_bitmap)
+      memcpy(extra_null_bitmap, extra_null_bitmap_init, null_bytes);
   }
 
   Trigger *find_trigger(const LEX_CSTRING *name, bool remove_from_list);

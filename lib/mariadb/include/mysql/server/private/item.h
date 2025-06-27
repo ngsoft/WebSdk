@@ -17,11 +17,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1335  USA */
 
-
-#ifdef USE_PRAGMA_INTERFACE
-#pragma interface			/* gcc class implementation */
-#endif
-
 #include "sql_priv.h"                /* STRING_BUFFER_USUAL_SIZE */
 #include "unireg.h"
 #include "sql_const.h"                 /* RAND_TABLE_BIT, MAX_FIELD_NAME */
@@ -757,6 +752,17 @@ public:
   virtual const String *const_ptr_string() const { return NULL; }
 };
 
+struct subselect_table_finder_param
+{
+  THD *thd;
+  /*
+    We're searching for different TABLE_LIST objects referring to the same
+    table as this one
+  */
+  const TABLE_LIST *find;
+  /* NUL - not found, ERROR_TABLE - search error, or the found table reference */
+  TABLE_LIST *dup;
+};
 
 /****************************************************************************/
 
@@ -1762,6 +1768,7 @@ public:
     return Converter_double_to_longlong_with_warn(val_real(), false).result();
   }
   longlong val_int_from_str(int *error);
+  bool val_bool_from_str();
 
   /*
     Returns true if this item can be calculated during
@@ -1956,6 +1963,19 @@ public:
   */
   virtual Item *clone_item(THD *thd) const { return nullptr; }
 
+  /*
+    @detail
+    The meaning of this function seems to be:
+      Check what the item would return if it was provided with two identical
+      non-NULL arguments.
+    It is not clear why it is defined for generic class Item or what its other
+    uses are.
+
+    @return
+       COND_TRUE   Would return true
+       COND_FALSE  Would return false
+       COND_OK     May return either, depending on the argument type.
+  */
   virtual cond_result eq_cmp_result() const { return COND_OK; }
   inline uint float_length(uint decimals_par) const
   { return decimals < FLOATING_POINT_DECIMALS ? (DBL_DIG+2+decimals_par) : DBL_DIG+8;}
@@ -2085,6 +2105,7 @@ public:
   }
   virtual COND *remove_eq_conds(THD *thd, Item::cond_result *cond_value,
                                 bool top_level);
+  virtual key_map part_of_sortkey() const { return key_map(0); }
   virtual void add_key_fields(JOIN *join, KEY_FIELD **key_fields,
                               uint *and_level,
                               table_map usable_tables,
@@ -2294,6 +2315,7 @@ public:
     set_extraction_flag(*(int16*)arg);
     return 0;
   }
+  virtual bool subselect_table_finder_processor(void *arg) { return 0; };
 
   /* 
     TRUE if the expression depends only on the table indicated by tab_map
@@ -2374,6 +2396,7 @@ public:
   virtual bool check_partition_func_processor(void *arg) { return true; }
   virtual bool post_fix_fields_part_expr_processor(void *arg) { return 0; }
   virtual bool rename_fields_processor(void *arg) { return 0; }
+  virtual bool rename_table_processor(void *arg) { return 0; }
   /*
     TRUE if the function is knowingly TRUE or FALSE.
     Not to be used for AND/OR formulas.
@@ -2401,6 +2424,13 @@ public:
     LEX_CSTRING db_name;
     LEX_CSTRING table_name;
     List<Create_field> fields;
+  };
+  struct func_processor_rename_table
+  {
+    Lex_ident_db old_db;
+    Lex_ident_table old_table;
+    Lex_ident_db new_db;
+    Lex_ident_table new_table;
   };
   virtual bool check_vcol_func_processor(void *arg)
   {
@@ -2467,6 +2497,9 @@ public:
   bool cache_const_expr_analyzer(uchar **arg);
   Item* cache_const_expr_transformer(THD *thd, uchar *arg);
 
+  bool vcol_subst_analyzer(uchar **);
+  virtual Item* vcol_subst_transformer(THD *thd, uchar *arg) { return this; }
+
   virtual Item* propagate_equal_fields(THD*, const Context &, COND_EQUAL *)
   {
     return this;
@@ -2522,7 +2555,17 @@ public:
   bool check_type_can_return_time(const LEX_CSTRING &opname) const;
   // It is not row => null inside is impossible
   virtual bool null_inside() { return 0; }
-  // used in row subselects to get value of elements
+  /*
+    bring_value()
+    - For scalar Item types this method does not do anything.
+    - For Items which can be of the ROW data type,
+      this method brings the row, so its component values become available
+      for calling their value methods (such as val_int(), get_date() etc).
+      * Item_singlerow_subselect stores component values in
+        the array of Item_cache in Item_singlerow_subselect::row.
+      * Item_func_sp stores component values in Field_row::m_table
+        of the Field_row instance pointed by Item_func_sp::sp_result_field.
+  */
   virtual void bring_value() {}
 
   const Type_handler *type_handler_long_or_longlong() const
@@ -2735,12 +2778,6 @@ public:
   */
   virtual void under_not(Item_func_not * upper
                          __attribute__((unused))) {};
-  /*
-    If Item_field is wrapped in Item_direct_wrep remove this Item_direct_ref
-    wrapper.
-  */
-  virtual Item *remove_item_direct_ref() { return this; }
-	
 
   void register_in(THD *thd);	 
   
@@ -2828,7 +2865,7 @@ inline Item* get_item_copy (THD *thd, const T* item)
   if (likely(copy))
     copy->register_in(thd);
   return copy;
-}	
+}
 
 
 #ifndef DBUG_OFF
@@ -2964,6 +3001,7 @@ public:
   {
     args[arg_count++]= item;
   }
+  bool add_array_of_item_field(THD *thd, const Virtual_tmp_table &vtable);
   /**
     Extract row elements from the given position.
     For example, for this input:  (1,2),(3,4),(5,6)
@@ -3278,8 +3316,9 @@ public:
 
   bool append_for_log(THD *thd, String *str) override;
 
-  Item *do_get_copy(THD *) const override { return nullptr; }
-  Item *do_build_clone(THD *thd) const override { return nullptr; }
+  Item *do_get_copy(THD *thd) const override
+  { return get_item_copy<Item_splocal>(thd, this); }
+  Item *do_build_clone(THD *thd) const override { return get_copy(thd); }
 
   /*
     Override the inherited create_field_for_create_select(),
@@ -3726,6 +3765,7 @@ public:
   bool eq(const Item *item, bool binary_cmp) const override;
   double val_real() override;
   longlong val_int() override;
+  bool val_bool() override;
   my_decimal *val_decimal(my_decimal *) override;
   String *val_str(String*) override;
   void save_result(Field *to) override;
@@ -3759,6 +3799,7 @@ public:
   {
     return field->field_length;
   }
+  key_map part_of_sortkey() const override { return field->part_of_sortkey; }
   void reset_field(Field *f);
   bool fix_fields(THD *, Item **) override;
   void fix_after_pullout(st_select_lex *new_parent, Item **ref, bool merge)
@@ -3873,6 +3914,7 @@ public:
   bool switch_to_nullable_fields_processor(void *arg) override;
   bool update_vcol_processor(void *arg) override;
   bool rename_fields_processor(void *arg) override;
+  bool rename_table_processor(void *arg) override;
   bool check_vcol_func_processor(void *arg) override;
   bool set_fields_as_dependent_processor(void *arg) override
   {
@@ -3942,8 +3984,18 @@ public:
   const Type_handler *type_handler() const override
   { return &type_handler_row; }
   uint cols() const override { return arg_count; }
-  Item* element_index(uint i) override { return arg_count ? args[i] : this; }
-  Item** addr(uint i) override { return arg_count ? args + i : NULL; }
+  Item* element_index(uint i) override
+  {
+    DBUG_ASSERT(arg_count);
+    DBUG_ASSERT(i < arg_count);
+    return args[i];
+  }
+  Item** addr(uint i) override
+  {
+    DBUG_ASSERT(arg_count);
+    DBUG_ASSERT(i < arg_count);
+    return &args[i];
+  }
   bool check_cols(uint c) override
   {
     if (cols() != c)
@@ -3953,7 +4005,6 @@ public:
     }
     return false;
   }
-  bool row_create_items(THD *thd, List<Spvar_definition> *list);
 };
 
 
@@ -4327,8 +4378,8 @@ public:
 
   int save_in_field(Field *field, bool no_conversions) override;
 
-  void set_default();
-  void set_ignore();
+  void set_default(bool set_type_handler_null);
+  void set_ignore(bool set_type_handler_null);
   void set_null(const DTCollation &c);
   void set_null_string(const DTCollation &c)
   {
@@ -5656,6 +5707,8 @@ class Item_func_or_sum: public Item_result_field,
                         public Used_tables_and_const_cache
 {
 protected:
+  bool check_fsp_or_error() const;
+
   bool agg_arg_charsets(DTCollation &c, Item **items, uint nitems,
                         uint flags, int item_sep)
   {
@@ -5833,6 +5886,8 @@ public:
      The result field of the stored function.
   */
   Field *sp_result_field;
+  Item_args sp_result_field_items;
+
   Item_sp(THD *thd, Name_resolution_context *context_arg, sp_name *name_arg);
   Item_sp(THD *thd, Item_sp *item);
   LEX_CSTRING func_name_cstring(THD *thd, bool is_package_function) const;
@@ -5984,6 +6039,10 @@ public:
   {
     return ref ? (*ref)->type_extra_attributes() : Type_extra_attributes();
   }
+  key_map part_of_sortkey() const override
+  {
+    return ref ? (*ref)->part_of_sortkey() : Item::part_of_sortkey();
+  }
 
   bool walk(Item_processor processor, bool walk_subquery, void *arg) override
   {
@@ -6094,11 +6153,6 @@ public:
   }
   Item *field_transformer_for_having_pushdown(THD *thd, uchar *arg) override
   { return (*ref)->field_transformer_for_having_pushdown(thd, arg); }
-  Item *remove_item_direct_ref() override
-  {
-    *ref= (*ref)->remove_item_direct_ref();
-    return this;
-  }
 };
 
 
@@ -6146,8 +6200,6 @@ public:
   Ref_Type ref_type() override { return DIRECT_REF; }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_direct_ref>(thd, this); }
-  Item *remove_item_direct_ref() override
-  { return (*ref)->remove_item_direct_ref(); }
 
   /* Should be called if ref is changed */
   inline void ref_changed()
@@ -6531,7 +6583,6 @@ public:
   { return get_item_copy<Item_direct_view_ref>(thd, this); }
   Item *field_transformer_for_having_pushdown(THD *, uchar *) override
   { return this; }
-  Item *remove_item_direct_ref() override { return this; }
   void print(String *str, enum_query_type query_type) override;
 };
 
@@ -6727,7 +6778,14 @@ protected:
     Type_std_attributes::set(item);
     name= item->name;
     set_handler(item->type_handler());
+#ifndef DBUG_OFF
+    copied_in= 0;
+#endif
   }
+
+#ifndef DBUG_OFF
+  bool copied_in;
+#endif
 
 public:
 
@@ -6794,7 +6852,10 @@ public:
   double val_real() override;
   longlong val_int() override;
   bool get_date(THD *thd, MYSQL_TIME *ltime, date_mode_t fuzzydate) override
-  { return get_date_from_string(thd, ltime, fuzzydate); }
+  {
+    DBUG_ASSERT(copied_in);
+    return get_date_from_string(thd, ltime, fuzzydate);
+  }
   void copy() override;
   int save_in_field(Field *field, bool no_conversions) override;
   Item *do_get_copy(THD *thd) const override
@@ -6824,41 +6885,51 @@ public:
     null_value= tmp.is_null();
     m_value= tmp.is_null() ? Timestamp_or_zero_datetime() :
                              Timestamp_or_zero_datetime(tmp);
+#ifndef DBUG_OFF
+    copied_in=1;
+#endif
   }
   int save_in_field(Field *field, bool) override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
     if (null_value)
       return set_field_to_null(field);
-    Timestamp_or_zero_datetime_native native(m_value, decimals);
+    decimal_digits_t dec= MY_MIN(decimals, TIME_SECOND_PART_DIGITS);
+    Timestamp_or_zero_datetime_native native(m_value, dec);
     return native.save_in_field(field, decimals);
   }
   longlong val_int() override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
     return null_value ? 0 :
            m_value.to_datetime(current_thd).to_longlong();
   }
   double val_real() override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
     return null_value ? 0e0 :
            m_value.to_datetime(current_thd).to_double();
   }
   String *val_str(String *to) override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
     return null_value ? NULL :
            m_value.to_datetime(current_thd).to_string(to, decimals);
   }
   my_decimal *val_decimal(my_decimal *to) override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
     return null_value ? NULL :
            m_value.to_datetime(current_thd).to_decimal(to);
   }
   bool get_date(THD *thd, MYSQL_TIME *ltime, date_mode_t fuzzydate) override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
     bool res= m_value.to_TIME(thd, ltime, fuzzydate);
     DBUG_ASSERT(!res);
@@ -6866,8 +6937,10 @@ public:
   }
   bool val_native(THD *thd, Native *to) override
   {
+    DBUG_ASSERT(copied_in);
     DBUG_ASSERT(sane());
-    return null_value || m_value.to_native(to, decimals);
+    decimal_digits_t dec= MY_MIN(decimals, TIME_SECOND_PART_DIGITS);
+    return null_value || m_value.to_native(to, dec);
   }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_copy_timestamp>(thd, this); }
@@ -7005,6 +7078,7 @@ public:
   bool fix_fields(THD *, Item **) override;
   void cleanup() override;
   void print(String *str, enum_query_type query_type) override;
+  bool val_bool() override;
   String *val_str(String *str) override;
   double val_real() override;
   longlong val_int() override;
@@ -7034,7 +7108,7 @@ public:
   {
     // It should not be possible to have "EXECUTE .. USING DEFAULT(a)"
     DBUG_ASSERT(0);
-    param->set_default();
+    param->set_default(true);
     return false;
   }
   table_map used_tables() const override;
@@ -7167,7 +7241,7 @@ public:
   }
   bool save_in_param(THD *, Item_param *param) override
   {
-    param->set_default();
+    param->set_default(true);
     return false;
   }
   Item *do_get_copy(THD *thd) const override
@@ -7205,7 +7279,7 @@ public:
   }
   bool save_in_param(THD *, Item_param *param) override
   {
-    param->set_ignore();
+    param->set_ignore(true);
     return false;
   }
 

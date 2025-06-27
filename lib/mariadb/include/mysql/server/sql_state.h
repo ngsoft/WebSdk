@@ -124,7 +124,7 @@
 { ER_SELECT_REDUCED                       ,"01000", "" },
 { ER_TABLENAME_NOT_ALLOWED_HERE           ,"42000", "" },
 { ER_NOT_SUPPORTED_AUTH_MODE              ,"08004", "" },
-{ ER_SPATIAL_CANT_HAVE_NULL               ,"42000", "" },
+{ ER_INDEX_CANNOT_HAVE_NULL               ,"42000", "" },
 { ER_COLLATION_CHARSET_MISMATCH           ,"42000", "" },
 { ER_WARN_TOO_FEW_RECORDS                 ,"01000", "" },
 { ER_WARN_TOO_MANY_RECORDS                ,"01000", "" },

@@ -88,10 +88,3 @@ if ERRORLEVEL 1 (
 
 if NOT EXIST "%etc%websdk-tray.json" copy "%etc%websdk-tray-dist.json" "%etc%websdk-tray.json" > NUL 2>&1
 copy "%sdk%WebSdk.lnk" "C:\ProgramData\Microsoft\Windows\Start Menu\Programs" > NUL 2>&1
-
-@REM add demonize.exe admin flag
-@REM REG query "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /V "%sdk%demonize.exe" > NUL 2>&1
-@REM if ERRORLEVEL 1 (
-@REM     echo Adding demonizer...
-@REM     REG ADD "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /reg:64 /V "%sdk%demonize.exe" /t REG_SZ /D "~ RUNASADMIN" /F
-@REM )

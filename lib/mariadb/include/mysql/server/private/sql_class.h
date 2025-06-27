@@ -52,6 +52,7 @@
 #include "session_tracker.h"
 #include "backup.h"
 #include "xa.h"
+#include "scope.h"
 #include "ddl_log.h"                            /* DDL_LOG_STATE */
 #include "ha_handler_stats.h"                    // ha_handler_stats */
 
@@ -71,9 +72,9 @@ void set_thd_stage_info(void *thd,
 
 #include "wsrep.h"
 #include "wsrep_on.h"
-#ifdef WITH_WSREP
 #include <inttypes.h>
 #include <ilist.h>
+#ifdef WITH_WSREP
 /* wsrep-lib */
 #include "wsrep_client_service.h"
 #include "wsrep_client_state.h"
@@ -208,6 +209,7 @@ enum enum_binlog_row_image {
 #define OLD_MODE_NO_NULL_COLLATION_IDS  (1 << 6)
 #define OLD_MODE_LOCK_ALTER_TABLE_COPY  (1 << 7)
 #define OLD_MODE_OLD_FLUSH_STATUS       (1 << 8)
+#define OLD_MODE_SESSION_USER_IS_USER   (1 << 9)
 
 #define OLD_MODE_DEFAULT_VALUE          OLD_MODE_UTF8_IS_UTF8MB3
 
@@ -461,8 +463,8 @@ private:
 
 class Key :public Sql_alloc, public DDL_options {
 public:
-  enum Keytype { PRIMARY, UNIQUE, MULTIPLE, FULLTEXT, SPATIAL, FOREIGN_KEY,
-                 IGNORE_KEY};
+  enum Keytype { PRIMARY, UNIQUE, MULTIPLE, FULLTEXT, SPATIAL, VECTOR,
+                 FOREIGN_KEY, IGNORE_KEY};
   enum Keytype type;
   KEY_CREATE_INFO key_create_info;
   List<Key_part_spec> columns;
@@ -472,6 +474,7 @@ public:
   bool invisible;
   bool without_overlaps;
   bool old;
+  uint length;
   Lex_ident_column period;
 
   Key(enum Keytype type_par, const LEX_CSTRING *name_arg,
@@ -479,7 +482,7 @@ public:
     :DDL_options(ddl_options),
      type(type_par), key_create_info(default_key_create_info),
     name(*name_arg), option_list(NULL), generated(generated_arg),
-    invisible(false), without_overlaps(false), old(false)
+    invisible(false), without_overlaps(false), old(false), length(0)
   {
     key_create_info.algorithm= algorithm_arg;
   }
@@ -490,7 +493,7 @@ public:
     :DDL_options(ddl_options),
      type(type_par), key_create_info(*key_info_arg), columns(*cols),
     name(*name_arg), option_list(create_opt), generated(generated_arg),
-    invisible(false), without_overlaps(false), old(false)
+    invisible(false), without_overlaps(false), old(false), length(0)
   {}
   Key(const Key &rhs, MEM_ROOT *mem_root);
   virtual ~Key() = default;
@@ -713,7 +716,8 @@ typedef struct system_variables
   ulonglong max_heap_table_size;
   ulonglong tmp_memory_table_size;
   ulonglong tmp_disk_table_size;
-  ulonglong long_query_time;
+  ulonglong log_slow_query_time;
+  ulonglong log_slow_always_query_time;
   ulonglong max_statement_time;
   ulonglong optimizer_switch;
   ulonglong optimizer_trace;
@@ -742,7 +746,8 @@ typedef struct system_variables
   ulonglong max_tmp_space_usage;
 
   double optimizer_where_cost, optimizer_scan_setup_cost;
-  double long_query_time_double, max_statement_time_double;
+  double log_slow_query_time_double, max_statement_time_double;
+  double log_slow_always_query_time_double;
   double sample_percentage;
 
   ha_rows select_limit;
@@ -1059,9 +1064,8 @@ typedef struct system_status_var
   ulonglong table_open_cache_hits;
   ulonglong table_open_cache_misses;
   ulonglong table_open_cache_overflows;
-  ulonglong send_metadata_skips;
+  ulonglong cpu_time, busy_time, query_time;
   double last_query_cost;
-  double cpu_time, busy_time;
   uint32 threads_running;
 
   /* Following variables are not cleared by FLUSH STATUS */
@@ -1275,13 +1279,19 @@ public:
   inline bool is_conventional() const
   { return state == STMT_CONVENTIONAL_EXECUTION; }
 
-  inline void* alloc(size_t size) const { return alloc_root(mem_root,size); }
-  inline void* calloc(size_t size) const
+  template <typename T=char>
+  inline T* alloc(size_t size) const
   {
-    void *ptr;
-    if (likely((ptr=alloc_root(mem_root,size))))
-      bzero(ptr, size);
-    return ptr;
+    return (T*)alloc_root(mem_root, sizeof(T)*size);
+  }
+
+  template <typename T=char>
+  inline T* calloc(size_t size) const
+  {
+    void* ptr= alloc_root(mem_root, sizeof(T)*size);
+    if (ptr)
+      bzero(ptr, sizeof(T)*size);
+    return (T*)ptr;
   }
   inline char *strdup(const char *str) const
   { return strdup_root(mem_root,str); }
@@ -1289,7 +1299,7 @@ public:
   { return strmake_root(mem_root,str,size); }
   inline LEX_CSTRING strcat(const LEX_CSTRING &a, const LEX_CSTRING &b) const
   {
-    char *buf= (char*)alloc(a.length + b.length + 1);
+    char *buf= alloc(a.length + b.length + 1);
     if (unlikely(!buf))
       return null_clex_str;
     memcpy(buf, a.str, a.length);
@@ -1325,6 +1335,13 @@ public:
   LEX_CSTRING strmake_lex_cstring(const LEX_CSTRING &from) const
   {
     return strmake_lex_cstring(from.str, from.length);
+  }
+  LEX_CUSTRING strmake_lex_custring(const LEX_CUSTRING &from) const
+  {
+    const void *tmp= memdup(from.str, from.length);
+    if (!tmp)
+      return {0,0};
+    return {(const uchar*)tmp, from.length};
   }
   LEX_CSTRING strmake_lex_cstring_trim_whitespace(const LEX_CSTRING &from,
                                                   CHARSET_INFO *cs)
@@ -1388,7 +1405,7 @@ public:
   // Allocate LEX_STRING for character set conversion
   bool alloc_lex_string(LEX_STRING *dst, size_t length) const
   {
-    if (likely((dst->str= (char*) alloc(length))))
+    if (likely((dst->str= alloc(length))))
       return false;
     dst->length= 0;  // Safety
     return true;     // EOM
@@ -1401,7 +1418,7 @@ public:
     const char *tmp= src->str;
     const char *tmpend= src->str + src->length;
     char *to;
-    if (!(dst->str= to= (char *) alloc(src->length + 1)))
+    if (!(dst->str= to= alloc(src->length + 1)))
     {
       dst->length= 0; // Safety
       return true;
@@ -2115,7 +2132,7 @@ public:
 #define SUB_STMT_TRIGGER 1
 #define SUB_STMT_FUNCTION 2
 #define SUB_STMT_STAT_TABLES 4
-
+#define SUB_STMT_BEFORE_TRIGGER 8
 
 class Sub_statement_state
 {
@@ -2630,8 +2647,8 @@ struct wait_for_commit
       return wait_for_prior_commit2(thd, allow_kill);
     else
     {
-      if (wakeup_error)
-        my_error(ER_PRIOR_COMMIT_FAILED, MYF(0));
+      if (unlikely(wakeup_error))
+        prior_commit_error(thd);
       return wakeup_error;
     }
   }
@@ -2682,6 +2699,7 @@ struct wait_for_commit
   void wakeup(int wakeup_error);
 
   int wait_for_prior_commit2(THD *thd, bool allow_kill);
+  void prior_commit_error(THD *thd);
   void wakeup_subsequent_commits2(int wakeup_error);
   void unregister_wait_for_prior_commit2();
 
@@ -3009,9 +3027,7 @@ public:
   */
   struct st_mysql_stmt *current_stmt;
 #endif
-#ifdef HAVE_QUERY_CACHE
   Query_cache_tls query_cache_tls;
-#endif
   NET	  net;				// client connection descriptor
   /** Aditional network instrumentation for the server only. */
   NET_SERVER m_net_server_extension;
@@ -3322,7 +3338,6 @@ public:
             binlog_flush_pending_rows_event(stmt_end, TRUE));
   }
   int binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional);
-  void binlog_remove_rows_events();
   uint has_pending_row_events();
   bool binlog_need_stmt_format(bool is_transactional) const
   {
@@ -3494,8 +3509,8 @@ public:
     {
       bzero((char*)this, sizeof(*this));
       implicit_xid.null();
-      init_sql_alloc(key_memory_thd_transactions, &mem_root, 256,
-                     0, MYF(MY_THREAD_SPECIFIC));
+      init_sql_alloc(key_memory_thd_transactions, &mem_root,
+                     DEFAULT_ROOT_BLOCK_SIZE, 0, MYF(MY_THREAD_SPECIFIC));
     }
   } default_transaction, *transaction;
   Global_read_lock global_read_lock;
@@ -4066,6 +4081,9 @@ public:
 
   sp_rcontext *spcont;		// SP runtime context
 
+  sp_rcontext *get_rcontext(const sp_rcontext_addr &addr);
+  Item_field *get_variable(const sp_rcontext_addr &addr);
+
   /** number of name_const() substitutions, see sp_head.cc:subst_spvars() */
   uint       query_name_consts;
 
@@ -4310,7 +4328,8 @@ public:
     @retval  FALSE otherwise.
    */
   bool notify_shared_lock(MDL_context_owner *ctx_in_use,
-                          bool needs_thr_lock_abort) override;
+                          bool needs_thr_lock_abort,
+                          bool needs_non_slave_abort) override;
 
   // End implementation of MDL_context_owner interface.
 
@@ -4457,8 +4476,13 @@ public:
   void update_server_status()
   {
     set_time_for_next_stage();
-    if (utime_after_query >= utime_after_lock + variables.long_query_time)
+    if (utime_after_query >= utime_after_lock + variables.log_slow_query_time)
       server_status|= SERVER_QUERY_WAS_SLOW;
+  }
+  /* True if query took longer than log_slow_always_query_time */
+  bool log_slow_always_query_time()
+  {
+    return (utime_after_query >= utime_after_lock + variables.log_slow_always_query_time);
   }
   inline ulonglong found_rows(void)
   {
@@ -5759,9 +5783,11 @@ public:
   query_id_t                wsrep_last_query_id;
   XID                       wsrep_xid;
 
-  /** This flag denotes that record locking should be skipped during INSERT
-  and gap locking during SELECT. Only used by the streaming replication thread
-  that only modifies the wsrep_schema.SR table. */
+  /** This flag denotes that record locking should be skipped during INSERT,
+     gap locking during SELECT, and write-write conflicts due to innodb
+     snapshot isolation during DELETE.
+     Only used by the streaming replication thread that only modifies the
+     mysql.wsrep_streaming_log table. */
   my_bool                   wsrep_skip_locking;
 
   mysql_cond_t              COND_wsrep_thd;
@@ -5876,6 +5902,13 @@ public:
 
   /* Handling of timeouts for commands */
   thr_timer_t query_timer;
+
+  /*
+    Number of strings which were involved in sorting or grouping and whose
+    lengths were truncated according to the max_sort_length system variable
+    setting
+  */
+  ulonglong  num_of_strings_sorted_on_truncated_length;
 
 public:
   void set_query_timer()
@@ -6085,6 +6118,7 @@ public:
   bool need_report_unit_results();
   bool report_collected_unit_results();
   bool init_collecting_unit_results();
+  void push_final_warnings();
 };
 
 
@@ -6219,7 +6253,8 @@ public:
   */
   virtual int send_data(List<Item> &items)=0;
   virtual ~select_result_sink() = default;
-  void reset(THD *thd_arg) { thd= thd_arg; }
+  // Used in cursors to initialize and reset
+  void reinit(THD *thd_arg) { thd= thd_arg; }
 };
 
 class select_result_interceptor;
@@ -6293,15 +6328,11 @@ public:
   */
   virtual bool check_simple_select() const;
   virtual void abort_result_set() {}
-  /*
-    Cleanup instance of this class for next execution of a prepared
-    statement/stored procedure.
-  */
-  virtual void cleanup();
+  virtual void reset_for_next_ps_execution();
   void set_thd(THD *thd_arg) { thd= thd_arg; }
-  void reset(THD *thd_arg)
+  void reinit(THD *thd_arg)
   {
-    select_result_sink::reset(thd_arg);
+    select_result_sink::reinit(thd_arg);
     unit= NULL;
   }
 #ifdef EMBEDDED_LIBRARY
@@ -6407,9 +6438,9 @@ public:
     elsewhere. (this is used by ANALYZE $stmt feature).
   */
   void disable_my_ok_calls() { suppress_my_ok= true; }
-  void reset(THD *thd_arg)
+  void reinit(THD *thd_arg)
   {
-    select_result::reset(thd_arg);
+    select_result::reinit(thd_arg);
     suppress_my_ok= false;
   }
 protected:
@@ -6452,10 +6483,11 @@ private:
   /// FETCH <cname> INTO <varlist>.
   class Select_fetch_into_spvars: public select_result_interceptor
   {
-    List<sp_variable> *spvar_list;
+    List<sp_fetch_target> *m_fetch_target_list;
     uint field_count;
     bool m_view_structure_only;
-    bool send_data_to_variable_list(List<sp_variable> &vars, List<Item> &items);
+    bool send_data_to_variable_list(List<sp_fetch_target> &vars,
+                                    List<Item> &items);
   public:
     Select_fetch_into_spvars(THD *thd_arg, bool view_structure_only)
      :select_result_interceptor(thd_arg),
@@ -6463,12 +6495,15 @@ private:
     {}
     void reset(THD *thd_arg)
     {
-      select_result_interceptor::reset(thd_arg);
-      spvar_list= NULL;
+      select_result_interceptor::reinit(thd_arg);
+      m_fetch_target_list= NULL;
       field_count= 0;
     }
     uint get_field_count() { return field_count; }
-    void set_spvar_list(List<sp_variable> *vars) { spvar_list= vars; }
+    void set_spvar_list(List<sp_fetch_target> *vars)
+    {
+      m_fetch_target_list= vars;
+    }
 
     bool send_eof() override { return FALSE; }
     int send_data(List<Item> &items) override;
@@ -6498,14 +6533,14 @@ public:
   my_bool is_open()
   { return MY_TEST(server_side_cursor); }
 
-  int fetch(THD *, List<sp_variable> *vars, bool error_on_no_data);
+  int fetch(THD *, List<sp_fetch_target> *vars, bool error_on_no_data);
 
   bool export_structure(THD *thd, Row_definition_list *list);
 
   void reset(THD *thd_arg)
   {
     sp_cursor_statistics::reset();
-    result.reset(thd_arg);
+    result.reinit(thd_arg);
     server_side_cursor= NULL;
   }
 
@@ -6532,7 +6567,7 @@ public:
   bool send_eof() override;
   bool check_simple_select() const override { return FALSE; }
   void abort_result_set() override;
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
   select_result_interceptor *result_interceptor() override { return NULL; }
 };
 
@@ -6567,7 +6602,9 @@ public:
   { path[0]=0; }
   ~select_to_file();
   bool send_eof() override;
-  void cleanup() override;
+  void abort_result_set() override;
+  void reset_for_next_ps_execution() override;
+  bool free_recources();
 };
 
 
@@ -6637,14 +6674,14 @@ class select_insert :public select_result_interceptor {
   int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
   int prepare2(JOIN *join) override;
   int send_data(List<Item> &items) override;
-  virtual bool store_values(List<Item> &values);
+  virtual bool store_values(List<Item> &values, bool *trg_skip_row);
   virtual bool can_rollback_data() { return 0; }
   bool prepare_eof();
   bool send_ok_packet();
   bool send_eof() override;
   void abort_result_set() override;
   /* not implemented: select_insert is never re-used in prepared statements */
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
 };
 
 
@@ -6682,7 +6719,7 @@ public:
   int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
 
   int binlog_show_create_table(TABLE **tables, uint count);
-  bool store_values(List<Item> &values) override;
+  bool store_values(List<Item> &values, bool *trg_skip_row) override;
   bool send_eof() override;
   void abort_result_set() override;
   bool can_rollback_data() override { return 1; }
@@ -6871,7 +6908,7 @@ public:
   int delete_record();
   bool send_eof() override;
   virtual bool flush();
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
   virtual bool create_result_table(THD *thd, List<Item> *column_types,
                                    bool is_distinct, ulonglong options,
                                    const LEX_CSTRING *alias,
@@ -7046,9 +7083,10 @@ class select_union_recursive :public select_unit
  */
   List<TABLE_LIST> rec_table_refs;
   /*
-    The count of how many times cleanup() was called with cleaned==false
-    for the unit specifying the recursive CTE for which this object was created
-    or for the unit specifying a CTE that mutually recursive with this CTE.
+    The count of how many times reset_for_next_ps_execution() was called with
+    cleaned==false for the unit specifying the recursive CTE for which this
+    object was created or for the unit specifying a CTE that mutually
+    recursive with this CTE.
   */
   uint cleanup_count;
   long row_counter;
@@ -7067,7 +7105,7 @@ class select_union_recursive :public select_unit
                            bool create_table,
                            bool keep_row_order,
                            uint hidden) override;
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
 };
 
 /**
@@ -7137,7 +7175,7 @@ public:
   {
     result->abort_result_set(); /* purecov: inspected */
   }
-  void cleanup() override
+  void reset_for_next_ps_execution() override
   {
     send_records= 0;
   }
@@ -7240,7 +7278,7 @@ public:
                            uint hidden) override;
   bool init_result_table(ulonglong select_options);
   int send_data(List<Item> &items) override;
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
   ha_rows get_null_count_of_col(uint idx)
   {
     DBUG_ASSERT(idx < table->s->fields);
@@ -7273,7 +7311,7 @@ public:
                                   bool mx, bool all):
     select_subselect(thd_arg, item_arg), cache(0), fmax(mx), is_all(all)
   {}
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
   int send_data(List<Item> &items) override;
   bool cmp_real();
   bool cmp_int();
@@ -7399,10 +7437,10 @@ struct SORT_FIELD_ATTR
   CHARSET_INFO *cs;
   uint pack_sort_string(uchar *to, const Binary_string *str,
                         CHARSET_INFO *cs) const;
-  int compare_packed_fixed_size_vals(uchar *a, size_t *a_len,
-                                     uchar *b, size_t *b_len);
-  int compare_packed_varstrings(uchar *a, size_t *a_len,
-                                uchar *b, size_t *b_len);
+  int compare_packed_fixed_size_vals(const uchar *a, size_t *a_len,
+                                     const uchar *b, size_t *b_len);
+  int compare_packed_varstrings(const uchar *a, size_t *a_len,
+                                const uchar *b, size_t *b_len);
   bool check_if_packing_possible(THD *thd) const;
   bool is_variable_sized() { return type == VARIABLE_SIZE; }
   void set_length_and_original_length(THD *thd, uint length_arg);
@@ -7533,9 +7571,10 @@ class SORT_INFO;
 class multi_delete :public select_result_interceptor
 {
   TABLE_LIST *delete_tables, *table_being_deleted;
-  Unique **tempfiles;
+  TMP_TABLE_PARAM *tmp_table_param;
+  TABLE **tmp_tables, *main_table;
   ha_rows deleted, found;
-  uint num_of_tables;
+  uint table_count;
   int error;
   bool do_delete;
   /* True if at least one table we delete from is transactional */
@@ -7551,15 +7590,17 @@ class multi_delete :public select_result_interceptor
 
 public:
   // Methods used by ColumnStore
-  uint get_num_of_tables() const { return num_of_tables; }
+  uint get_num_of_tables() const { return table_count; }
   TABLE_LIST* get_tables() const { return delete_tables; }
 public:
   multi_delete(THD *thd_arg, TABLE_LIST *dt, uint num_of_tables);
   ~multi_delete();
   int prepare(List<Item> &list, SELECT_LEX_UNIT *u) override;
+  int prepare2(JOIN *join) override;
   int send_data(List<Item> &items) override;
   bool initialize_tables (JOIN *join) override;
   int do_deletes();
+  int rowid_table_deletes(TABLE *table, bool ignore);
   int do_table_deletes(TABLE *table, SORT_INFO *sort_info, bool ignore);
   bool send_eof() override;
   inline ha_rows num_deleted() const { return deleted; }
@@ -7572,7 +7613,8 @@ class multi_update :public select_result_interceptor
 {
   TABLE_LIST *all_tables; /* query/update command tables */
   List<TABLE_LIST> *leaves;     /* list of leaves of join table tree */
-  List<TABLE_LIST> updated_leaves;  /* list of of updated leaves */
+  List<TABLE_LIST> updated_leaves;  /* a superset of tables which will be updated */
+  List<TABLE_LIST> update_targets;  /* the tables that will be UPDATE'd */
   TABLE_LIST *update_tables;
   TABLE **tmp_tables, *main_table, *table_to_update;
   TMP_TABLE_PARAM *tmp_table_param;
@@ -7604,6 +7646,7 @@ class multi_update :public select_result_interceptor
   ha_rows updated_sys_ver;
 
   bool has_vers_fields;
+  const table_map tables_to_update;
 
 public:
   multi_update(THD *thd_arg, TABLE_LIST *ut, List<TABLE_LIST> *leaves_list,
@@ -7703,7 +7746,7 @@ public:
   int send_data(List<Item> &items) override;
   bool send_eof() override;
   bool check_simple_select() const override;
-  void cleanup() override;
+  void reset_for_next_ps_execution() override;
 };
 
 /* Bits in sql_command_flags */

@@ -1,49 +1,64 @@
 <?php
 
-use Adminer\AdminerAutocomplete;
+
+use Adminer\AdminerBackwardKeys;
+use Adminer\AdminerBootstrapSelect;
 use Adminer\AdminerCodemirror;
-use Adminer\AdminerDisableJush;
+use Adminer\AdminerDatabaseHide;
 use Adminer\AdminerDumpJson;
 use Adminer\AdminerDumpPhp;
+use Adminer\AdminerEditForeign;
 use Adminer\AdminerEnumOption;
-use Adminer\AdminerJsonColumn;
 use Adminer\AdminerLoginIp;
 use Adminer\AdminerLoginServers;
 use Adminer\AdminerPrettyJsonColumn;
-use Adminer\AdminerDatabaseHide;
 use Adminer\AdminerTablesFilter;
+use Adminer\AdminerTheme;
+use Adminer\Config;
+use Adminer\ThemeSwitcher;
 
 $plugins = [];
 
 
+$plugins[] = new ThemeSwitcher();
 $plugins[] = new AdminerEnumOption();
+$plugins[] = new AdminerEditForeign();
+$plugins[] = new AdminerBackwardKeys();
 $plugins[] = new AdminerDumpJson();
 $plugins[] = new AdminerDumpPhp();
+$plugins[] = new AdminerPrettyJsonColumn();
+$plugins[] = new AdminerCodemirror();
+$plugins[] = new AdminerTablesFilter();
+$plugins[] = new AdminerDatabaseHide(Config::getItem('HIDE_DATABASES', []));
+$plugins[] = new AdminerLoginIp(Config::getItem('ADMINER_ACL', []));
+$plugins[] = new AdminerLoginServers(
+    Config::getItem('ADMINER_SERVERS', []),
+    Config::getItem('ADMINER_DRIVERS', []),
+    Config::getItem('ADMINER_SAVEFILE', false),
+    Config::getItem('ADMINER_DYNAMIC_SERVERS', false),
+    Config::getItem('ADMINER_PASSWORDLESS', false)
+);
 
-if (class_exists("Adminer\\Adminer")) {
-    $plugins[] = new AdminerPrettyJsonColumn();
-    $plugins[] = new AdminerCodemirror();
+// Themes
+
+if (!empty($_SESSION['themeData'])) {
+    $themeData = $_SESSION['themeData'];
 } else {
-    $plugins[] = new AdminerJsonColumn();
-    $plugins[] = new AdminerDisableJush();
-    $plugins[] = new AdminerAutocomplete();
+    $themeData = $_SESSION['themeData'] = ThemeSwitcher::loadJsonData();
 }
 
-
-
-$plugins[] = new AdminerTablesFilter();
-$plugins[] = new AdminerDatabaseHide(['sys', 'mysql', 'information_schema', 'performance_schema']);
-$plugins[] = new AdminerLoginIp(['127.0', '192.168', '::1']);
-$plugins[] = new AdminerLoginServers(
-    [
-        'MySql' => ['driver' => 'mysql', 'server' => '127.0.0.1'],
-        'PostgreSql' => ['driver' => 'pgsql', 'server' => '127.0.0.1'],
-        'SqLite' => ['driver' => 'sqlite', 'server' => 'sqlite'],
-    ],
-    ['mysql', 'pgsql', 'sqlite'],
-    __DIR__ . '/../../../tmp/adminer.servers',
-    true,
-    true
+$plugins[] = new AdminerBootstrapSelect(
+    $themeData['theme'],
+    $themeData['dark'],
+    $themeData['fix'],
+    $themeData['select'],
+    $themeData['lang']
 );
+
+
+if ('custom' === $themeData['type']) {
+    $plugins[] = new AdminerTheme($themeData['theme']);
+}
+
 
 return $plugins;

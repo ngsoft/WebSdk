@@ -1,0 +1,12 @@
+/adminer.css
+/adminer.json
+/adminer.js
+.idea
+.vscode
+composer.lock
+vendor
+.env
+.env.*
+!.env.example
+themes/backup
+.htpasswd

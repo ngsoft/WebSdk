@@ -12,8 +12,6 @@
 
 - [PEAR](https://pear.php.net/) est disponible pour toutes les versions de php
 
-- [PhpMyadmin](https://www.phpmyadmin.net/) a dézipper
-
 - [Adminer](https://www.adminer.org/) avec themes
 
 - [Composer](https://getcomposer.org/)
@@ -174,7 +172,6 @@ Les applications web installées sont:
 
 - [Adminer](http://localhost/adminer)
 
-- [PhpMyAdmin](http://localhost/phpmyadmin)
 
 ```shell
 websdk-stop

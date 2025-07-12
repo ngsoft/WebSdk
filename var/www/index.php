@@ -1,13 +1,29 @@
+<?php
+
+/**
+ * ACL to protect proxied requests
+ */
+$validRemotes = ['::1', '127.0.0.1'];
+$from = '';
+if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    $from = array_slice(preg_split('#[, ]#', $_SERVER['HTTP_X_FORWARDED_FOR']), -1)[0];
+} elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+    $from = $_SERVER['REMOTE_ADDR'];
+}
+
+if (!in_array($from, $validRemotes)) {
+    header('Content-Type: text/plain', true, 403);
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <?php
-
 $software = explode(" ", $_SERVER["SERVER_SOFTWARE"])[0];
 $softwareType = strtolower(explode("/", $software)[0]);
 $softwareVersion = explode("/", $software)[1];
 $softwareName = ucfirst($softwareType);
 $cgi = isset($_SERVER["FCGI_ROLE"]) ? " Fast CGI" : "";
-
 ?>
 
 <head>

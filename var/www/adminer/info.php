@@ -4,7 +4,7 @@ use Adminer\ThemeSwitcher;
 
 ob_start();
 
-require_once __DIR__ . "/autoloader.php";
+require_once __DIR__ . "/functions.php";
 
 $loggedIn = ThemeSwitcher::isLoggedInAdminer();
 
@@ -19,88 +19,84 @@ $html = ob_get_clean();
 
 $cgi = isset($_SERVER["FCGI_ROLE"]) ? " Fast CGI" : "";
 ob_start(); ?>
-<title>PHP <?= PHP_VERSION . $cgi ?></title>
-<link rel="shortcut icon" href="./static/images/php.svg">
-<link rel="apple-touch-icon" href="./static/images/php.svg">
-<style>
-    .return-link {
-        height: 40px;
-        width: 90vw;
-        margin: 0 auto;
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        max-width: 936px;
-        background-color: rgb(79, 91, 147);
-        border: 1px solid #222;
-
-        font-size: 14px;
-        position: fixed;
-        z-index: 200;
-        top: 0;
-        left: calc(50% - 468px);
-
-        a {
-            padding: 0 8px;
-            font-weight: 600;
-            color: rgb(219, 225, 255);
-            text-decoration: none;
-            background: transparent;
-            transition: color 0.25s ease-out;
-        }
-
-        a:hover,
-        a:focus,
-        a:active {
-            color: rgb(249, 252, 255);
-        }
-
-    }
-
-
-
-
-    .return-link~div.center {
-        margin-top: 64px;
-    }
-
-    .php-logo {
-        margin: 0 auto 0 8px;
-
-        svg {
-            width: auto;
-            height: 32px;
-        }
-    }
-
-
-
-    th {
-        top: 40px;
-    }
-
-    .classic {
+    <title>PHP <?= PHP_VERSION . $cgi ?></title>
+    <link rel="shortcut icon" href="./static/images/php.svg">
+    <link rel="apple-touch-icon" href="./static/images/php.svg">
+    <style>
         .return-link {
-            background-color: rgb(153, 153, 204);
+            height: 40px;
+            width: 90vw;
+            margin: 0 auto;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            max-width: 936px;
+            background-color: rgb(79, 91, 147);
+            border: 1px solid #222;
+
+            font-size: 14px;
+            position: fixed;
+            z-index: 200;
+            top: 0;
+            left: calc(50% - 468px);
 
             a {
-                color: #333;
+                padding: 0 8px;
+                font-weight: 600;
+                color: rgb(219, 225, 255);
+                text-decoration: none;
+                background: transparent;
+                transition: color 0.25s ease-out;
             }
 
-            a:hover {
-                color: #111;
+            a:hover,
+            a:focus,
+            a:active {
+                color: rgb(249, 252, 255);
+            }
+
+        }
+
+
+        .return-link ~ div.center {
+            margin-top: 64px;
+        }
+
+        .php-logo {
+            margin: 0 auto 0 8px;
+
+            svg {
+                width: auto;
+                height: 32px;
             }
         }
 
 
-    }
+        th {
+            top: 40px;
+        }
+
+        .classic {
+            .return-link {
+                background-color: rgb(153, 153, 204);
+
+                a {
+                    color: #333;
+                }
+
+                a:hover {
+                    color: #111;
+                }
+            }
 
 
+        }
 
-    table[width="600"] {
-        width: 934px;
-    }
-</style>
+
+        table[width="600"] {
+            width: 934px;
+        }
+    </style>
 
 <?php
 $head = ob_get_clean();
@@ -128,14 +124,14 @@ if (PHP_VERSION_ID > 80400) {
 
 
 ob_start(); ?>
-<div class="return-link">
-    <a class="php-logo" href="<?= $link ?>" target="_blank">
-        <?= @file_get_contents($logo) ?>
-    </a>
-    <?php if ($redirect) : ?>
-        <a href="<?= $redirect ?>">Retour a Adminer</a>
-    <?php endif; ?>
-</div>
+    <div class="return-link">
+        <a class="php-logo" href="<?= $link ?>" target="_blank">
+            <?= @file_get_contents($logo) ?>
+        </a>
+        <?php if ($redirect) : ?>
+            <a href="<?= $redirect ?>">Retour a Adminer</a>
+        <?php endif; ?>
+    </div>
 <?php
 $body .= ob_get_clean();
 

@@ -67,10 +67,22 @@ class AdminerTablesFilter
                 }
                 sessionStorage.setItem('adminer_tables_filter_db', db);
             });
+
+
         </script>
-        <p class="jsonly"><input id="filter-field" autocomplete="off"
-                                 type="search"><?php echo script("qs('#filter-field').oninput = tablesFilterInput;"); ?>
-        <?php
+        <style>
+            #tables {
+                position: relative;
+                top: 0;
+                margin-left: 0;
+                margin-right: 0;
+                max-width: 100%;
+            }
+        </style>
+        <p style="padding: 4px 15px; display: flex; justify-content: center;" class="jsonly">
+            <input placeholder="Search table" value="" style="width: 90%;" id="filter-field" autocomplete="off"
+                   type="search">
+        <?php echo script("qs('#filter-field').oninput = tablesFilterInput;");
     }
 
     protected $translations = array(

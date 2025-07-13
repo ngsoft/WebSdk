@@ -9,50 +9,62 @@ namespace Adminer;
  */
 class AdminerDumpPhp
 {
-	var $output = array();
-	var $shutdown_callback = false;
+    var $output = [];
+    var $shutdown_callback = false;
 
-	function dumpFormat()
-	{
-		return array('php' => 'PHP');
-	}
+    function dumpFormat()
+    {
+        return array('php' => 'PHP');
+    }
 
-	function dumpHeaders()
-	{
-		if ($_POST['format'] == 'php') {
-			header('Content-Type: text/plain; charset=utf-8');
-			return 'php';
-		}
-	}
+    private function checkOutput($ext)
+    {
+        if (var_get("output", $_POST) === 'gz') {
+            header('Content-Type: application/x-gzip; charset=utf-8');
+            ob_start(function ($string) {
+                return gzencode($string);
+            }, 1e6);
+        }
+        return $ext;
+    }
 
-	function dumpTable($table, $style, $is_view = 0)
-	{
-		if ($_POST['format'] == 'php') {
-			$this->output[$table] = array();
-			if (!$this->shutdown_callback) {
-				$this->shutdown_callback = true;
-				register_shutdown_function(array($this, '_export'));
-			}
-			return true;
-		}
-	}
+    function dumpHeaders()
+    {
 
-	function dumpData($table, $style, $query)
-	{
-		if ($_POST['format'] == 'php') {
-			$connection = connection();
-			$result = $connection->query($query, 1);
-			if ($result) {
-				while ($row = $result->fetch_assoc()) {
-					$this->output[$table][] = $row;
-				}
-			}
-			return true;
-		}
-	}
+        if ($_POST['format'] == 'php') {
+            header('Content-Type: text/plain; charset=utf-8');
+            return $this->checkOutput('php');
+        }
+    }
 
-	function _export()
-	{
-		echo "<?php\nreturn " . var_export($this->output, true) . ";";
-	}
+    function dumpTable($table, $style, $is_view = 0)
+    {
+        if ($_POST['format'] == 'php') {
+            $this->output[$table] = array();
+            if (!$this->shutdown_callback) {
+                $this->shutdown_callback = true;
+                register_shutdown_function(array($this, '_export'));
+            }
+            return true;
+        }
+    }
+
+    function dumpData($table, $style, $query)
+    {
+        if ($_POST['format'] == 'php') {
+            $connection = connection();
+            $result = $connection->query($query, 1);
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $this->output[$table][] = $row;
+                }
+            }
+            return true;
+        }
+    }
+
+    function _export()
+    {
+        echo '<?php return ' . var_export($this->output, true) . ';';
+    }
 }

@@ -2,10 +2,9 @@
 
 
 use Adminer\AdminerBackwardKeys;
-use Adminer\AdminerBootstrapSelect;
 use Adminer\AdminerCodemirror;
 use Adminer\AdminerColorFields;
-use Adminer\AdminerDatabaseAutocomplete;
+use Adminer\AdminerDatabaseFilter;
 use Adminer\AdminerDatabaseHide;
 use Adminer\AdminerDumpJson;
 use Adminer\AdminerDumpMarkdown;
@@ -17,7 +16,6 @@ use Adminer\AdminerLoginIp;
 use Adminer\AdminerLoginServers;
 use Adminer\AdminerPrettyJsonColumn;
 use Adminer\AdminerTablesFilter;
-use Adminer\AdminerTheme;
 use Adminer\Config;
 use Adminer\ThemeSwitcher;
 
@@ -58,7 +56,8 @@ if (Config::getItem('ADMINER_TABLE_FILTER')) {
     $plugins[] = new AdminerTablesFilter();
 }
 if (Config::getItem('ADMINER_DATABASE_FILTER')) {
-    $plugins[] = new AdminerDatabaseAutocomplete();
+    //    $plugins[] = new AdminerDatabaseAutocomplete();
+    $plugins[] = new AdminerDatabaseFilter();
 }
 
 
@@ -76,23 +75,6 @@ $plugins[] = new AdminerLoginServers(
 );
 
 // Themes
-
-if (!empty($_SESSION['themeData'])) {
-    $themeData = $_SESSION['themeData'];
-} else {
-    $themeData = $_SESSION['themeData'] = ThemeSwitcher::loadJsonData();
-}
-
-$plugins[] = new AdminerBootstrapSelect(
-    $themeData['theme'],
-    $themeData['dark'],
-    $themeData['fix'],
-    $themeData['select'],
-    $themeData['lang']
-);
-if ('custom' === $themeData['type']) {
-    $plugins[] = new AdminerTheme($themeData['theme']);
-}
-
+$plugins[] = load_theme();
 
 return $plugins;

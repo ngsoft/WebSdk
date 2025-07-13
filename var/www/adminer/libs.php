@@ -2,7 +2,7 @@
 /**
  * PHP Dev Tools
  * @author Aymeric Anger
- * @version 25.07.5 build on 2025-07-11
+ * @version 25.07.6 build on 2025-07-12
  * @noinspection ALL
  */
 namespace {
@@ -33,7 +33,7 @@ function autoload_register_namespace($namespace, $path, $extension = '.php')
 
     spl_autoload_register(function ($className) use ($normalizedNamespace, $normalizedPath, $extension, $len, $sep, $pSep) {
         if ($normalizedNamespace === substr($className, 0, $len)) {
-            $filename = str_replace($sep, $pSep, $className) . $extension;
+            $filename = str_replace($sep, $pSep, substr($className, $len)) . $extension;
             require_secure($normalizedPath . $filename);
         }
     });

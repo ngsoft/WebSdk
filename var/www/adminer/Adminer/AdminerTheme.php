@@ -4,7 +4,7 @@ namespace Adminer;
 
 /**
  * Adds support for Pematon's custom theme.
- * This includes meta headers, touch icons and other stuff.
+ * This includes meta-headers, touch icons and other stuff.
  *
  * @link https://github.com/pematon/adminer-theme
  *
@@ -20,26 +20,23 @@ class AdminerTheme
     private $themeName;
 
 
-    private $basePath;
+    private $basePath = './static/';
+    private $fix;
+    private $lang;
 
     /**
      * Default theme and/or multiple theme names for given hosts can be specified in constructor.
      * File with theme name and .css extension should be located in css folder.
      *
      * @param string $defaultTheme Theme name of default theme.
-     * @param array $themes array(database-host => theme-name).
      */
-    public function __construct($defaultTheme = "default-orange", $themes = [], $basePath = './static/')
+    public function __construct($defaultTheme = "default-orange", $fix = false, $lang = true)
     {
         define("PMTN_ADMINER_THEME", true);
-
         AdminerBootstrapSelect::$enabled = false;
-
-        $this->basePath = $basePath;
-
-        $this->themeName = isset($_GET["username"]) && isset($_GET["server"]) && isset($themes[$_GET["server"]])
-            ? $themes[$_GET["server"]]
-            : $defaultTheme;
+        $this->fix = $fix;
+        $this->lang = $lang;
+        $this->themeName = $defaultTheme;
     }
 
     /**
@@ -51,41 +48,45 @@ class AdminerTheme
 
         $userAgent = filter_input(INPUT_SERVER, "HTTP_USER_AGENT");
         $basepath = $this->basePath;
-?>
+        ?>
 
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1"/>
 
         <link rel="icon" type="image/ico" href="<?= $basepath ?>images/favicon.png">
 
         <?php
         // Condition for Windows Phone has to be the first, because IE11 contains also iPhone and Android keywords.
         if (strpos($userAgent, "Windows") !== false):
-        ?>
-            <meta name="application-name" content="Adminer" />
-            <meta name="msapplication-TileColor" content="#ffffff" />
-            <meta name="msapplication-square150x150logo" content="<?= $basepath ?>images/tileIcon.png" />
-            <meta name="msapplication-wide310x150logo" content="<?= $basepath ?>images/tileIcon-wide.png" />
+            ?>
+            <meta name="application-name" content="Adminer"/>
+            <meta name="msapplication-TileColor" content="#ffffff"/>
+            <meta name="msapplication-square150x150logo" content="<?= $basepath ?>images/tileIcon.png"/>
+            <meta name="msapplication-wide310x150logo" content="<?= $basepath ?>images/tileIcon-wide.png"/>
 
         <?php elseif (strpos($userAgent, "iPhone") !== false || strpos($userAgent, "iPad") !== false): ?>
             <link rel="apple-touch-icon-precomposed"
-                href="<?= $basepath ?>images/touchIcon.png?<?php echo self::ICONS_VERSION ?>" />
+                  href="<?= $basepath ?>images/touchIcon.png?<?php echo self::ICONS_VERSION ?>"/>
 
         <?php elseif (strpos($userAgent, "Android") !== false): ?>
             <link rel="apple-touch-icon-precomposed"
-                href="<?= $basepath ?>images/touchIcon-android.png?<?php echo self::ICONS_VERSION ?>" />
+                  href="<?= $basepath ?>images/touchIcon-android.png?<?php echo self::ICONS_VERSION ?>"/>
 
         <?php else: ?>
-            <link rel="apple-touch-icon" href="<?= $basepath ?>images/touchIcon.png?<?php echo self::ICONS_VERSION ?>" />
+            <link rel="apple-touch-icon" href="<?= $basepath ?>images/touchIcon.png?<?php echo self::ICONS_VERSION ?>"/>
         <?php endif; ?>
 
         <link rel="stylesheet" type="text/css"
-            href="<?= $basepath ?>css/<?php echo htmlspecialchars($this->themeName) ?>.css?<?php echo self::CSS_VERSION ?>">
+              href="<?= $basepath ?>css/<?php echo htmlspecialchars($this->themeName) ?>.css?<?php echo self::CSS_VERSION ?>">
         <link rel="stylesheet" type="text/css"
-            href="<?= $basepath ?>css/custom.css">
+              href="<?= $basepath ?>css/custom.css">
+        <link rel="stylesheet" <?= nonce() ?> type="text/css" href="<?= asset('fix.css') ?>">
         <script <?= nonce(); ?>>
-            (function(document) {
+            (function (document) {
                 "use strict";
+
+                <?= json_encode($this->fix)?> && document.documentElement.setAttribute('data-fix', 'true');
+                document.documentElement.setAttribute('data-lang', `<?= json_encode($this->lang) ?>`);
 
                 document.addEventListener("DOMContentLoaded", init, false);
 
@@ -96,7 +97,7 @@ class AdminerTheme
                         return;
                     }
 
-                    button.addEventListener("click", function() {
+                    button.addEventListener("click", function () {
                         if (menu.className.indexOf(" open") >= 0) {
                             menu.className = menu.className.replace(/ *open/, "");
                         } else {
@@ -108,7 +109,7 @@ class AdminerTheme
             })(document);
         </script>
 
-<?php
+        <?php
 
         // Return false to disable linking of adminer.css and original favicon.
         // Warning! This will stop executing head() function in all plugins defined after AdminerTheme.

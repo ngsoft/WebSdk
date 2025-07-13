@@ -410,7 +410,7 @@ textarea.form-control-lg {
 }
 
 .form-select:focus,
-[data-fix] input:focus {
+[data-fix][data-select] input:focus {
     border-color: #86b7fe;
     outline: 0;
     box-shadow: 0 0 0 0.125rem rgba(13, 110, 253, 0.25);
@@ -457,6 +457,7 @@ textarea.form-control-lg {
     border-radius: 0;
 }
 
+[data-fix]:not([data-select]) select,
 [data-fix] input:not([type]),
 [data-fix] input[type="color"],
 [data-fix] input[type="email"],
@@ -470,6 +471,20 @@ textarea.form-control-lg {
     padding-bottom: 4px !important;
     padding-left: 2px !important;
     font-size: 0.875rem !important;
+    margin-bottom: 4px;
+    vertical-align: baseline;
+}
+
+
+[data-fix][data-select] input:not([type]),
+[data-fix][data-select] input[type="color"],
+[data-fix][data-select] input[type="email"],
+[data-fix][data-select] input[type="number"],
+[data-fix][data-select] input[type="password"],
+[data-fix][data-select] input[type="tel"],
+[data-fix][data-select] input[type="url"],
+[data-fix][data-select] input[type="text"],
+[data-fix][data-select] input[type="search"] {
     appearance: none;
     border-radius: 0;
     border: var(--bs-border-width) solid var(--bs-border-color);
@@ -479,32 +494,22 @@ textarea.form-control-lg {
     display: inline-block;
     line-height: 1.5;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    margin-bottom: 4px;
-    vertical-align: baseline;
 }
+
+/*[data-fix]:not([data-select]) select {*/
+/*    padding-top: 4px !important;*/
+/*    padding-bottom: 4px !important;*/
+/*    padding-left: 2px !important;*/
+/*    font-size: 0.875rem !important;*/
+/*    border-radius: 0;*/
+/*    display: inline-block;*/
+/*    line-height: 1.5;*/
+/*    margin-bottom: 4px;*/
+/*    vertical-align: baseline;*/
+/*}*/
 
 [data-fix] input[type="number"] {
     min-width: 56px;
-}
-
-
-[data-fix] #dbs {
-    min-width: auto;
-    width: 100%;
-
-    input#menu_db {
-        min-width: auto;
-    }
-}
-
-[data-fix] #content .plugins,
-[data-fix] .logout > span,
-[data-fix] form .footer + p {
-    display: none;
-}
-
-[data-lang="false"] #lang {
-    display: none;
 }
 
 [data-bs-theme=dark] .form-select {

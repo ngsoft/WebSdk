@@ -13,7 +13,7 @@ class AdminerTablesFilter
     function tablesPrint($tables)
     {
         ?>
-        <script<?php echo nonce(); ?>>
+        <script<?= nonce(); ?>>
             let tablesFilterTimeout = null;
             let tablesFilterValue = '';
 
@@ -70,18 +70,25 @@ class AdminerTablesFilter
 
 
         </script>
-        <style>
-            #tables {
-                position: relative;
-                top: 0;
-                margin-left: 0;
-                margin-right: 0;
-                max-width: 100%;
+        <style <?= nonce() ?>>
+            .js-only {
+                padding: 4px 8px;
+                display: flex;
+                justify-content: flex-start;
+
+                label {
+                    display: none;
+                }
+
+                [type="search"] {
+                    width: 80%;
+                }
             }
         </style>
-        <p style="padding: 4px 15px; display: flex; justify-content: center;" class="jsonly">
-            <input placeholder="Search table" value="" style="width: 90%;" id="filter-field" autocomplete="off"
-                   type="search">
+        <p class="js-only">
+            <label for="filter-field"></label>
+            <input placeholder="Search table" value="" id="filter-field" autocomplete="off"
+                   type="search"></p>
         <?php echo script("qs('#filter-field').oninput = tablesFilterInput;");
     }
 

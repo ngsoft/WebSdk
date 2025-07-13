@@ -1,5 +1,10 @@
 <?php
-/** @noinspection ALL */
+/**
+ * PHP Dev Tools
+ * @author Aymeric Anger
+ * @version 25.07.6 build on 2025-07-12
+ * @noinspection ALL
+ */
 namespace {
 
 /**
@@ -711,6 +716,35 @@ if (PHP_VERSION_ID < 80400) {
             return $mb_internal_trim('{[%s]+$}Du', $string, $characters, $encoding, __FUNCTION__);
         }
     }
+}
+
+
+if (PHP_VERSION_ID < 80500) {
+
+    if (!function_exists('get_error_handler')) {
+        /**
+         * @return ?callable
+         */
+        function get_error_handler()
+        {
+            $handler = set_error_handler(null);
+            restore_error_handler();
+            return $handler;
+        }
+    }
+
+    if (!function_exists('get_exception_handler')) {
+        /**
+         * @return ?callable
+         */
+        function get_exception_handler()
+        {
+            $handler = set_exception_handler(null);
+            restore_exception_handler();
+            return $handler;
+        }
+    }
+
 }
 
 }

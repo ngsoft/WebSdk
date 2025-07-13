@@ -21,8 +21,7 @@ class ThemeSwitcher
 
     public static $product = "Adminer";
     public static $repo = [
-        "Adminer" => "vrana/adminer",
-        "AdminerEvo" => "adminerevo/adminerevo",
+        "Adminer" => "vrana/adminer"
     ];
 
 
@@ -210,7 +209,11 @@ class ThemeSwitcher
     }
 
 
-    public static function loadJsonData($file = "adminer.json")
+    /**
+     * @param $file
+     * @return array{theme:string, type:"none"|"custom"|"adminer", select:bool, dark:bool,fix:bool,lang:bool}
+     */
+    public static function loadJsonData($file = "config/adminer.json")
     {
 
         $data = [
@@ -237,7 +240,17 @@ class ThemeSwitcher
         return $data;
     }
 
-    public static function saveJsonData($file = "adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false, $fix = false, $lang = true)
+    /**
+     * @param string $file
+     * @param "none"|"custom"|"adminer" $type
+     * @param string $theme
+     * @param bool $useBootstrapSelect
+     * @param bool $darkMode
+     * @param bool $fix
+     * @param bool $lang
+     * @return bool
+     */
+    public static function saveJsonData($file = "config/adminer.json", $type = "none", $theme = "none", $useBootstrapSelect = false, $darkMode = false, $fix = false, $lang = true)
     {
 
         $data = [

@@ -1,8 +1,8 @@
 .ts-wrapper .ts-control {
     border-radius: 0;
     cursor: pointer !important;
-    padding: 2px 32px 2px 4px;
-    min-height: 24px;
+    padding: 4px 32px 4px 4px;
+    min-height: 30px;
     background-position: right .5rem center !important;
     background-repeat: no-repeat !important;
     background-size: 15px 10px !important;
@@ -10,8 +10,9 @@
 }
 
 .ts-wrapper .ts-control input {
-    max-width: calc(100% - 32px) !important;
     border: 1px solid transparent !important;
+    padding: 0 !important;
+    height: auto !important;
 }
 
 .ts-wrapper.plugin-dropdown_input.dropdown-active .ts-control input {

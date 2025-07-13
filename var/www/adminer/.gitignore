@@ -10,3 +10,4 @@ vendor
 !.env.example
 themes/backup
 .htpasswd
+features

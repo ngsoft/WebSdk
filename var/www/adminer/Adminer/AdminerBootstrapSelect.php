@@ -14,9 +14,7 @@ class AdminerBootstrapSelect
     protected $dark;
     protected $fix;
     protected $select;
-
     protected $lang;
-
     protected $theme = "";
 
     public function __construct($theme = "", $dark = false, $fix = false, $select = true, $lang = true)
@@ -36,8 +34,10 @@ class AdminerBootstrapSelect
             return;
         } ?>
         <link rel="stylesheet" <?= nonce() ?> type="text/css" href="<?= asset('select.css') ?>">
+        <link rel="stylesheet" <?= nonce() ?> type="text/css" href="<?= asset('fix.css') ?>">
         <script <?= nonce() ?> type="module">
             <?php if ($this->select) : ?>
+            document.documentElement.setAttribute('data-select', 'true');
             document.querySelectorAll('select').forEach(s => {
                 if (s.closest("#lang")) {
                     return;
@@ -51,11 +51,9 @@ class AdminerBootstrapSelect
             <?php endif; ?>
             <?php if (!empty($this->theme)): ?>
             document.documentElement.setAttribute('data-adminer-theme', `<?= $this->theme ?>`);
-
             <?php endif;
             if ($this->fix): ?>
             document.documentElement.setAttribute('data-fix', `true`);
-
             <?php endif; ?>
             document.documentElement.setAttribute('data-lang', `<?= json_encode($this->lang) ?>`);
         </script><?php

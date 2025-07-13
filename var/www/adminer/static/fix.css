@@ -1,0 +1,24 @@
+[data-fix] .ts-control input[type="text"] {
+    padding: 0 !important;
+    margin-bottom: 0;
+    background: transparent !important;
+}
+
+[data-fix] #dbs {
+    min-width: auto;
+    width: 100%;
+
+    input#menu_db {
+        min-width: auto;
+    }
+}
+
+[data-fix] #content .plugins,
+[data-fix] .logout > span,
+[data-fix] form .footer + p {
+    display: none;
+}
+
+[data-lang="false"] #lang {
+    display: none;
+}

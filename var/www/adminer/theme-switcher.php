@@ -19,7 +19,7 @@ if ($loggedIn && isset($_SERVER["HTTP_REFERER"]) && false !== strpos($_SERVER["H
     $_SESSION["redirectAdminer"] = $_SERVER["HTTP_REFERER"];
 }
 
-unset($_SESSION["themeData"]);
+unset($_SESSION["theme-data"]);
 $currentData = ThemeSwitcher::loadJsonData();
 $customThemes = [
     "default-blue" => "Custom $product Blue",
@@ -142,22 +142,22 @@ elseif (!$loggedIn) : ?>
             } ?>
         </div>
 
-        <div class="my-2 px-2 d-none" data-type="none,adminer">
-            <div class="form-check form-switch mb-2">
+        <div class="my-2 px-2">
+            <div class="form-check form-switch mb-2 d-none" data-type="none,adminer">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["select"]]) ?>
                        type="checkbox"
                        role="switch" id="bsSelectOn" name="bsSelectOn">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectOn">Use Bootstrap Select
                     plugin</label>
             </div>
-            <div class="form-check form-switch mb-2">
+            <div class="form-check form-switch mb-2 d-none" data-type="none,adminer,custom">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["fix"]]) ?>
                        type="checkbox"
                        role="switch" id="bsSelectFix" name="bsSelectFix">
                 <label class="form-check-label cursor-pointer fw-bold" for="bsSelectFix">Fix input sizes and some UI
                     components</label>
             </div>
-            <div class="form-check form-switch mb-2">
+            <div class="form-check form-switch mb-2 d-none" data-type="none,adminer,custom">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["lang"]]) ?>
                        type="checkbox"
                        role="switch" id="bsSelectLang" name="bsSelectLang">
@@ -165,7 +165,7 @@ elseif (!$loggedIn) : ?>
                     selection</label>
             </div>
 
-            <div class="form-check form-switch mb-2">
+            <div class="form-check form-switch mb-2 d-none" data-type="adminer">
                 <input class="form-check-input cursor-pointer" <?= renderArgs(["checked" => $currentData["dark"]]) ?>
                        type="checkbox"
                        role="switch" id="bsSelectDark" name="bsSelectDark">
@@ -190,10 +190,10 @@ elseif (!$loggedIn) : ?>
 
     <script>
         const
-            themeTypeSelect = document.getElementById("themeType"),
-            btn = document.getElementById("submitForm"),
-            admSelect = document.getElementById("option-select"),
-            customSelect = document.getElementById("nameCustom");
+            /** @type {HTMLSelectElement} */ themeTypeSelect = document.getElementById("themeType"),
+            /** @type {HTMLButtonElement} */ btn = document.getElementById("submitForm"),
+            /** @type {HTMLSelectElement} */ admSelect = document.getElementById("option-select"),
+            /** @type {HTMLSelectElement} */ customSelect = document.getElementById("nameCustom");
 
         function changeType(value) {
             document.querySelectorAll('[data-type]').forEach(elem => {
@@ -211,15 +211,11 @@ elseif (!$loggedIn) : ?>
             });
         }
 
-        themeTypeSelect.addEventListener("change", ({
-                                                        target
-                                                    }) => {
+        themeTypeSelect.addEventListener("change", ({target}) => {
             changeType(target.value);
         });
 
-        document.querySelector("form").addEventListener("change", ({
-                                                                       target
-                                                                   }) => {
+        document.querySelector("form").addEventListener("change", ({target}) => {
             let t = target.closest('[data-type] input, [data-type] select');
             if (t) {
                 btn.disabled = t.value === "" ? true : null;
@@ -242,6 +238,7 @@ elseif (!$loggedIn) : ?>
 
     $theme = "none";
     if ($type === "custom") {
+        $dark = false;
         if (isset($customThemes[$_GET["nameCustom"]])) {
             $theme = $_GET["nameCustom"];
             $ok = true;
@@ -254,13 +251,11 @@ elseif (!$loggedIn) : ?>
             $ok = true;
         }
     } else if ($type === "none") {
+        $dark = false;
         $ok = true;
     }
 
-    if ($type === "custom") {
-        $select = $fix = $dark = false;
-    }
-    if ($ok && $ok = ThemeSwitcher::saveJsonData("adminer.json", $type, $theme, $select, $dark, $fix, $lang)) {
+    if ($ok && $ok = ThemeSwitcher::saveJsonData("config/adminer.json", $type, $theme, $select, $dark, $fix, $lang)) {
 
         switch ($type) {
             case "none":

@@ -1,6 +1,5 @@
 <?php
 
-
 use Adminer\AdminerBackwardKeys;
 use Adminer\AdminerCodemirror;
 use Adminer\AdminerColorFields;
@@ -19,7 +18,6 @@ use Adminer\AdminerTablesFilter;
 use Adminer\Config;
 use Adminer\ThemeSwitcher;
 
-
 $format_loaders = [
     'json' => AdminerDumpJson::class,
     'php' => AdminerDumpPhp::class,
@@ -30,10 +28,15 @@ $format_loaders = [
 $plugins = [];
 
 
-$plugins[] = new ThemeSwitcher();
+$plugins[] = new ThemeSwitcher(
+    Config::getItem('ADMINER_THEME_SWITCH', true),
+    Config::getItem('ADMINER_PHP_INFO', true),
+    Config::getItem('ADMINER_ADMIN_PAGE', false)
+);
 $plugins[] = new AdminerEnumOption();
 $plugins[] = new AdminerEditForeign();
 $plugins[] = new AdminerBackwardKeys();
+
 
 // dump formats
 foreach (array_unique(Config::getItem('ADMINER_EXTRA_DUMP_FORMATS', [])) as $dump_format) {
@@ -41,6 +44,7 @@ foreach (array_unique(Config::getItem('ADMINER_EXTRA_DUMP_FORMATS', [])) as $dum
         $plugins[] = new $format_loaders[$dump_format]();
     }
 }
+
 
 if (Config::getItem('ADMINER_COLOR_FIELDS')) {
     $plugins[] = new AdminerColorFields();
@@ -52,14 +56,13 @@ if (Config::getItem('ADMINER_JSON_PRETTY')) {
 
 $plugins[] = new AdminerCodemirror();
 
+
 if (Config::getItem('ADMINER_TABLE_FILTER')) {
     $plugins[] = new AdminerTablesFilter();
 }
 if (Config::getItem('ADMINER_DATABASE_FILTER')) {
-    //    $plugins[] = new AdminerDatabaseAutocomplete();
     $plugins[] = new AdminerDatabaseFilter();
 }
-
 
 $plugins[] = new AdminerDatabaseHide(Config::getItem('HIDE_DATABASES', []));
 $plugins[] = new AdminerLoginIp(
@@ -73,6 +76,7 @@ $plugins[] = new AdminerLoginServers(
     Config::getItem('ADMINER_DYNAMIC_SERVERS', false),
     Config::getItem('ADMINER_PASSWORDLESS', false)
 );
+
 
 // Themes
 $plugins[] = load_theme();

@@ -6,8 +6,8 @@ use Adminer\AdminerTheme;
 use Adminer\Config;
 use Adminer\ThemeSwitcher;
 
-require_once __DIR__ . '/poly.php';
-require_once __DIR__ . '/libs.php';
+require_once __DIR__ . '/libs-no-sql.php';
+@include_once dirname(__DIR__) . '/vendor/autoload.php';
 
 function init_debug($force = false)
 {
@@ -61,8 +61,14 @@ autoload_register_namespace('', __DIR__);
 
 require_once __DIR__ . '/config.php';
 // config overrides (prod)
-$mask = umask(0);
-@touch(__DIR__ . '/config/config.php');
-@chmod(__DIR__ . '/config/config.php', 0777);
-@umask($mask);
-@include __DIR__ . '/config/config.php';
+tap(dirname(__DIR__) . '/config/config.php', function ($file) {
+    if (!is_file($file)) {
+        $mask = umask(0);
+        @touch($file);
+        @chmod($file, 0777);
+        @umask($mask);
+    }
+    @include $file;
+});
+
+

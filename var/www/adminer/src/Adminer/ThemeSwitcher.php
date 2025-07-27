@@ -15,39 +15,93 @@ class ThemeSwitcher
 
     const PROMPT = 'Type the number of the theme you want to use: ';
     const THEME_FILE = 'adminer.css';
+    const THEME_FILE_DARK = 'adminer-dark.css';
+
+    private static $icons = [
+        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" width="24px" viewBox="0 -960 960 960" fill="currentColor"><path d="M680-80q-83 0-141.5-58.5T480-280q0-83 58.5-141.5T680-480q83 0 141.5 58.5T880-280q0 83-58.5 141.5T680-80Zm88-114q5-5 2.5-12t-9.5-8q-26-5-48.5-19.5T676-272q-14-24-15.5-51t7.5-52q2-7-2.5-12.5T654-391q-67 12-91.5 76T582-196q35 44 92 45t94-43ZM480-480ZM370-80l-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-74 56q-22-11-45-18.5T714-558l63-48-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q17 17 36.5 30.5T400-275q1 57 23.5 107T484-80H370Zm41-279q6-20 14.5-38.5T445-433q-11-8-17-20.5t-6-26.5q0-25 17.5-42.5T482-540q14 0 27 6.5t21 17.5q17-11 35-19.5t38-13.5q-18-32-50-51.5T482-620q-59 0-99.5 41T342-480q0 38 18.5 70.5T411-359Z"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" width="24px" viewBox="0 -960 960 960" fill="currentColor"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>'
+    ];
+
     public static $themeList = [];
     private static $option = '';
     private static $theme = null;
+
+    public static $knownDarkThemes = [
+        'adminer-dark',
+        'dracula',
+        'galkaev',
+        'mancave',
+    ];
 
     public static $product = "Adminer";
     public static $repo = [
         "Adminer" => "vrana/adminer"
     ];
 
+    public static $selectedDark = false;
+
+
+    private $info = true;
+    private $switch = true;
+
+    private $admin = true;
+
+    /**
+     * @param bool $switch Display switch
+     * @param bool $info Display php info
+     */
+    public function __construct($switch = true, $info = true, $admin = true)
+    {
+        $this->switch = $switch;
+        $this->info = $info;
+        $this->admin = $admin;
+    }
 
     public function head()
     {
 
+
+        /*`<a title="Switch theme" class="theme-switcher-link" href="./theme-switcher.php?action=select-theme&token=<?= $token ?>&product=${product}"><?=self::$icons[0] ?></a>`,*/
+        /*`<a title="PHP Info" class="theme-switcher-link" href="./info.php?token=<?= $token ?>"><?=self::$icons[1] ?></a>`*/
+
+        //[
+        /*`<a title="Switch theme" class="theme-switcher-link" href="./theme-switcher.php?action=select-theme&token=<?= $token ?>&product=${product}"><?=self::$icons[0] ?></a>`,*/
+        /*`<a title="PHP Info" class="theme-switcher-link" href="./info.php?token=<?= $token ?>"><?=self::$icons[1] ?></a>`*/
+        //].join('');
+
         $token = "";
         if (isset($_SESSION["token"])) {
             $token = $_SESSION["token"];
-        } ?>
+        }
+
+        $code = [];
+        if ($this->switch) {
+            $code[] = renderTag('a', [
+                "title" => "Switch theme",
+                "class" => "theme-switcher-link",
+                "href" => sprintf('./theme-switcher.php?action=select-theme&token=%s&product=%s', $token, self::$product),
+            ], self::$icons[0]);
+        }
+
+        if ($this->info) {
+            $code[] = renderTag('a', [
+                "title" => "PHP Info",
+                "class" => "theme-switcher-link",
+                "href" => sprintf('./info.php?token=%s', $token),
+            ], self::$icons[1]);
+        }
+        $code = implode('', $code);
+        ?>
         <script <?= nonce(); ?> type="text/javascript">
             addEventListener("DOMContentLoaded", () => {
                 let
                     menu = document.getElementById('menu'),
                     h1 = menu.querySelector("h1"),
-                    hasLinks = menu.querySelector('.links') !== null && h1 !== null,
-                    product = document.querySelector(`[href*="adminerevo"]`) ? "AdminerEvo" : "Adminer";
-
-
+                    hasLinks = menu.querySelector('.links') !== null && h1 !== null;
                 if (hasLinks) {
                     const c = document.createElement('div');
-                    c.style = `padding: 8px; display:flex; column-gap:8px;justify-content: space-between;`;
-                    c.innerHTML = [
-                        `<a href="./theme-switcher.php?action=select-theme&token=<?= $token ?>&product=${product}">Switch theme</a>`,
-                        `<a href="./info.php?token=<?= $token ?>">PHP Infos</a>`
-                    ].join('');
+                    c.style = `padding: 8px; margin-bottom:2px; display:flex; column-gap:8px;justify-content: space-between;`;
+                    c.innerHTML = `<?= $code ?>`;
                     h1.parentElement.insertBefore(c, h1.nextElementSibling)
                 }
 
@@ -63,13 +117,31 @@ class ThemeSwitcher
                 border-top: 1px solid transparent;
             }
 
+            .theme-switcher-link {
+                display: flex;
+                align-items: center;
+                column-gap: 4px;
+                transition: color .25s;
+            }
 
-            /*theme compatibility with adminer evo*/
-            .separator {
-                display: inline-block;
-                width: 0;
-                overflow: hidden;
-                margin: 0 2px;
+            .theme-switcher-link:before, .theme-switcher-link:after {
+                transition: content 0.5s;
+            }
+
+            .theme-switcher-link:hover:after,
+            .theme-switcher-link:focus:after,
+            .theme-switcher-link:active:after,
+            .theme-switcher-link:last-child:not(:first-child):hover:before,
+            .theme-switcher-link:last-child:not(:first-child):focus:before,
+            .theme-switcher-link:last-child:not(:first-child):active:before {
+                content: attr(title);
+                display: block;
+            }
+
+            .theme-switcher-link:hover:last-child:not(:first-child):after,
+            .theme-switcher-link:focus:last-child:not(:first-child):after,
+            .theme-switcher-link:active:last-child:not(:first-child):after {
+                content: none;
             }
         </style>
         <?php
@@ -148,7 +220,7 @@ class ThemeSwitcher
 
     public static function getAdminerLocation()
     {
-        return dirname(__DIR__);
+        return constant_get('ADMINER_LOCATION', dirname(dirname(__DIR__)));
     }
 
     public static function isRunningFromCommandLine()
@@ -382,10 +454,12 @@ class ThemeSwitcher
         if (is_file($orig = self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE)) {
 
             $dest = self::getBackupLocation(date('ymdHis'));
+            $mask = umask(0);
             @copy(
                 $orig,
                 $dest
             ) && @chmod($dest, 0777);
+            @umask($mask);
         }
     }
 
@@ -441,6 +515,14 @@ class ThemeSwitcher
         return null;
     }
 
+    /**
+     * @return bool
+     */
+    public static function isSelectedDark()
+    {
+        return self::$selectedDark;
+    }
+
 
     public static function downloadTheme($index = null)
     {
@@ -452,7 +534,9 @@ class ThemeSwitcher
             self::makeBackup();
             $loc = self::getThemeLocation($name);
             $contents = @file_get_contents($loc);
+            $isDark = false;
             if (!$contents) {
+                $isDark = true;
                 $loc = self::getAltThemeLocation($name);
                 $contents = @file_get_contents($loc);
             }
@@ -466,10 +550,16 @@ class ThemeSwitcher
                 @touch($bck);
 
                 $contents = self::setCommentParam("themeName", $name) . $contents;
-
-                if (@file_put_contents($file = self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE, $contents)) {
-                    @chmod($file, 0777);
-                    return true;
+                $cssFile = $isDark ? self::THEME_FILE_DARK : self::THEME_FILE;
+                $mask = @umask(0);
+                try {
+                    if (@file_put_contents($file = self::getAdminerLocation() . DIRECTORY_SEPARATOR . $cssFile, $contents)) {
+                        @chmod($file, 0777);
+                        self::$selectedDark = $isDark;
+                        return true;
+                    }
+                } finally {
+                    @umask($mask);
                 }
             }
         }
@@ -571,12 +661,17 @@ class ThemeSwitcher
 
     public static function removeTheme()
     {
-        $file = self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE;
-        @unlink($file);
-        if (!is_file($file)) {
-            return true;
+        $files = [
+            self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE,
+            self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE_DARK
+        ];
+        $ok = [];
+        foreach ($files as $file) {
+            @unlink($file);
+            $ok[] = !is_file($file);
         }
-        return false;
+
+        return !in_array(false, $ok, true);
     }
 
 
@@ -615,30 +710,43 @@ class ThemeSwitcher
 
         if (!isset(self::$theme)) {
             self::$theme = '';
+            self::$selectedDark = false;
+            $locations = [
+                self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE,
+                self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE_DARK
+            ];
 
-            if (is_file($orig = self::getAdminerLocation() . DIRECTORY_SEPARATOR . self::THEME_FILE)) {
 
-                $contents = @file_get_contents($orig);
+            foreach ($locations as $location) {
+                if (is_file($orig = $location)) {
 
-                if ($current = self::getCommentParam($contents, "themeName")) {
-                    $index = array_search($current, self::getThemeList());
-                    if (is_int($index)) {
-                        self::$theme = "$index";
-                        return self::$theme;
-                    }
-                }
+                    $isDark = basename($orig) == self::THEME_FILE_DARK;
 
-                $crc = crc32($contents);
+                    $contents = @file_get_contents($orig);
 
-                foreach (self::getThemeList() as $index => $name) {
-                    if (is_file($path = self::getBackupLocation($name))) {
-                        if ($crc === crc32(@file_get_contents($path) ?: '')) {
+                    if ($current = self::getCommentParam($contents, "themeName")) {
+                        $index = array_search($current, self::getThemeList());
+                        if (is_int($index)) {
+                            self::$selectedDark = $isDark;
                             self::$theme = "$index";
-                            break;
+                            return self::$theme;
+                        }
+                    }
+
+                    $crc = crc32($contents);
+
+                    foreach (self::getThemeList() as $index => $name) {
+                        if (is_file($path = self::getBackupLocation($name))) {
+                            if ($crc === crc32(@file_get_contents($path) ?: '')) {
+                                self::$theme = "$index";
+                                self::$selectedDark = $isDark;
+                                break;
+                            }
                         }
                     }
                 }
             }
+
         }
 
         return self::$theme;

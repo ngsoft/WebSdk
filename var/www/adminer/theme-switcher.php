@@ -4,7 +4,7 @@ use Adminer\ThemeSwitcher;
 
 ob_start();
 
-require_once __DIR__ . "/functions.php";
+require_once __DIR__ . "/src/functions.php";
 
 
 $vendors = array_keys(ThemeSwitcher::$repo);
@@ -137,6 +137,9 @@ elseif (!$loggedIn) : ?>
             ThemeSwitcher::displayPageAvailableThemes();
             $disabled = "disabled";
             $current = ThemeSwitcher::getThemeName(ThemeSwitcher::getSelectedTheme());
+            if (ThemeSwitcher::isSelectedDark()) {
+                $currentData['dark'] = true;
+            }
             if ($current === $currentData["theme"] && !is_file(ThemeSwitcher::getBackupLocation($current))) {
                 $disabled = "";
             } ?>
@@ -193,7 +196,9 @@ elseif (!$loggedIn) : ?>
             /** @type {HTMLSelectElement} */ themeTypeSelect = document.getElementById("themeType"),
             /** @type {HTMLButtonElement} */ btn = document.getElementById("submitForm"),
             /** @type {HTMLSelectElement} */ admSelect = document.getElementById("option-select"),
-            /** @type {HTMLSelectElement} */ customSelect = document.getElementById("nameCustom");
+            /** @type {HTMLSelectElement} */ customSelect = document.getElementById("nameCustom"),
+            /** @type {string[]} */ knownDark = <?= json_encode(ThemeSwitcher::$knownDarkThemes) ?>,
+            /** @type {HTMLInputElement} */ bsSelectDark = document.getElementById("bsSelectDark");
 
         function changeType(value) {
             document.querySelectorAll('[data-type]').forEach(elem => {
@@ -214,6 +219,13 @@ elseif (!$loggedIn) : ?>
         themeTypeSelect.addEventListener("change", ({target}) => {
             changeType(target.value);
         });
+
+        admSelect.addEventListener("change", () => {
+            bsSelectDark.checked = knownDark.includes(
+                admSelect.options[admSelect.selectedIndex].innerText.trim()
+            );
+        });
+
 
         document.querySelector("form").addEventListener("change", ({target}) => {
             let t = target.closest('[data-type] input, [data-type] select');
@@ -262,7 +274,20 @@ elseif (!$loggedIn) : ?>
                 $ok = ThemeSwitcher::removeTheme();
                 break;
             case "adminer":
+                ThemeSwitcher::removeTheme();
                 $ok = ThemeSwitcher::downloadTheme();
+                if (ThemeSwitcher::isSelectedDark() && !$dark) {
+                    $dark = true;
+                    ThemeSwitcher::saveJsonData("config/adminer.json",
+                        $type,
+                        $theme,
+                        $select,
+                        true,
+                        $fix,
+                        $lang
+                    );
+                }
+
                 break;
             case "custom":
                 @file_put_contents(ThemeSwitcher::getAdminerLocation() . DIRECTORY_SEPARATOR . ThemeSwitcher::THEME_FILE, '');

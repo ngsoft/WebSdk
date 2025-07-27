@@ -496,17 +496,9 @@ textarea.form-control-lg {
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-/*[data-fix]:not([data-select]) select {*/
-/*    padding-top: 4px !important;*/
-/*    padding-bottom: 4px !important;*/
-/*    padding-left: 2px !important;*/
-/*    font-size: 0.875rem !important;*/
-/*    border-radius: 0;*/
-/*    display: inline-block;*/
-/*    line-height: 1.5;*/
-/*    margin-bottom: 4px;*/
-/*    vertical-align: baseline;*/
-/*}*/
+[data-fix][data-select] label > select {
+    margin-left: 8px;
+}
 
 [data-fix] input[type="number"] {
     min-width: 56px;

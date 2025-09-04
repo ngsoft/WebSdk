@@ -25,10 +25,10 @@ set "php56=%lib%php\5.6\"
 set "php55=%lib%php\5.5\"
 set "php=%php82%"
 @REM python
-set "pyversion=3.12.3"
+set "pyversion=3.13.7"
 set "py3=%lib%pyenv\versions\%pyversion%\"
 @REM go
-set "goversion=1.23.10"
+set "goversion=1.24.7"
 set "gvm=%lib%gvm\"
 set "go=%lib%go\"
 set "ca=%lib%ca\"

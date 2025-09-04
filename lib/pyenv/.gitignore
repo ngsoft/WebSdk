@@ -2,4 +2,4 @@ shims
 install_cache
 version
 versions
-.versions_cache.xml
+!.versions_cache.xml

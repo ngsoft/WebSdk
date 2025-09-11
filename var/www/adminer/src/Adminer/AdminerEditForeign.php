@@ -1,7 +1,7 @@
 <?php
 
 namespace Adminer;
-/** Select foreign key in edit form
+/** Select a foreign key in an edit form
  * @link https://www.adminer.org/plugins/#use
  * @author Jakub Vrana, https://www.vrana.cz/
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
@@ -18,6 +18,7 @@ class AdminerEditForeign
 
     function editInput($table, $field, $attrs, $value)
     {
+
         static $foreignTables = array();
         static $values = array();
         $foreignKeys = &$foreignTables[$table];

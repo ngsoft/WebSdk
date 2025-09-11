@@ -2,7 +2,7 @@
 /**
  * PHP Dev Tools
  * @author Aymeric Anger
- * @version 25.07.13 build on 2025-07-26
+ * @version 25.09 build on 2025-09-10
  * @noinspection ALL
  */
 namespace {

@@ -55,9 +55,16 @@ goto main
     set "PYENV_ROOT=%~dp0"
     set "PYENV_HOME=%~dp0"
 
-    if not exist "%~dp0.versions_cache.xml" (
-        call "%~dp0bin\pyenv.bat" update
-    )
+    set "dest=%~dp0.versions_cache.xml"
+    echo ^<?xml version="1.0" encoding="utf-8" standalone="no"?^> > !dest!
+    echo ^<versions^> >> !dest!
+    echo   ^<version^ x64="true" webInstall="false" msi="false"^> >> !dest!
+    echo     ^<code^>%~1^</code^> >> !dest!
+    echo     ^<file^>python-%~1-amd64.exe^</file^> >> !dest!
+    echo     ^<URL^>https://www.python.org/ftp/python/%~1/python-%~1-amd64.exe^</URL^> >> !dest!
+    echo   ^</version^> >> !dest!
+    echo ^</versions^> >> !dest!
+    
     if not exist "%~dp0versions\%~1\python.exe" (
         call "%~dp0bin\pyenv.bat" install "%~1" --dev
     )
@@ -90,3 +97,5 @@ echo Installing/Updating essential modules ...
 
 @REM pipupgrade --verbose --latest --yes
 @REM Its done!
+
+pause

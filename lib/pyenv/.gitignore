@@ -3,3 +3,4 @@ install_cache
 version
 versions
 .versions_cache.xml
+venv

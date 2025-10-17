@@ -5,7 +5,7 @@ import json
 import winreg
 import win32api
 import time
-import subprocess
+import subprocess  # type: ignore
 import sys
 from iconloader import IconLoader
 
@@ -74,7 +74,7 @@ def load_config(file=configFile):
 def save_config(cfg, file=configFile):
     try:
         with open(file, "w", encoding="utf-8") as h:
-            json.dump(cfg, h, indent=4)
+            json.dump(cfg, h, indent=4, ensure_ascii=False)
             return True
     except:
         return False

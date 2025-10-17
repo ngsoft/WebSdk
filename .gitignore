@@ -19,6 +19,7 @@ phpMyAdmin
 var/www/adminer/themes/backup
 var/www/**/*.db
 .idea
+.vscode
 extra.*.conf
 lib/apache*
 *.cache
@@ -29,6 +30,8 @@ lib/nvm/*.log
 lib/pgs*/
 /etc/.*
 lib/laravel
+
+
 
 # dev versions tests and sql exports
 *.sql.gz

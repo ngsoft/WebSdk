@@ -4,6 +4,24 @@
     "waitBetweenProcesses": 1,
     "menu": [
         {
+            "name": "httpd",
+            "label": "Démarrer WebSdk[apache|mariadb]",
+            "notify": [
+                "Démarrage du WebSdk [apache|mariadb]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
+            ],
+            "checks": {
+                "process": [
+                    "httpd.exe"
+                ]
+            },
+            "visible": [
+                "mariadb"
+            ]
+        },
+        {
             "name": "on",
             "label": "Démarrer WebSdk[nginx|php8.4|mariadb]",
             "notify": [
@@ -24,49 +42,6 @@
             ]
         },
         {
-            "name": "httpd",
-            "label": "Démarrer WebSdk[apache|mariadb]",
-            "notify": [
-                "Démarrage du WebSdk [apache|mariadb]"
-            ],
-            "start": [
-                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
-            ],
-            "checks": {
-                "process": [
-                    "httpd.exe"
-                ]
-            },
-            "visible": [
-                "mariadb"
-            ]
-        },
-        {
-            "name": "on_mariadb",
-            "label": "WebSdk on [apache|mariadb]",
-            "notify": [
-                "Démarrage du WebSdk [apache|mariadb]"
-            ],
-            "start": [
-                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",
-                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
-            ],
-            "checks": {
-                "process": [
-                    "mariadbd.exe",
-                    "nginx.exe",
-                    "php-cgi.exe"
-                ]
-            },
-            "icons": [
-                "icons/on.png",
-                "icons/dark/on.png"
-            ],
-            "visible": [
-                "!mariadb"
-            ]
-        },
-        {
             "name": "httpd_mariadb",
             "label": "WebSdk on [apache|mariadb]",
             "notify": [
@@ -80,6 +55,32 @@
                 "process": [
                     "mariadbd.exe",
                     "httpd.exe"
+                ]
+            },
+            "icons": [
+                "icons/on.png",
+                "icons/dark/on.png"
+            ],
+            "visible": [
+                "!mariadb"
+            ]
+        },
+        {
+            "name": "on_mariadb",
+            "label": "WebSdk on [nginx|php8.4|mariadb]",
+            "notify": [
+                "Démarrage du WebSdk [nginx|php8.4|mariadb]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-mariadb.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-cgi.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-nginx.bat"
+            ],
+            "checks": {
+                "process": [
+                    "mariadbd.exe",
+                    "nginx.exe",
+                    "php-cgi.exe"
                 ]
             },
             "icons": [

@@ -2,15 +2,26 @@ from PIL import Image
 import sys
 from os import path, mkdir, listdir, utime, _exit as exit
 from pathlib import Path
-from io import BytesIO
-import base64
+from io import BytesIO  # type: ignore
+import base64  # type: ignore
 import json
+import os
 
 
 try:
     from build import res
 except:
     res = None
+
+
+def touch(fname, mode=0o666, dir_fd=None, **kwargs):
+    flags = os.O_CREAT | os.O_APPEND
+    with os.fdopen(os.open(fname, flags=flags, mode=mode, dir_fd=dir_fd)) as f:
+        os.utime(
+            f.fileno() if os.utime in os.supports_fd else fname,
+            dir_fd=None if os.supports_fd else dir_fd,
+            **kwargs
+        )
 
 
 class IconLoader(object):
@@ -25,7 +36,6 @@ class IconLoader(object):
 
     @staticmethod
     def save_file(pth, contents=""):
-
         try:
             mkdir(path.dirname(pth))
         except:
@@ -66,6 +76,7 @@ class IconLoader(object):
 
 if __name__ == "__main__":
     resFile = "build/res.py"
+    initFile = "build/__init__.py"
     icons = list()
     files = list()
     cfgFiles = [f for f in listdir(".") if path.isfile(f) and f.endswith(".json")]
@@ -107,6 +118,7 @@ if __name__ == "__main__":
         text += "}\n"
 
         if IconLoader.save_file(resFile, text):
+            touch(initFile)
             print("build complete")
         else:
             print("cannot save file: %s" % resFile)

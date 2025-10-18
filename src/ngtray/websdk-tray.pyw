@@ -4,7 +4,7 @@ import os
 import json
 import winreg
 import win32api
-import time
+import time  # type: ignore
 import subprocess  # type: ignore
 import sys
 from iconloader import IconLoader

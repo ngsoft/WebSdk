@@ -16,7 +16,7 @@ goto :eof
 @REM Run Script Elevated
 pushd "%pgdb%"
     call .\env.bat
-    bin\pg_ctl.exe -D "%PGDATA%" stop > NUL 2>&1
+    %pgversion%\bin\pg_ctl.exe -D "%PGDATA%" stop > NUL 2>&1
     if "%starting%" == "true" (
         %WINDIR%\System32\timeout.exe /T 5 /NOBREAK  > NUL 2>&1
     )

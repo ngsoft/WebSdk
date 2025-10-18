@@ -16,7 +16,7 @@ goto :eof
 :script
 @REM Run Script Elevated
 pushd "%pgdb%"
-    if not exist "databases\postgresql.conf" (
+    if not exist "%pgversion%\databases\postgresql.conf" (
         echo.
         echo Setup for PostgreSQL is not done
         echo running %pgdb%setup.bat
@@ -24,8 +24,8 @@ pushd "%pgdb%"
         call %pgdb%setup.bat
     ) else (
         set starting=true
-        call "%~dp0\stop-pg.bat" 
+        call "%~dp0\stop-pg.bat"
     )
     call .\env.bat
-    "%daemonize%" "bin\pg_ctl.exe" -D "%PGDATA%" -l "%pgdb%logs\pgsql.log" start
+    "%daemonize%" "%pgversion%\bin\pg_ctl.exe" -D "%PGDATA%" -l "%pgdb%\%pgversion%\logs\pgsql.log" start
 popd

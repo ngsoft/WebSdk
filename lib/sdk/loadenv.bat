@@ -12,6 +12,7 @@ set "node_version=22"
 set "mariadb=%lib%mariadb\"
 @REM pgsql
 set "pgdb=%lib%pg\"
+set "pgversion=18.0"
 @REM web
 set "nginx=%lib%nginx\"
 set "httpd=%lib%httpd\bin\"

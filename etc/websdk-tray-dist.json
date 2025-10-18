@@ -42,8 +42,26 @@
             ]
         },
         {
+            "name": "httpd_postgres",
+            "label": "Démarrer WebSdk[apache|postgres]",
+            "notify": [
+                "Démarrage du WebSdk [apache|postgres]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
+            ],
+            "checks": {
+                "process": [
+                    "httpd.exe"
+                ]
+            },
+            "visible": [
+                "pg"
+            ]
+        },
+        {
             "name": "httpd_mariadb",
-            "label": "WebSdk on [apache|mariadb]",
+            "label": "Démarrer WebSdk[apache|mariadb]",
             "notify": [
                 "Démarrage du WebSdk [apache|mariadb]"
             ],
@@ -67,7 +85,7 @@
         },
         {
             "name": "on_mariadb",
-            "label": "WebSdk on [nginx|php8.4|mariadb]",
+            "label": "Démarrer WebSdk[nginx|php8.4|mariadb]",
             "notify": [
                 "Démarrage du WebSdk [nginx|php8.4|mariadb]"
             ],
@@ -92,8 +110,32 @@
             ]
         },
         {
+            "name": "on_httpd_postgres",
+            "label": "Démarrer WebSdk[apache|postgres]",
+            "notify": [
+                "Démarrage du WebSdk [apache|postgres]"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-pg.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-httpd.bat"
+            ],
+            "checks": {
+                "process": [
+                    "postgres.exe",
+                    "httpd.exe"
+                ]
+            },
+            "icons": [
+                "icons/on.png",
+                "icons/dark/on.png"
+            ],
+            "visible": [
+                "!pg"
+            ]
+        },
+        {
             "name": "off",
-            "label": "WebSdk off",
+            "label": "Arrêter WebSdk",
             "notify": [
                 "Arrêt du WebSdk"
             ],
@@ -101,7 +143,8 @@
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-httpd.bat",
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-nginx.bat",
                 "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-cgi.bat",
-                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-mariadb.bat"
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-mariadb.bat",
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-pg.bat"
             ],
             "icons": [
                 "icons/off.png",
@@ -169,7 +212,21 @@
         },
         "separator",
         {
-            "name": "pg",
+            "name": "mariadb-console",
+            "label": "Console MariaDB",
+            "notify": [
+                "Accès à la console MariaDB"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/mariadb/console.bat"
+            ],
+            "visible": [
+                "mariadb"
+            ]
+        },
+        "separator",
+        {
+            "name": "pg-sql",
             "label": "Lancer PostgreSql",
             "notify": [
                 "Lancement de PostgreSql",
@@ -187,7 +244,7 @@
                 ]
             },
             "visible": [
-                "!off"
+                "!on_httpd_postgres"
             ]
         },
         {
@@ -220,6 +277,16 @@
             "checks": {
                 "files": [
                     "c:/WebSdk/var/www/PhpMyAdmin/index.php"
+                ]
+            }
+        },
+        {
+            "name": "pg",
+            "label": "pg",
+            "visible": false,
+            "checks": {
+                "process": [
+                    "postgres.exe"
                 ]
             }
         },

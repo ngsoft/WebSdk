@@ -30,8 +30,7 @@ lib/nvm/*.log
 lib/pgs*/
 /etc/.*
 lib/laravel
-
-
+lib/php-cs-fixer
 
 # dev versions tests and sql exports
 *.sql.gz

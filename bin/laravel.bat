@@ -25,6 +25,10 @@ if not exist "%runtime%" goto :eof
 :main
 if not exist "%runtime%" goto install
 if [%~1] == [update] goto update
+if exist artisan (
+    php artisan %*
+    exit /b %ERRORLEVEL%
+)
 call "%runtime%" %*
 
 

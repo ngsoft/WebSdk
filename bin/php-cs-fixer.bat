@@ -4,7 +4,8 @@ setlocal
 call "%~dp0../lib/sdk/loadenv.bat"
 set "script_root=%lib%php-cs-fixer"
 set "runtime=%script_root%\vendor\bin\php-cs-fixer.bat"
-set "config_file=%etc%.php-cs-fixer.dist"
+set "config_file=.php-cs-fixer.dist.php"
+set "template_file=%etc%.php-cs-fixer.dist"
 goto main
 
 :update
@@ -25,11 +26,10 @@ if not exist "%runtime%" exit /b 1
 
 :main
 if not exist "%runtime%" call :install
-if [%~1] == [update] call :update
-
-if [%~1] == [autofix] (
-    call "%runtime%" fix %2 --config=%config_file%
-    exit /b %ERRORLEVEL%
+if [%~1] == [update] goto update
+if [fix] == [%~1] if exist composer.json if not exist "%config_file%" (
+    copy "%template_file%" "%config_file%" > NUL
+    echo %config_file% has been generated from template, please review it.
 )
 
 call "%runtime%" %*

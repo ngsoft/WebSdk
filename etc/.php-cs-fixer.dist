@@ -82,10 +82,10 @@ $config->setRules([
      * Prevent use Keyword a maximum for global namespace
      * new \Exception('...')
      */
-    'fully_qualified_strict_types'           => [
-        'import_symbols'                        => false,
-        'leading_backslash_in_global_namespace' => true,
-    ],
+    // 'fully_qualified_strict_types'           => [
+    //     'import_symbols'                        => false,
+    //     'leading_backslash_in_global_namespace' => true,
+    // ],
 
 ])->setRiskyAllowed($strict);
 

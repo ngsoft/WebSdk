@@ -24,7 +24,6 @@ set "php84=%lib%php\8.4\"
 set "php85=%lib%php\8.5\"
 set "php74=%lib%php\7.4\"
 set "php56=%lib%php\5.6\"
-set "php55=%lib%php\5.5\"
 set "php=%php82%"
 @REM python
 set "pyversion=3.13.7"

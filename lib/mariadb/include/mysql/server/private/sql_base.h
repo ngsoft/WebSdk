@@ -95,7 +95,7 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type update,
 */
 #define MYSQL_OPEN_GET_NEW_TABLE                0x0040
 /* 0x0080 used to be MYSQL_OPEN_SKIP_TEMPORARY */
-/** Fail instead of waiting when conficting metadata lock is discovered. */
+/** Fail instead of waiting when conflicting metadata lock is discovered. */
 #define MYSQL_OPEN_FAIL_ON_MDL_CONFLICT         0x0100
 /** Open tables using MDL_SHARED lock instead of one specified in parser. */
 #define MYSQL_OPEN_FORCE_SHARED_MDL             0x0200
@@ -247,7 +247,7 @@ void update_non_unique_table_error(TABLE_LIST *update,
                                    const char *operation,
                                    TABLE_LIST *duplicate);
 int setup_conds(THD *thd, TABLE_LIST *tables, List<TABLE_LIST> &leaves,
-		COND **conds);
+		COND **conds, List<Item> *all_fields);
 void wrap_ident(THD *thd, Item **conds);
 int setup_ftfuncs(SELECT_LEX* select);
 void cleanup_ftfuncs(SELECT_LEX *select_lex);
@@ -694,4 +694,11 @@ private:
   int m_unhandled_errors;
   uint first_error;
 };
+
+bool setup_oracle_join(THD *thd, Item **conds,
+                       TABLE_LIST *tables,
+                       SQL_I_List<TABLE_LIST> &select_table_list,
+                       List<TABLE_LIST> *select_join_list,
+                       List<Item> *all_fields);
+
 #endif /* SQL_BASE_INCLUDED */

@@ -24,7 +24,7 @@
   similar to the COMPLEMENTARY and PREFERABLY respectively except that
   with these values we would not be collecting EITS for queries like
     ANALYZE TABLE t1;
-  To collect EITS with these values, we have to use PERSISITENT FOR
+  To collect EITS with these values, we have to use PERSISTENT FOR
   analyze table t1 persistent for
      columns (col1,col2...) index (idx1, idx2...)
      or
@@ -579,7 +579,7 @@ public:
 
     @retval
     TRUE: Statistics are not present for a column
-    FALSE: Statisitics are present for a column
+    FALSE: Statistics are present for a column
   */
   bool no_stat_values_provided()
   {
@@ -614,13 +614,7 @@ public:
 
   void mark_stats_as_read() { stats_were_read= true; }
 
-  bool has_stats(THD *thd) const
-  {
-    if (TEST_NEW_MODE_FLAG(thd, NEW_MODE_FIX_INDEX_STATS_FOR_ALL_NULLS))
-      return stats_were_read;
-    else
-      return get_avg_frequency(0) > 0.5;
-  }
+  bool has_stats() const { return stats_were_read; }
 
   bool avg_frequency_is_inited() { return avg_frequency != NULL; }
 

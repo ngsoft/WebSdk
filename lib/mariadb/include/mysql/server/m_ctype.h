@@ -1376,7 +1376,7 @@ my_ci_scan(CHARSET_INFO *cs, const char *b, const char *e, int seq)
   @return    1 on a single byte character
   @return   >1 on a multi-byte character
 
-  Note, inlike my_ismbchar(), 1 is returned for a single byte character.
+  Note, unlike my_ismbchar(), 1 is returned for a single byte character.
 */
 
 static inline int
@@ -1995,6 +1995,10 @@ public:
   { }
   Well_formed_prefix(CHARSET_INFO *cs, LEX_CSTRING str, size_t nchars)
    :Well_formed_prefix_status(cs, str.str, str.str + str.length, nchars),
+    m_str(str.str)
+  { }
+  Well_formed_prefix(CHARSET_INFO *cs, LEX_CSTRING str)
+   :Well_formed_prefix_status(cs, str.str, str.str + str.length, str.length),
     m_str(str.str)
   { }
   size_t length() const { return m_source_end_pos - m_str; }

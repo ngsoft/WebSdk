@@ -195,7 +195,7 @@ public:
   In the current MariaDB code, evaluation of JSON_TABLE is deterministic,
   that is, for a given input string JSON_TABLE will always produce the same
   set of rows in the same order.  However one can think of JSON documents
-  that one can consider indentical which will produce different output.
+  that one can consider identical which will produce different output.
   In order to be feature-proof and withstand changes like:
   - sorting JSON object members by name (like MySQL does)
   - changing the way duplicate object members are handled
@@ -219,8 +219,8 @@ public:
   /*** Name resolution functions ***/
   bool setup(THD *thd, TABLE_LIST *sql_table, SELECT_LEX *s_lex);
 
-  int walk_items(Item_processor processor, bool walk_subquery,
-                 void *argument);
+  int walk_items(Item_processor processor,
+                 void *argument, item_walk_flags flags);
 
   /*** Functions for interaction with the Query Optimizer ***/
   void fix_after_pullout(TABLE_LIST *sql_table,
@@ -275,7 +275,7 @@ private:
   /*
     Pointer to the list tail where we add the next NESTED PATH.
     It points to the cur_parnt->m_nested for the first nested
-    and prev_nested->m_next_nested for the coesequent ones.
+    and prev_nested->m_next_nested for the consequent ones.
   */
   Json_table_nested_path **last_sibling_hook;
 };

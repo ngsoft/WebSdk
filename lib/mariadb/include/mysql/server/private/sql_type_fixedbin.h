@@ -719,10 +719,10 @@ public:
                                            FbtImpl::binary_length(), &my_charset_bin);
     }
 
-    uchar *pack(uchar *to, const uchar *from, uint max_length) override
+    uchar *pack(uchar *to, const uchar *from) const override
     {
       DBUG_PRINT("debug", ("Packing field '%s'", field_name.str));
-      return FbtImpl::pack(to, from, max_length);
+      return FbtImpl::pack(to, from);
     }
 
     const uchar *unpack(uchar *to, const uchar *from, const uchar *from_end,
@@ -731,14 +731,15 @@ public:
       return FbtImpl::unpack(to, from, from_end, param_data);
     }
 
-    uint max_packed_col_length(uint max_length) override
+    uint max_packed_col_length(uint max_length) const override
     {
       return StringPack::max_packed_col_length(max_length);
     }
 
-    uint packed_col_length(const uchar *fbt_ptr, uint length) override
+    uint packed_col_length() const override
     {
-      return StringPack::packed_col_length(fbt_ptr, length);
+      return StringPack(&my_charset_bin, pack_length()).
+               packed_col_length(ptr);
     }
 
     uint size_of() const override { return sizeof(*this); }
@@ -1177,6 +1178,7 @@ public:
 
   bool is_scalar_type() const override { return true; }
   bool is_val_native_ready() const override { return true; }
+  bool can_return_bool() const override { return true; }
   bool can_return_int() const override { return false; }
   bool can_return_decimal() const override { return false; }
   bool can_return_real() const override { return false; }

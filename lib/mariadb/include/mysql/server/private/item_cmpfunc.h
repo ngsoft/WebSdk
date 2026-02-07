@@ -259,6 +259,8 @@ public:
 
 class Item_func_truth : public Item_bool_func
 {
+  bool check_arguments() const override
+  { return check_argument_types_can_return_bool(0, 1); }
 public:
   bool val_bool() override;
   bool fix_length_and_dec(THD *thd) override;
@@ -279,6 +281,9 @@ public:
   {
     return negated_item(thd);
   }
+  // block standard processor for never null
+  bool add_maybe_null_after_ora_join_processor(void *arg) override
+  { return 0; }
 
 protected:
   Item_func_truth(THD *thd, Item *a, bool a_value, bool a_affirmative):
@@ -458,7 +463,8 @@ public:
   void fix_after_pullout(st_select_lex *new_parent, Item **ref,
                          bool merge) override;
   bool invisible_mode();
-  bool walk(Item_processor processor, bool walk_subquery, void *arg) override;
+  bool walk(Item_processor processor, void *arg,
+            item_walk_flags flags) override;
   void reset_cache() { cache= NULL; }
   void print(String *str, enum_query_type query_type) override;
   void restore_first_argument();
@@ -688,6 +694,8 @@ public:
 
 class Item_func_not :public Item_bool_func
 {
+  bool check_arguments() const override
+  { return check_argument_types_can_return_bool(0, 1); }
 public:
   Item_func_not(THD *thd, Item *a): Item_bool_func(thd, a) {}
   bool val_bool() override;
@@ -884,6 +892,9 @@ public:
   }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_equal>(thd, this); }
+  // block standard processor for never null
+  bool add_maybe_null_after_ora_join_processor(void *arg) override
+  { return 0; }
 };
 
 
@@ -1188,6 +1199,9 @@ public:
   }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_interval>(thd, this); }
+  // block standard processor for never null
+  bool add_maybe_null_after_ora_join_processor(void *arg) override
+  { return 0; }
 };
 
 
@@ -1205,6 +1219,7 @@ public:
   bool date_op(THD *thd, MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
   bool time_op(THD *thd, MYSQL_TIME *ltime) override;
   bool native_op(THD *thd, Native *to) override;
+  Type_ref_null ref_op(THD *thd) override;
   bool fix_length_and_dec(THD *thd) override
   {
     update_nullability_post_fix_fields();
@@ -1212,6 +1227,12 @@ public:
       return TRUE;
     fix_attributes(args, arg_count);
     return FALSE;
+  }
+  bool add_maybe_null_after_ora_join_processor(void *arg) override
+  {
+    if (!maybe_null() && is_all_arg_maybe_null())
+      set_maybe_null();
+    return 0;
   }
   LEX_CSTRING func_name_cstring() const override
   {
@@ -1241,26 +1262,33 @@ protected:
     return FALSE;
   }
 
-  void cache_type_info(const Item *source, bool maybe_null_arg)
+  bool cache_type_info(THD *thd, Item *source, bool maybe_null_arg)
   {
+    if (source->type_handler()->
+          Item_hybrid_func_fix_attributes(thd, func_name_cstring(),
+                                          this, this, &source, 1))
+      return true;
     Type_std_attributes::set(source);
     set_handler(source->type_handler());
     set_maybe_null(maybe_null_arg);
+    return false;
   }
 
-  bool fix_length_and_dec2_eliminate_null(Item **items)
+  bool fix_length_and_dec2_eliminate_null(THD *thd, Item **items)
   {
     // Let IF(cond, expr, NULL) and IF(cond, NULL, expr) inherit type from expr.
     if (items[0]->type() == NULL_ITEM)
     {
-      cache_type_info(items[1], true);
+      if (cache_type_info(thd, items[1], true))
+        return true;
       // If both arguments are NULL, make resulting type BINARY(0).
       if (items[1]->type() == NULL_ITEM)
         set_handler(&type_handler_string);
     }
     else if (items[1]->type() == NULL_ITEM)
     {
-      cache_type_info(items[0], true);
+      if (cache_type_info(thd, items[0], true))
+        return true;
     }
     else
     {
@@ -1290,12 +1318,19 @@ public:
   bool date_op(THD *thd, MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
   bool time_op(THD *thd, MYSQL_TIME *ltime) override;
   bool native_op(THD *thd, Native *to) override;
+  Type_ref_null ref_op(THD *thd) override;
   bool fix_length_and_dec(THD *thd) override
   {
     update_nullability_post_fix_fields();
     if (Item_func_case_abbreviation2::fix_length_and_dec2(args))
       return TRUE;
     return FALSE;
+  }
+  bool add_maybe_null_after_ora_join_processor(void *arg) override
+  {
+    if (!maybe_null() && is_all_arg_maybe_null())
+      set_maybe_null();
+    return 0;
   }
   LEX_CSTRING func_name_cstring() const override
   {
@@ -1319,6 +1354,8 @@ public:
 */
 class Item_func_case_abbreviation2_switch: public Item_func_case_abbreviation2
 {
+  bool check_arguments() const override
+  { return check_argument_types_can_return_bool(0, 1); }
 protected:
   virtual Item *find_item() const= 0;
 
@@ -1357,6 +1394,10 @@ public:
     return val_native_with_conversion_from_item(thd, find_item(), to,
                                                 type_handler());
   }
+  Type_ref_null ref_op(THD *thd) override
+  {
+    return find_item()->val_ref(thd);
+  }
 };
 
 
@@ -1373,7 +1414,7 @@ public:
   bool fix_fields(THD *, Item **) override;
   bool fix_length_and_dec(THD *thd) override
   {
-    return fix_length_and_dec2_eliminate_null(args + 1);
+    return fix_length_and_dec2_eliminate_null(thd, args + 1);
   }
   LEX_CSTRING func_name_cstring() const override
   {
@@ -1385,8 +1426,6 @@ public:
     override;
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_if>(thd, this); }
-private:
-  void cache_type_info(Item *source);
 };
 
 
@@ -1407,7 +1446,7 @@ public:
   }
   bool fix_length_and_dec(THD *thd) override
   {
-    return fix_length_and_dec2_eliminate_null(args + 1);
+    return fix_length_and_dec2_eliminate_null(thd, args + 1);
   }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_nvl2>(thd, this); }
@@ -1468,8 +1507,18 @@ public:
   String *str_op(String *str) override;
   my_decimal *decimal_op(my_decimal *) override;
   bool native_op(THD *thd, Native *to) override;
+  Type_ref_null ref_op(THD *thd) override
+  {
+    /*
+      At fix_fields() type this error is raised:
+      Illegal parameter data type for operation 'nullif'
+    */
+    DBUG_ASSERT(0);
+    return Type_ref_null();
+  }
   bool fix_length_and_dec(THD *thd) override;
-  bool walk(Item_processor processor, bool walk_subquery, void *arg) override;
+  bool walk(Item_processor processor, void *arg,
+            item_walk_flags flags) override;
   LEX_CSTRING func_name_cstring() const override
   {
     static LEX_CSTRING name= {STRING_WITH_LEN("nullif") };
@@ -2080,7 +2129,7 @@ public:
   4. m_cmp_item - the pointer to a cmp_item instance to handle comparison
      for this pair. Only unique type handlers have m_cmp_item!=NULL.
      Non-unique type handlers share the same cmp_item instance.
-     For all m_comparators[] elements the following assersion it true:
+     For all m_comparators[] elements the following assertion is true:
        (m_handler_index==i) == (m_cmp_item!=NULL)
 */
 class Predicant_to_list_comparator
@@ -2400,6 +2449,7 @@ public:
   bool date_op(THD *thd, MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
   bool time_op(THD *thd, MYSQL_TIME *ltime) override;
   bool native_op(THD *thd, Native *to) override;
+  Type_ref_null ref_op(THD *thd) override;
   bool fix_fields(THD *thd, Item **ref) override;
   table_map not_null_tables() const override { return 0; }
   LEX_CSTRING func_name_cstring() const override
@@ -2421,6 +2471,8 @@ public:
 */
 class Item_func_case_searched: public Item_func_case
 {
+  bool check_arguments() const override
+  { return check_argument_types_can_return_bool(0, when_count()); }
   uint when_count() const { return arg_count / 2; }
   bool with_else() const { return arg_count % 2; }
   Item **else_expr_addr() const override
@@ -2716,6 +2768,7 @@ public:
   Item* varchar_upper_cmp_transformer(THD *thd, uchar *arg) override;
 
   Item* vcol_subst_transformer(THD *thd, uchar *arg) override;
+  bool ora_join_processor(void *arg) override;
 };
 
 class cmp_item_row :public cmp_item
@@ -2777,6 +2830,7 @@ protected:
                        Item_func::Functype type, Item *value) override;
 public:
   Item_func_null_predicate(THD *thd, Item *a): Item_bool_func(thd, a) { }
+  bool check_arguments() const override;
   void add_key_fields(JOIN *join, KEY_FIELD **key_fields, uint *and_level,
                       table_map usable_tables, SARGABLE_PARAM **sargables)
     override;
@@ -2797,6 +2851,9 @@ public:
     base_flags&= ~item_base_t::MAYBE_NULL;
     return FALSE;
   }
+  // block standard processor for never null
+  bool add_maybe_null_after_ora_join_processor(void *arg) override
+  { return 0; }
   bool count_sargable_conds(void *arg) override;
 
   Item* vcol_subst_transformer(THD *thd, uchar *arg) override;
@@ -2911,6 +2968,8 @@ public:
 
 class Item_func_like :public Item_bool_func2
 {
+  bool check_arguments() const override
+  { return check_argument_types_can_return_str(0, arg_count); }
   // Turbo Boyer-Moore data
   bool        canDoTurboBM;	// pattern is '%abcd%' case
   const char* pattern;
@@ -3067,10 +3126,11 @@ public:
     return this;
   }
 
-  bool walk(Item_processor processor, bool walk_subquery, void *arg) override
+  bool walk(Item_processor processor, void *arg,
+            item_walk_flags flags) override
   {
-    return (walk_args(processor, walk_subquery, arg) ||
-            escape_item->walk(processor, walk_subquery, arg) ||
+    return (walk_args(processor, arg, flags) ||
+            escape_item->walk(processor, arg, flags) ||
             (this->*processor)(arg));
   }
 
@@ -3154,6 +3214,8 @@ public:
 
 class Item_func_regex :public Item_bool_func
 {
+  bool check_arguments() const override
+  { return check_argument_types_can_return_str(0, arg_count); }
   Regexp_processor_pcre re;
   DTCollation cmp_collation;
 public:
@@ -3286,9 +3348,10 @@ public:
   void split_sum_func(THD *thd, Ref_ptr_array ref_pointer_array,
                       List<Item> &fields, uint flags) override;
   friend int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
-                         COND **conds);
+                         COND **conds, List<Item> *all_fields);
   void copy_andor_arguments(THD *thd, Item_cond *item);
-  bool walk(Item_processor processor, bool walk_subquery, void *arg) override;
+  bool walk(Item_processor processor, void *arg,
+            item_walk_flags flags) override;
   Item *do_transform(THD *thd, Item_transformer transformer, uchar *arg,
                      bool toplevel);
   Item *transform(THD *thd, Item_transformer transformer, uchar *arg) override
@@ -3497,7 +3560,8 @@ public:
                       uint *and_level, table_map usable_tables,
                       SARGABLE_PARAM **sargables) override;
   SEL_TREE *get_mm_tree(RANGE_OPT_PARAM *param, Item **cond_ptr) override;
-  bool walk(Item_processor processor, bool walk_subquery, void *arg) override;
+  bool walk(Item_processor processor, void *arg,
+            item_walk_flags flags) override;
   Item *transform(THD *thd, Item_transformer transformer, uchar *arg) override;
   void print(String *str, enum_query_type query_type) override;
   const Type_handler *compare_type_handler() const { return m_compare_handler; }
@@ -3705,6 +3769,15 @@ public:
   table_map not_null_tables() const override { return and_tables_cache; }
   Item *copy_andor_structure(THD *thd) override;
   Item *neg_transformer(THD *thd) override;
+  bool ora_join_processor(void *arg) override
+  {
+    if (with_ora_join())
+    {
+      // Oracle join operator is used in this OR clause.
+      ((ora_join_processor_param *) arg)->or_present= true;
+    }
+    return (FALSE);
+  }
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_cond_or>(thd, this); }
 };
@@ -3743,10 +3816,19 @@ public:
 
 class Item_func_cursor_bool_attr: public Item_bool_func, public Cursor_ref
 {
+protected:
+  THD *m_thd;
 public:
-  Item_func_cursor_bool_attr(THD *thd, const LEX_CSTRING *name, uint offset)
-   :Item_bool_func(thd), Cursor_ref(name, offset)
+  Item_func_cursor_bool_attr(THD *thd, const Cursor_ref &ref)
+   :Item_bool_func(thd), Cursor_ref(ref), m_thd(nullptr)
   { }
+  bool fix_fields(THD *thd, Item **ref) override
+  {
+    if (Item_bool_func::fix_fields(thd, ref))
+      return true;
+    m_thd= thd;
+    return false;
+  }
   bool check_vcol_func_processor(void *arg) override
   {
     return mark_unsupported_function(func_name(), arg, VCOL_SESSION_FUNC);
@@ -3761,8 +3843,8 @@ public:
 class Item_func_cursor_isopen: public Item_func_cursor_bool_attr
 {
 public:
-  Item_func_cursor_isopen(THD *thd, const LEX_CSTRING *name, uint offset)
-   :Item_func_cursor_bool_attr(thd, name, offset) { }
+  Item_func_cursor_isopen(THD *thd, const Cursor_ref &ref)
+   :Item_func_cursor_bool_attr(thd, ref) { }
   LEX_CSTRING func_name_cstring() const override
   {
     static LEX_CSTRING name= {STRING_WITH_LEN("%ISOPEN") };
@@ -3777,8 +3859,8 @@ public:
 class Item_func_cursor_found: public Item_func_cursor_bool_attr
 {
 public:
-  Item_func_cursor_found(THD *thd, const LEX_CSTRING *name, uint offset)
-   :Item_func_cursor_bool_attr(thd, name, offset)
+  Item_func_cursor_found(THD *thd, const Cursor_ref &ref)
+   :Item_func_cursor_bool_attr(thd, ref)
   {
     set_maybe_null();
   }
@@ -3796,8 +3878,8 @@ public:
 class Item_func_cursor_notfound: public Item_func_cursor_bool_attr
 {
 public:
-  Item_func_cursor_notfound(THD *thd, const LEX_CSTRING *name, uint offset)
-   :Item_func_cursor_bool_attr(thd, name, offset)
+  Item_func_cursor_notfound(THD *thd, const Cursor_ref &ref)
+   :Item_func_cursor_bool_attr(thd, ref)
   {
     set_maybe_null();
   }

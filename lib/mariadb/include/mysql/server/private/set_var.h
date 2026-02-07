@@ -273,7 +273,7 @@ protected:
 /**
   A base class for everything that can be set with SET command.
   It's similar to Items, an instance of this is created by the parser
-  for every assigmnent in SET (or elsewhere, e.g. in SELECT).
+  for every assignment in SET (or elsewhere, e.g. in SELECT).
 */
 class set_var_base :public Sql_alloc
 {
@@ -359,6 +359,17 @@ class set_var_password: public set_var_base
 public:
   set_var_password(LEX_USER *user_arg) :user(user_arg)
   {}
+  int check(THD *thd) override;
+  int update(THD *thd) override;
+};
+
+/* For SET SESSION AUTHORIZATION */
+
+class set_var_authorization: public set_var_base
+{
+  LEX_USER *user;
+public:
+  set_var_authorization(LEX_USER *user_arg) : user(user_arg) {}
   int check(THD *thd) override;
   int update(THD *thd) override;
 };

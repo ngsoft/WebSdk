@@ -1,5 +1,425 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+15 Jan 2026, PHP 8.3.30
+
+- Core:
+  . Fix OSS-Fuzz #465488618 (Wrong assumptions when dumping function signature
+    with dynamic class const lookup default argument). (ilutov)
+  . Fixed bug GH-20695 (Assertion failure in normalize_value() when parsing
+    malformed INI input via parse_ini_string()). (ndossche)
+  . Fixed bug GH-20714 (Uncatchable exception thrown in generator). (ilutov)
+  . Fixed bug GH-20352 (UAF in php_output_handler_free via re-entrant
+    ob_start() during error deactivation). (ndossche)
+
+- Bz2:
+  . Fixed bug GH-20620 (bzcompress overflow on large source size).
+    (David Carlier)
+
+- DOM:
+  . Fixed bug GH-20722 (Null pointer dereference in DOM namespace node cloning
+    via clone on malformed objects). (ndossche)
+
+- GD:
+  . Fixed bug GH-20622 (imagestring/imagestringup overflow). (David Carlier)
+
+- Intl:
+  . Fix leak in umsg_format_helper(). (ndossche)
+
+- LDAP:
+  . Fix memory leak in ldap_set_options(). (ndossche)
+
+- Mbstring:
+  . Fixed bug GH-20674 (mb_decode_mimeheader does not handle separator).
+    (Yuya Hamada)
+
+- Phar:
+  . Fixed bug GH-20732 (Phar::LoadPhar undefined behavior when reading fails).
+    (ndossche)
+  . Fix SplFileInfo::openFile() in write mode. (ndossche)
+  . Fix build on legacy OpenSSL 1.1.0 systems. (Giovanni Giacobbi)
+
+- POSIX:
+  . Fixed crash on posix groups to php array creation on macos.
+    (David Carlier)
+
+- SPL:
+  . Fixed bug GH-20678 (resource created by GlobIterator crashes with fclose()).
+    (David Carlier)
+
+- Sqlite3:
+  . Fixed bug GH-20699 (SQLite3Result fetchArray return array|false,
+    null returned). (ndossche, plusminmax)
+
+- Standard:
+  . Fix error check for proc_open() command. (ndossche)
+  . Fixed bug GH-20582 (Heap Buffer Overflow in iptcembed). (ndossche)
+
+- Zlib:
+  . Fix OOB gzseek() causing assertion failure. (ndossche)
+
+18 Dec 2025, PHP 8.3.29
+
+- Core:
+  . Sync all boost.context files with release 1.86.0. (mvorisek)
+  . Fixed bug GH-20435 (SensitiveParameter doesn't work for named argument
+    passing to variadic parameter). (ndossche)
+  . Fixed bug GH-20286 (use-after-destroy during userland stream_close()).
+    (ndossche, David Carlier)
+
+- Bz2:
+  . Fix assertion failures resulting in crashes with stream filter
+    object parameters. (ndossche)
+
+- Date:
+  . Fix crashes when trying to instantiate uninstantiable classes via date
+    static constructors. (ndossche)
+
+- DOM:
+  . Fix missing NUL byte check on C14NFile(). (ndossche)
+
+- Fibers:
+  . Fixed bug GH-20483 (ASAN stack overflow with fiber.stack_size INI
+    small value). (David Carlier)
+
+- FTP:
+  . Fixed bug GH-20601 (ftp_connect overflow on timeout). (David Carlier)
+
+- GD:
+  . Fixed bug GH-20511 (imagegammacorrect out of range input/output values).
+    (David Carlier)
+  . Fixed bug GH-20602 (imagescale overflow with large height values).
+    (David Carlier)
+
+- Intl:
+  . Fixed bug GH-20426 (Spoofchecker::setRestrictionLevel() error message
+    suggests missing constants). (DanielEScherzer)
+
+- LibXML:
+  . Fix some deprecations on newer libxml versions regarding input
+    buffer/parser handling. (ndossche)
+
+- MbString:
+  . Fixed bug GH-20491 (SLES15 compile error with mbstring oniguruma).
+    (ndossche)
+  . Fixed bug GH-20492 (mbstring compile warning due to non-strings).
+    (ndossche)
+
+- mysqli:
+  . Make mysqli_begin_transaction() report errors properly. (Kamil Tekiela)
+
+- MySQLnd:
+  . Fixed bug GH-20528 (Regression breaks mysql connexion using an IPv6 address
+    enclosed in square brackets). (Remi)
+
+- Opcache:
+  . Fixed bug GH-20329 (opcache.file_cache broken with full interned string
+    buffer). (Arnaud)
+
+- PDO:
+  . Fixed GHSA-8xr5-qppj-gvwj (PDO quoting result null deref). (CVE-2025-14180)
+    (Jakub Zelenka)
+
+- Phar:
+  . Fixed bug GH-20442 (Phar does not respect case-insensitiveness of
+    __halt_compiler() when reading stub). (ndossche, TimWolla)
+  . Fix broken return value of fflush() for phar file entries. (ndossche)
+  . Fix assertion failure when fseeking a phar file out of bounds. (ndossche)
+
+- PHPDBG:
+  . Fixed ZPP type violation in phpdbg_get_executable() and phpdbg_end_oplog().
+    (Girgias)
+
+- SPL:
+  . Fixed bug GH-20614 (SplFixedArray incorrectly handles references
+    in deserialization). (ndossche)
+
+- Standard:
+  . Fix memory leak in array_diff() with custom type checks. (ndossche)
+  . Fixed bug GH-20583 (Stack overflow in http_build_query
+    via deep structures). (ndossche)
+  . Fixed GHSA-www2-q4fc-65wf (Null byte termination in dns_get_record()).
+    (ndossche)
+  . Fixed GHSA-h96m-rvf9-jgm2 (Heap buffer overflow in array_merge()).
+    (CVE-2025-14178) (ndossche)
+  . Fixed GHSA-3237-qqm7-mfv7 (Information Leak of Memory in getimagesize).
+    (CVE-2025-14177) (ndossche)
+
+- Tidy:
+  . Fixed bug GH-20374 (PHP with tidy and custom-tags). (ndossche)
+
+- XML:
+  . Fixed bug GH-20439 (xml_set_default_handler() does not properly handle
+    special characters in attributes when passing data to callback). (ndossche)
+
+- Zip:
+  . Fix crash in property existence test. (ndossche)
+  . Don't truncate return value of zip_fread() with user sizes. (ndossche)
+
+- Zlib:
+  . Fix assertion failures resulting in crashes with stream filter
+    object parameters. (ndossche)
+
+20 Nov 2025, PHP 8.3.28
+
+- Core:
+  . Fixed bug GH-19934 (CGI with auto_globals_jit=0 causes uouv). (ilutov)
+  . Fixed bug GH-20073 (Assertion failure in WeakMap offset operations on
+    reference). (nielsdos)
+  . Fixed bug GH-19844 (Don't bail when closing resources on shutdown). (ilutov)
+  . Fixed bug GH-20177 (Accessing overridden private property in
+    get_object_vars() triggers assertion error). (ilutov)
+  . Fixed bug GH-20183 (Stale EG(opline_before_exception) pointer through eval).
+    (ilutov)
+
+- DOM:
+  . Partially fixed bug GH-16317 (DOM classes do not allow
+    __debugInfo() overrides to work). (nielsdos)
+
+- Exif:
+  . Fix possible memory leak when tag is empty. (nielsdos)
+
+- FPM:
+  . Fixed bug GH-19974 (fpm_status_export_to_zval segfault for parallel
+    execution). (Jakub Zelenka, txuna)
+
+- FTP:
+  . Fixed bug GH-20240 (FTP with SSL: ftp_fput(): Connection timed out on
+    successful writes). (nielsdos)
+
+- GD:
+  . Fixed bug GH-20070 (Return type violation in imagefilter when an invalid
+    filter is provided). (Girgias)
+
+- Intl:
+  . Fix memory leak on error in locale_filter_matches(). (nielsdos)
+
+- LibXML:
+  . Fix not thread safe schema/relaxng calls. (SpencerMalone, nielsdos)
+
+- MySQLnd:
+  . Fixed bug GH-8978 (SSL certificate verification fails (port doubled)).
+    (nielsdos)
+  . Fixed bug GH-20122 (getColumnMeta() for JSON-column in MySQL). (nielsdos)
+
+- Opcache:
+  . Fixed bug GH-20081 (access to uninitialized vars in preload_load()).
+    (Arnaud)
+  . Fixed bug GH-20121 (JIT broken in ZTS builds on MacOS 15).
+    (Arnaud, Shivam Mathur)
+
+- PgSql:
+  . Fix memory leak when first string conversion fails. (nielsdos)
+  . Fix segfaults when attempting to fetch row into a non-instantiable class
+    name. (Girgias, nielsdos)
+
+- Phar:
+  . Fix memory leak of argument in webPhar. (nielsdos)
+  . Fix memory leak when setAlias() fails. (nielsdos)
+  . Fix a bunch of memory leaks in phar_parse_zipfile() error handling.
+    (nielsdos)
+  . Fix file descriptor/memory leak when opening central fp fails. (nielsdos)
+  . Fix memleak+UAF when opening temp stream in buildFromDirectory() fails.
+    (nielsdos)
+  . Fix potential buffer length truncation due to usage of type int instead
+    of type size_t. (Girgias)
+  . Fix memory leak when openssl polyfill returns garbage. (nielsdos)
+  . Fix file descriptor leak in phar_zip_flush() on failure. (nielsdos)
+  . Fix memory leak when opening temp file fails while trying to open
+    gzip-compressed archive. (nielsdos)
+  . Fixed bug GH-20302 (Freeing a phar alias may invalidate
+    PharFileInfo objects). (nielsdos)
+
+- Random:
+  . Fix Randomizer::__serialize() w.r.t. INDIRECTs. (nielsdos)
+
+- SimpleXML:
+  . Partially fixed bug GH-16317 (SimpleXML does not allow __debugInfo() overrides
+    to work). (nielsdos)
+
+- Standard:
+  . Fix shm corruption with coercion in options of unserialize(). (nielsdos)
+
+- Streams:
+  . Fixed bug GH-19798: XP_SOCKET XP_SSL (Socket stream modules): Incorrect
+    condition for Win32/Win64. (Jakub Zelenka)
+  . Fixed bug GH-20370 (User stream filters could violate typed property
+    constraints). (alexandre-daubois)
+
+- Tidy:
+  . Fixed GH-19021 (improved tidyOptGetCategory detection).
+    (arjendekorte, David Carlier, Peter Kokot)
+  . Fix UAF in tidy when tidySetErrorBuffer() fails. (nielsdos)
+
+- XMLReader:
+  . Fix arginfo/zpp violations when LIBXML_SCHEMAS_ENABLED is not available.
+    (nielsdos)
+
+- Windows:
+  . Fix GH-19722 (_get_osfhandle asserts in debug mode when given a socket).
+    (dktapps)
+
+- Zip:
+  . Fix memory leak when passing enc_method/enc_password is passed as option
+    for ZipArchive::addGlob()/addPattern() and with consecutive calls.
+    (David Carlier)
+
+23 Oct 2025, PHP 8.3.27
+
+- Core:
+  . Fixed bug GH-19765 (object_properties_load() bypasses readonly property
+    checks). (timwolla)
+  . Fixed hard_timeout with --enable-zend-max-execution-timers. (Appla)
+  . Fixed bug GH-19792 (SCCP causes UAF for return value if both warning and
+    exception are triggered). (nielsdos)
+  . Fixed bug GH-19653 (Closure named argument unpacking between temporary
+    closures can cause a crash). (nielsdos, Arnaud, Bob)
+  . Fixed bug GH-19839 (Incorrect HASH_FLAG_HAS_EMPTY_IND flag on userland
+    array). (ilutov)
+  . Fixed bug GH-19480 (error_log php.ini cannot be unset when open_basedir is
+    configured). (nielsdos)
+  . Fixed bug GH-20002 (Broken build on *BSD with MSAN). (outtersg)
+
+- CLI:
+  . Fix useless "Failed to poll event" error logs due to EAGAIN in CLI server
+    with PHP_CLI_SERVER_WORKERS. (leotaku)
+
+- Curl:
+  . Fix cloning of CURLOPT_POSTFIELDS when using the clone operator instead
+    of the curl_copy_handle() function to clone a CurlHandle. (timwolla)
+  . Fix curl build and test failures with version 8.16.
+    (nielsdos, ilutov, Jakub Zelenka)
+
+- Date:
+  . Fixed GH-17159: "P" format for ::createFromFormat swallows string literals.
+    (nielsdos)
+
+- DBA:
+  . Fixed GH-19885 (dba_fetch() overflow on skip argument). (David Carlier)
+
+- GD:
+  . Fixed GH-19955 (imagefttext() memory leak). (David Carlier)
+
+- MySQLnd:
+  . Fixed bug #67563 (mysqli compiled with mysqlnd does not take ipv6 adress
+    as parameter). (nielsdos)
+
+- Phar:
+  . Fix memory leak and invalid continuation after tar header writing fails.
+    (nielsdos)
+  . Fix memory leaks when creating temp file fails when applying zip signature.
+    (nielsdos)
+
+- SimpleXML:
+  . Fixed bug GH-19988 (zend_string_init with NULL pointer in simplexml (UB)).
+    (nielsdos)
+
+- Soap:
+  . Fixed bug GH-19784 (SoapServer memory leak). (nielsdos)
+  . Fixed bug GH-20011 (Array of SoapVar of unknown type causes crash).
+    (nielsdos)
+
+- Standard:
+  . Fixed bug GH-12265 (Cloning an object breaks serialization recursion).
+    (nielsdos)
+  . Fixed bug GH-19701 (Serialize/deserialize loses some data). (nielsdos)
+  . Fixed bug GH-19801 (leaks in var_dump() and debug_zval_dump()).
+    (alexandre-daubois)
+  . Fixed bug GH-20043 (array_unique assertion failure with RC1 array
+    causing an exception on sort). (nielsdos)
+  . Fixed bug GH-19926 (reset internal pointer earlier while splicing array
+    while COW violation flag is still set). (alexandre-daubois)
+  . Fixed bug GH-19570 (unable to fseek in /dev/zero and /dev/null).
+    (nielsdos, divinity76)
+
+- Streams:
+  . Fixed bug GH-19248 (Use strerror_r instead of strerror in main).
+    (Jakub Zelenka)
+  . Fixed bug GH-17345 (Bug #35916 was not completely fixed). (nielsdos)
+  . Fixed bug GH-19705 (segmentation when attempting to flush on non seekable
+    stream. (bukka/David Carlier)
+
+- XMLReader:
+  . Fixed bug GH-20009 (XMLReader leak on RelaxNG schema failure). (nielsdos)
+
+- Zip:
+  . Fixed bug GH-19688 (Remove pattern overflow in zip addGlob()). (nielsdos)
+  . Fixed bug GH-19932 (Memory leak in zip setEncryptionName()/setEncryptionIndex()).
+    (David Carlier)
+
+- Zlib:
+  . Fixed bug GH-19922 (Double free on gzopen). (David Carlier)
+
+25 Sep 2025, PHP 8.3.26
+
+- Core:
+  . Fixed bug GH-18850 (Repeated inclusion of file with __halt_compiler()
+    triggers "Constant already defined" warning). (ilutov)
+  . Partially fixed bug GH-19542 (Scanning of string literals >=2GB will fail
+    due to signed int overflow). (ilutov)
+  . Fixed bug GH-19544 (GC treats ZEND_WEAKREF_TAG_MAP references as WeakMap
+    references). (Arnaud, timwolla)
+  . Fixed bug GH-19613 (Stale array iterator pointer). (ilutov)
+  . Fixed bug GH-19679 (zend_ssa_range_widening may fail to converge). (Arnaud)
+  . Fixed bug GH-19681 (PHP_EXPAND_PATH broken with bash 5.3.0). (Remi)
+  . Fixed bug GH-19720 (Assertion failure when error handler throws when
+    accessing a deprecated constant). (nielsdos)
+
+- CLI:
+  . Fixed bug GH-19461 (Improve error message on listening error with IPv6
+    address). (alexandre-daubois)
+
+- Date:
+  . Fixed date_sunrise() and date_sunset() with partial-hour UTC offset.
+    (ilutov)
+
+- DOM:
+  . Fixed bug GH-19612 (Mitigate libxml2 tree dictionary bug). (nielsdos)
+
+- FPM:
+  . Fixed failed debug assertion when php_admin_value setting fails. (ilutov)
+
+- GD:
+  . Fixed bug GH-19579 (imagefilledellipse underflow on width argument).
+    (David Carlier)
+
+- Intl:
+  . Fixed bug GH-11952 (Fix locale strings canonicalization for IntlDateFormatter
+    and NumberFormatter). (alexandre-daubois)
+
+- OpenSSL:
+  . Fixed bug GH-19245 (Success error message on TLS stream accept failure).
+    (Jakub Zelenka)
+
+- PGSQL:
+  . Fixed bug GH-19485 (potential use after free when using persistent pgsql
+    connections). (Mark Karpeles)
+
+- Phar:
+  . Fixed memory leaks when verifying OpenSSL signature. (Girgias)
+  . Fix memory leak in phar tar temporary file error handling code. (nielsdos)
+  . Fix metadata leak when phar convert logic fails. (nielsdos)
+  . Fix memory leak on failure in phar_convert_to_other(). (nielsdos)
+  . Fixed bug GH-19752 (Phar decompression with invalid extension
+    can cause UAF). (nielsdos)
+
+- Standard:
+  . Fixed bug GH-16649 (UAF during array_splice). (alexandre-daubois)
+  . Fixed bug GH-19577 (Avoid integer overflow when using a small offset
+    and PHP_INT_MAX with LimitIterator). (alexandre-daubois)
+
+- Streams:
+  . Remove incorrect call to zval_ptr_dtor() in user_wrapper_metadata().
+    (nielsdos)
+  . Fix OSS-Fuzz #385993744. (nielsdos)
+
+- Tidy:
+  . Fixed GH-19021 build issue with libtidy in regard of tidyOptIsReadonly
+    deprecation and TidyInternalCategory being available later than
+    tidyOptGetCategory. (arjendekorte)
+
+- Zip:
+  . Fix memory leak in zip when encountering empty glob result. (nielsdos)
+
 28 Aug 2025, PHP 8.3.25
 
 - Core:

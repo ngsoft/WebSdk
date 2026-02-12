@@ -963,10 +963,21 @@ class Double_null: public Null_flag
 protected:
   double m_value;
 public:
+  Double_null()
+   :Null_flag(true), m_value(0)
+  { }
   Double_null(double value, bool is_null)
    :Null_flag(is_null), m_value(value)
   { }
+  Double_null(double value)
+   :Null_flag(false), m_value(value)
+  { }
   double value() const { return m_value; }
+  Double_null operator-() const
+  {
+    DBUG_ASSERT(!is_null());
+    return Double_null(-m_value);
+  }
 };
 
 
@@ -2270,6 +2281,9 @@ public:
   class Options: public Temporal_with_date::Options
   {
   public:
+    Options(date_conv_mode_t dmode, time_round_mode_t rmode)
+     :Temporal_with_date::Options(dmode, rmode)
+    { }
     explicit Options(date_conv_mode_t fuzzydate)
      :Temporal_with_date::Options(fuzzydate, TIME_FRAC_TRUNCATE)
     { }

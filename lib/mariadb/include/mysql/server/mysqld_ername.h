@@ -1366,3 +1366,4 @@
 { "ER_WARN_CONFLICTING_INDEX_HINT_FOR_KEY", 4239, "Hint %s is ignored as conflicting/duplicated (an index hint of the same type has already been specified for this key)" },
 { "ER_WARN_CONFLICTING_COMPOUND_INDEX_HINT_FOR_TABLE", 4240, "Hint %s is ignored as conflicting/duplicated (an index hint of the same type or opposite kind has already been specified for this table)" },
 { "ER_WARN_CONFLICTING_COMPOUND_INDEX_HINT_FOR_KEY", 4241, "Hint %s is ignored as conflicting/duplicated (an index hint of the same type or opposite kind has already been specified for the key)" },
+{ "ER_WARN_NO_IMPLICIT_QB_NAMES_IN_VIEW", 4242, "Implicit query block names are ignored for hints specified within VIEWs" },

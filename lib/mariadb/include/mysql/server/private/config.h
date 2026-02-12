@@ -506,29 +506,29 @@ this is the case with Microsoft Windows VirtualFree(MEM_DECOMMIT) */
 #define WITH_ARIA_STORAGE_ENGINE 1
 #define USE_ARIA_FOR_TMP_TABLES 1
 
-#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 12.1"
+#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 12.2"
 #define SHAREDIR "share"
-#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 12.1"
-#define MYSQL_DATADIR "C:/Program Files/MariaDB 12.1/data"
-#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 12.1"
-#define PLUGINDIR "C:/Program Files/MariaDB 12.1/lib/plugin"
+#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 12.2"
+#define MYSQL_DATADIR "C:/Program Files/MariaDB 12.2/data"
+#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 12.2"
+#define PLUGINDIR "C:/Program Files/MariaDB 12.2/lib/plugin"
 /* #undef DEFAULT_SYSCONFDIR */
 #define DEFAULT_TMPDIR P_tmpdir
 
 /* #undef SO_EXT */
 
 #define MYSQL_VERSION_MAJOR 12
-#define MYSQL_VERSION_MINOR 1
-#define MYSQL_VERSION_PATCH 2
+#define MYSQL_VERSION_MINOR 2
+#define MYSQL_VERSION_PATCH 1
 #define MYSQL_VERSION_EXTRA ""
 
 #define PACKAGE "mysql"
 #define PACKAGE_BUGREPORT ""
 #define PACKAGE_NAME "MySQL Server"
-#define PACKAGE_STRING "MySQL Server 12.1.2"
+#define PACKAGE_STRING "MySQL Server 12.2.1"
 #define PACKAGE_TARNAME "mysql"
-#define PACKAGE_VERSION "12.1.2"
-#define VERSION "12.1.2"
+#define PACKAGE_VERSION "12.2.1"
+#define VERSION "12.2.1"
 #define PROTOCOL_VERSION 10
 #define PCRE2_CODE_UNIT_WIDTH 8
 

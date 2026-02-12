@@ -93,8 +93,6 @@ class String;
 #define LOG_READ_CHECKSUM_FAILURE -8
 #define LOG_READ_DECRYPT -9
 
-#define LOG_EVENT_OFFSET 4
-
 /*
    3 is MySQL 4.x; 4 is MySQL 5.0.0.
    Compared to version 3, version 4 has:
@@ -840,6 +838,7 @@ class THD;
 class Format_description_log_event;
 class Relay_log_info;
 class binlog_cache_data;
+struct RPL_TABLE_LIST;
 
 bool copy_event_cache_to_file_and_reinit(IO_CACHE *cache, FILE *file);
 
@@ -4521,8 +4520,6 @@ public:
   bool print(FILE *file, PRINT_EVENT_INFO *print_event_info) override;
 #endif
 
-  table_def get_table_def();
-
 private:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   int do_apply_event(rpl_group_info *rgi) override;
@@ -4600,6 +4597,7 @@ private:
   uchar         *m_meta_memory;
   unsigned int   m_optional_metadata_len;
   unsigned char *m_optional_metadata;
+  friend RPL_TABLE_LIST;
 };
 
 
@@ -4843,8 +4841,6 @@ protected:
   */
   MY_BITMAP   m_cols_ai;
 
-  ulong       m_master_reclength; /* Length of record on master side */
-
   /* Bit buffers in the same memory as the class */
   my_bitmap_map  m_bitbuf[128/(sizeof(my_bitmap_map)*8)];
   my_bitmap_map  m_bitbuf_ai[128/(sizeof(my_bitmap_map)*8)];
@@ -4937,7 +4933,7 @@ protected:
 
     ASSERT_OR_RETURN_ERROR(m_curr_row <= m_rows_end, HA_ERR_CORRUPT_EVENT);
     return ::unpack_row(rgi, m_table, m_width, m_curr_row, cols,
-                        &m_curr_row_end, &m_master_reclength, m_rows_end);
+                        &m_curr_row_end, m_rows_end);
   }
 
   // Unpack the current row into m_table->record[0]
@@ -4947,7 +4943,7 @@ protected:
 
     ASSERT_OR_RETURN_ERROR(m_curr_row <= m_rows_end, HA_ERR_CORRUPT_EVENT);
     return ::unpack_row(rgi, m_table, m_width, m_curr_row, &m_cols,
-                        &m_curr_row_end, &m_master_reclength, m_rows_end);
+                        &m_curr_row_end, m_rows_end);
   }
   bool process_triggers(trg_event_type event, trg_action_time_type time_type,
                         bool old_row_is_record1, bool *skip_row_indicator);

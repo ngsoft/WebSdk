@@ -31,6 +31,7 @@ lib/pgs*/
 /etc/.*
 lib/laravel
 lib/php-cs-fixer
+lib/Downloads
 
 # dev versions tests and sql exports
 *.sql.gz

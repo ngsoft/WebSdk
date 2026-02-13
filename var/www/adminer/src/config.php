@@ -28,7 +28,9 @@ Config::setItem('ADMINER_DATABASE_FILTER', true);
 Config::setItem('ADMINER_THEME_SWITCH', true);
 Config::setItem('ADMINER_PHP_INFO', true);
 Config::setItem('ADMINER_ADMIN_PAGE', true);
-Config::setItem('ADMINER_ENUM_FOREIGN_LIMIT', 0); // unlimited
-Config::setItem('ADMINER_ENUM_OPTIONS', true);
+Config::setItem('ADMINER_ENUM_OPTIONS', false);
+Config::setItem('ADMINER_ENUM_FOREIGN_LIMIT', 20); // 0 => unlimited
 Config::setItem('ADMINER_FOREIGN_LINKS', true);
 Config::setItem('ADMINER_AUTOCOMPLETE_QUERY', true);
+Config::setItem('ADMINER_VERSION_GITHUB', false);
+Config::setItem('ADMINER_VERSION_CHECK', false);

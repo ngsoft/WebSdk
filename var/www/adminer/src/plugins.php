@@ -16,6 +16,8 @@ use Adminer\AdminerLoginIp;
 use Adminer\AdminerLoginServers;
 use Adminer\AdminerPrettyJsonColumn;
 use Adminer\AdminerTablesFilter;
+use Adminer\AdminerVersionGithub;
+use Adminer\AdminerVersionNoverify;
 use Adminer\Config;
 use Adminer\ThemeSwitcher;
 
@@ -34,7 +36,9 @@ $plugins[] = new ThemeSwitcher(
     Config::getItem('ADMINER_PHP_INFO', true),
     Config::getItem('ADMINER_ADMIN_PAGE', false)
 );
-if (Config::getItem('ADMINER_ENUM_OPTIONS')) {
+
+
+if (Config::getItem('ADMINER_ENUM_OPTIONS', false)) {
     $plugins[] = new AdminerEnumOption();
 }
 
@@ -57,6 +61,13 @@ if (Config::getItem('ADMINER_EXTRA_DUMP_FORMATS')) {
             $plugins[] = new $format_loaders[$dump_format]();
         }
     }
+}
+
+
+if (Config::getItem('ADMINER_VERSION_GITHUB')) {
+    $plugins[] = new AdminerVersionGithub();
+} elseif (!Config::getItem('ADMINER_VERSION_CHECK')) {
+    $plugins[] = new AdminerVersionNoverify();
 }
 
 

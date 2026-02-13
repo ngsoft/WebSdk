@@ -192,7 +192,7 @@
             "name": "adm",
             "label": "Lancer Adminer",
             "start": [
-                "cmd.exe /C start  http://localhost/adminer/"
+                "cmd.exe /C start  http://localhost/adminer/?server=MySql&username=root"
             ],
             "visible": [
                 "!off",

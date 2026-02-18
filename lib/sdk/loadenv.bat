@@ -29,7 +29,7 @@ set "php=%php82%"
 set "pyversion=3.13.7"
 set "py3=%lib%pyenv\versions\%pyversion%\"
 @REM go
-set "goversion=1.24.7"
+set "goversion=1.25.7"
 set "gvm=%lib%gvm\"
 set "go=%lib%go\"
 set "ca=%lib%ca\"

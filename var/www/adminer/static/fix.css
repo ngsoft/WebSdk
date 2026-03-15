@@ -4,6 +4,7 @@
     background: transparent !important;
 }
 
+
 [data-fix] #dbs {
     min-width: auto;
     width: 100%;
@@ -11,6 +12,7 @@
     input#menu_db {
         min-width: auto;
     }
+
 }
 
 [data-fix] #content .plugins,

@@ -2,81 +2,92 @@
 
 namespace Adminer;
 
-/** Dump to JSON format
- * @link https://www.adminer.org/plugins/#use
+/** Dump to JSON format.
+ * @see https://www.adminer.org/plugins/#use
+ *
  * @author Jakub Vrana, https://www.vrana.cz/
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
 class AdminerDumpJson
 {
-    /** @access protected */
-    var $database = false;
+    public $database = false;
 
-
-    function dumpFormat()
+    public function dumpFormat()
     {
-        return array('json' => 'JSON');
+        return ['json' => 'JSON'];
     }
 
-    function dumpTable($table, $style, $is_view = 0)
+    public function dumpTable($table, $style, $is_view = 0)
     {
-        if ($_POST["format"] == "json") {
+        if ('json' == $_POST['format'])
+        {
             return true;
         }
     }
 
-    function _database()
+    public function _database()
     {
         echo "}\n";
     }
 
-    function dumpData($table, $style, $query)
+    public function dumpData($table, $style, $query)
     {
-        if ($_POST["format"] == "json") {
-            if ($this->database) {
+        if ('json' == $_POST['format'])
+        {
+            if ($this->database)
+            {
                 echo ",\n";
-            } else {
+            } else
+            {
                 $this->database = true;
                 echo "{\n";
-                register_shutdown_function(array($this, '_database'));
+                register_shutdown_function([$this, '_database']);
             }
             $connection = connection();
-            $result = $connection->query($query, 1);
-            if ($result) {
+            $result     = $connection->query($query, 1);
+
+            if ($result)
+            {
                 echo '"' . addcslashes($table, "\r\n\"\\") . "\": [\n";
                 $first = true;
-                while ($row = $result->fetch_assoc()) {
-                    echo($first ? "" : ", ");
+
+                while ($row = $result->fetch_assoc())
+                {
+                    echo $first ? '' : ', ';
                     $first = false;
-                    foreach ($row as $key => $val) {
+
+                    foreach ($row as $key => $val)
+                    {
                         json_row($key, $val);
                     }
-                    json_row("");
+                    json_row('');
                 }
-                echo "]";
+                echo ']';
             }
             return true;
+        }
+    }
+
+    public function dumpHeaders($identifier, $multi_table = false)
+    {
+        if ('json' == $_POST['format'])
+        {
+            header('Content-Type: application/json; charset=utf-8');
+            return $this->checkOutput('json');
         }
     }
 
     private function checkOutput($ext)
     {
-
-        if ($_POST["output"] === 'gz') {
+        if ('gz' === $_POST['output'])
+        {
             header('Content-Type: application/x-gzip; charset=utf-8');
-            ob_start(function ($string) {
+            ob_start(function ($string)
+            {
                 return gzencode($string);
             }, 1e6);
         }
         return $ext;
-    }
-
-    function dumpHeaders($identifier, $multi_table = false)
-    {
-        if ($_POST["format"] == "json") {
-            header("Content-Type: application/json; charset=utf-8");
-            return $this->checkOutput("json");
-        }
     }
 }

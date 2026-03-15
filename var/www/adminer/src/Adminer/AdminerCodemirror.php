@@ -2,9 +2,10 @@
 
 namespace Adminer;
 
-/** Use Codemirror 5 for syntax highlighting and SQL <textarea> including type-ahead of keywords and tables
- * @link https://codemirror.net/5/
- * @link https://www.adminer.org/plugins/#use
+/** Use Codemirror 5 for syntax highlighting and SQL <textarea> including type-ahead of keywords and tables.
+ * @see https://codemirror.net/5/
+ * @see https://www.adminer.org/plugins/#use
+ *
  * @author Jakub Vrana, https://www.vrana.cz/
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
@@ -13,14 +14,13 @@ class AdminerCodemirror
 {
     private $root = 'codemirror5';
 
-
-    function syntaxHighlighting($tableStatuses)
+    public function syntaxHighlighting($tableStatuses)
     {
         $connection = connection();
         ?>
         <style>
-            @import url(<?= asset("{$this->root}/lib/codemirror.css") ?>);
-            @import url(<?= asset("{$this->root}/addon/hint/show-hint.css") ?>);
+            @import url(<?= asset("{$this->root}/lib/codemirror.css"); ?>);
+            @import url(<?= asset("{$this->root}/addon/hint/show-hint.css"); ?>);
 
             .CodeMirror {
                 border: 1px inset #ccc;
@@ -32,24 +32,29 @@ class AdminerCodemirror
         echo script_src(asset("{$this->root}/addon/runmode/runmode.js"));
         echo script_src(asset("{$this->root}/addon/hint/show-hint.js"));
         echo script_src(asset("{$this->root}/mode/javascript/javascript.js"));
-        if (support("sql")) {
+
+        if (support('sql'))
+        {
             echo script_src(asset("{$this->root}/mode/sql/sql.js"));
             echo script_src(asset("{$this->root}/addon/hint/sql-hint.js"));
         }
-        $tables = array();
-        foreach ($tableStatuses as $status) {
-            foreach (fields($status["Name"]) as $name => $field) {
-                $tables[$status["Name"]][] = $name;
+        $tables     = [];
+
+        foreach ($tableStatuses as $status)
+        {
+            foreach (fields($status['Name']) as $name => $field)
+            {
+                $tables[$status['Name']][] = $name;
             }
         }
         ?>
-        <script <?php echo nonce(); ?>>
+        <script <?= nonce(); ?>>
             function getCmMode(el) {
                 const match = el.className.match(/(^|\s)jush-([^ ]+)/);
                 if (match) {
                     const modes = {
                         js: 'application/json',
-                        sql: 'text/x-<?php echo($connection->flavor == "maria" ? "mariadb" : "mysql"); ?>',
+                        sql: 'text/x-<?= 'maria' == $connection->flavor ? 'mariadb' : 'mysql'; ?>',
                         oracle: 'text/x-sql',
                         clickhouse: 'text/x-sql',
                         firebird: 'text/x-sql'
@@ -78,8 +83,8 @@ class AdminerCodemirror
                         },
                         hintOptions: {
                             completeSingle: false,
-                            tables: <?php echo json_encode($tables); ?>,
-                            defaultTable: <?php echo json_encode($_GET["trigger"] ? $_GET["trigger"] : ($_GET["check"] ? $_GET["check"] : null)); ?>
+                            tables: <?= json_encode($tables); ?>,
+                            defaultTable: <?= json_encode($_GET['trigger'] ? $_GET['trigger'] : ($_GET['check'] ? $_GET['check'] : null)); ?>
                         }
                     });
                     cm.setSize(width, height);

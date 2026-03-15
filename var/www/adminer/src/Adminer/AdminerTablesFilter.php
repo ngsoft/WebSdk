@@ -1,16 +1,25 @@
 <?php
 
-
 namespace Adminer;
-/** Filter names in tables list
- * @link https://www.adminer.org/plugins/#use
+
+/** Filter names in tables list.
+ * @see https://www.adminer.org/plugins/#use
+ *
  * @author Jakub Vrana, https://www.vrana.cz/
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
 class AdminerTablesFilter
 {
-    function tablesPrint($tables)
+    protected $translations = [
+        'cs' => ['' => 'Filtruje názvy v seznamu tabulek'],
+        'de' => ['' => 'Filtern Sie Namen in der Tabellenliste'],
+        'pl' => ['' => 'Filtruj nazwy na liście tabel'],
+        'ro' => ['' => 'Nume de filtre în lista de tabele'],
+        'ja' => ['' => 'テーブル一覧をテーブル名でフィルタリング'],
+    ];
+
+    public function tablesPrint($tables)
     {
         ?>
         <script<?= nonce(); ?>>
@@ -70,7 +79,7 @@ class AdminerTablesFilter
 
 
         </script>
-        <style <?= nonce() ?>>
+        <style <?= nonce(); ?>>
             .js-only {
                 padding: 4px 8px;
                 display: flex;
@@ -91,12 +100,4 @@ class AdminerTablesFilter
                    type="search"></p>
         <?php echo script("qs('#filter-field').oninput = tablesFilterInput;");
     }
-
-    protected $translations = array(
-        'cs' => array('' => 'Filtruje názvy v seznamu tabulek'),
-        'de' => array('' => 'Filtern Sie Namen in der Tabellenliste'),
-        'pl' => array('' => 'Filtruj nazwy na liście tabel'),
-        'ro' => array('' => 'Nume de filtre în lista de tabele'),
-        'ja' => array('' => 'テーブル一覧をテーブル名でフィルタリング'),
-    );
 }

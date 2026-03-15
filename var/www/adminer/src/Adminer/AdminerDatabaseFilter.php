@@ -3,19 +3,16 @@
 namespace Adminer;
 
 /**
- * Use tom-select filter databases
+ * Use tom-select filter databases.
  */
 class AdminerDatabaseFilter extends TomSelectAdapter
 {
-
-
-    function head()
+    public function head()
     {
-
         $this->loadBase();
         $this->loadTheme('custom'); ?>
 
-        <style <?= nonce() ?>>
+        <style <?= nonce(); ?>>
             #menu #dbs[data-filter="true"] {
                 overflow: initial !important;
                 padding: 0 !important;
@@ -34,7 +31,7 @@ class AdminerDatabaseFilter extends TomSelectAdapter
                 }
             }
         </style>
-        <script <?= nonce() ?> type="module">
+        <script <?= nonce(); ?> type="module">
             const select = qs(`#dbs select[name="db"]`);
             if (select) {
                 select.classList.remove('form-select', 'form-select-sm');
@@ -46,9 +43,9 @@ class AdminerDatabaseFilter extends TomSelectAdapter
         <?php
         $this->attachSelect('#dbs select[name="db"]', [
             'placeholder' => 'Database',
-            'maxItems' => 1,
-            'maxOptions' => null,
-            'plugins' => ['change_listener']
+            'maxItems'    => 1,
+            'maxOptions'  => null,
+            'plugins'     => ['change_listener'],
         ]);
     }
 }

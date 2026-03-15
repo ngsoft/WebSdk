@@ -1,19 +1,27 @@
 <?php
 
 namespace Adminer;
-/** Verify new versions from GitHub
- * @link https://www.adminer.org/plugins/#use
+
+/** Verify new versions from GitHub.
+ * @see https://www.adminer.org/plugins/#use
+ *
  * @author Jakub Vrana, https://www.vrana.cz/
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
 class AdminerVersionGithub
 {
+    protected $translations = [
+        'cs' => ['' => 'Kontrola nových verzí z GitHubu'],
+        'de' => ['' => 'Neue Versionen von GitHub verifizieren'],
+        'ja' => ['' => 'GitHub の新版を管理'],
+        'pl' => ['' => 'Weryfikuj nowe wersje z GitHuba'],
+    ];
 
-    function head($dark = null)
+    public function head($dark = null)
     {
         ?>
-        <script <?php echo nonce(); ?>>
+        <script <?= nonce(); ?>>
             verifyVersion = current => {
                 // dummy value to prevent repeated verifications after AJAX failure
                 cookie('adminer_version=0', 1);
@@ -28,15 +36,8 @@ class AdminerVersionGithub
         <?php
     }
 
-    function csp(&$csp)
+    public function csp(&$csp)
     {
-        $csp[0]["connect-src"] .= " https://api.github.com/repos/vrana/adminer/releases/latest";
+        $csp[0]['connect-src'] .= ' https://api.github.com/repos/vrana/adminer/releases/latest';
     }
-
-    protected $translations = array(
-        'cs' => array('' => 'Kontrola nových verzí z GitHubu'),
-        'de' => array('' => 'Neue Versionen von GitHub verifizieren'),
-        'ja' => array('' => 'GitHub の新版を管理'),
-        'pl' => array('' => 'Weryfikuj nowe wersje z GitHuba'),
-    );
 }

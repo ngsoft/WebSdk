@@ -2,7 +2,4 @@
 
 namespace Adminer;
 
-
-class AdminerPlugin extends Plugins
-{
-}
+class AdminerPlugin extends Plugins {}

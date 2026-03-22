@@ -25,6 +25,7 @@ pushd "%pgdb%"
     ) else (
         set starting=true
         call "%~dp0\stop-pg.bat"
+        %WINDIR%\System32\timeout.exe /T 10 /NOBREAK  > NUL 2>&1
     )
     call .\env.bat
     "%daemonize%" "%pgversion%\bin\pg_ctl.exe" -D "%PGDATA%" -l "%pgdb%\%pgversion%\logs\pgsql.log" start

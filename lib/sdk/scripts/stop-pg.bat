@@ -17,7 +17,7 @@ goto :eof
 pushd "%pgdb%"
     call .\env.bat
     %pgversion%\bin\pg_ctl.exe -D "%PGDATA%" stop > NUL 2>&1
-    if "%starting%" == "true" (
-        %WINDIR%\System32\timeout.exe /T 5 /NOBREAK  > NUL 2>&1
-    )
+    @REM if "%starting%" == "true" (
+    @REM     %WINDIR%\System32\timeout.exe /T 5 /NOBREAK  > NUL 2>&1
+    @REM )
 popd

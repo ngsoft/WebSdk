@@ -25,11 +25,11 @@ class AdminerColorFields
 
     private static function isHex($input)
     {
-        return preg_match('~^#?([0-9a-fA-F]{3}){1,2}$~', $input);
+        return preg_match('~^#([0-9a-fA-F]{3}){1,2}$~', $input);
     }
 
     private static function isRGBa($input)
     {
-        return preg_match('~^rgba?\\((\\d+),\\h*(\\d+),\\h*(\\d+)(,\\h*(\\d+))?\\)$~', $input);
+        return preg_match('~^rgba?\((\d+),\h*(\d+),\h*(\d+)(,\h*(\d+))?\)$~', $input);
     }
 }

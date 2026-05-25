@@ -1,6 +1,6 @@
 @echo off
 
-setlocal 
+setlocal
 call "%~dp0..\sdk\loadenv.bat"
 
 @REM Checks UAC

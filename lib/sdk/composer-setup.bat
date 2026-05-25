@@ -92,7 +92,7 @@ call :set_config COMPOSER_LTS_HOME "%etc%composer-lts"
 call :add_env "%varname%" "%varpath%"
 set "COMPOSER_HOME=%varpath%"
 echo Running composer-lts global install...
-%php55%php.exe %sdk%composer-lts.phar global install
+%php56%php.exe %sdk%composer-lts.phar global install
 
 
 @REM Install Adminer Autoloader

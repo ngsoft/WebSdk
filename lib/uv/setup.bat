@@ -72,7 +72,6 @@ goto main
         echo Installing/Updating essential modules ...
         "%pyuv%\python.exe" -m pip install --upgrade pip virtualenv pyinstaller pipupgrade --no-warn-script-location --break-system-packages
     )
-    pause
     exit /b
 )
 

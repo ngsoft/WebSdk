@@ -65,7 +65,7 @@ pushd "%~dp0"
 popd
 
 @REM Setup Python
-pushd "%lib%pyenv"
+pushd "%lib%uv"
     call setup.bat
 popd
 

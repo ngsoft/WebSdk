@@ -26,8 +26,9 @@ set "php74=%lib%php\7.4\"
 set "php56=%lib%php\5.6\"
 set "php=%php82%"
 @REM python
-set "pyversion=3.13.7"
+set "pyversion=3.14"
 set "py3=%lib%pyenv\versions\%pyversion%\"
+set "pyuv=%lib%uv\packages\cpython-%pyversion%-windows-x86_64-none"
 @REM go
 set "goversion=1.25.7"
 set "gvm=%lib%gvm\"

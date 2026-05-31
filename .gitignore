@@ -36,3 +36,5 @@ lib/Downloads
 # dev versions tests and sql exports
 *.sql.gz
 lib/php/[5-9].[0-9].*/
+/.claude
+/CLAUDE.md

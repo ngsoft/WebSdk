@@ -9,4 +9,10 @@ pushd "%~dp0"
     if ERRORLEVEL 1 (
         copy /y cacert.prev.pem cacert.pem > NUL 2>&1
     )
+    if exist "..\ca\minica.pem" (
+        echo.>> cacert.pem
+        echo MiniCA Authority >> cacert.pem
+        echo ==================================== >> cacert.pem
+        type "..\ca\minica.pem" >> cacert.pem
+    )
 popd

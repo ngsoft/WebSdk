@@ -3,7 +3,7 @@
 use Adminer\Config;
 
 Config::setItem('ADMINER_DEV', false);
-Config::setItem('ADMINER_VERSION', '5.4.2');
+Config::setItem('ADMINER_VERSION', '5.5.0');
 Config::setItem('HIDE_DATABASES', ['sys', 'mysql', 'information_schema', 'performance_schema']);
 Config::setItem('ADMINER_ACL', ['127.0', '192.168', '::1']);
 Config::setItem('ADMINER_TRUSTED_PROXY', []);

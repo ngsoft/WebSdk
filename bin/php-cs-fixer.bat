@@ -32,12 +32,19 @@ if not exist "%runtime%" exit /b 1
 if not exist "%runtime%" call :install
 if [%~1] == [update] goto update
 
-if exist composer.json if not exist "%config_file%" if [setup] == [%~1] (
-    copy "%template_file%" "%config_file%" > NUL
-    echo %config_file% has been generated from template, please review it.
-    if not exist "%runtime_detect%" call "%~dp0composer.bat" --dev require friendsofphp/php-cs-fixer
-    exit /b
+
+if [setup] == [%~1] (
+    if exist composer.json if not exist "%config_file%" (
+        copy "%template_file%" "%config_file%" > NUL
+        echo %config_file% has been generated from template, please review it.
+        if not exist "%runtime_detect%" call "%~dp0composer.bat" --dev require friendsofphp/php-cs-fixer
+        exit /b
+    )
+    echo cannot setup php-cs-fixer, composer.json not present or %config_file% exists.
+    exit /b 1
 )
+
+
 
 setlocal DISABLEDELAYEDEXPANSION
 SET BIN_TARGET=%runtime%

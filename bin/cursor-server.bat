@@ -6,7 +6,7 @@ set CURSOR_BRIDGE_USE_ACP=true
 set CURSOR_AGENT_BIN=%LOCALAPPDATA%\cursor-agent\agent.cmd
 if exist "%CURSOR_AGENT_BIN%"  (
     if not defined CURSOR_API_KEY (
-        "%CURSOR_AGENT_BIN%" login
+        call "%CURSOR_AGENT_BIN%" login
     )
     npx cursor-api-proxy --tailscale
 )

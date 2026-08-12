@@ -33,29 +33,34 @@ class AdminerLoginIp
             return null;
         }
 
-        // return null to use next plugin login
-        foreach ($this->ips as $ip)
-        {
-            if (0 == strncasecmp($_SERVER['REMOTE_ADDR'], $ip, strlen($ip)))
-            {
-                if ( ! $this->forwarded_for)
-                {
-                    return null;
-                }
+        // a proxy appends the client to X-Forwarded-For, the preceding values are sent by the client itself
+        $forwarded_for = preg_replace('~.*, *~', '', strval($_SERVER['HTTP_X_FORWARDED_FOR'] ?: ''));
 
-                if ($_SERVER['HTTP_X_FORWARDED_FOR'])
-                {
-                    foreach ($this->forwarded_for as $forwarded_for)
-                    {
-                        if (0 == strncasecmp(preg_replace('~.*, *~', '', $_SERVER['HTTP_X_FORWARDED_FOR']), $forwarded_for, strlen($forwarded_for)))
-                        {
-                            return null;
-                        }
-                    }
-                }
-            }
+        // return null to use next plugin login
+        if ($this->matchPrefix($_SERVER['REMOTE_ADDR'], $this->ips)
+            && ( ! $this->forwarded_for || $this->matchPrefix($forwarded_for, $this->forwarded_for)))
+        {
+            return null;
         }
         // return false to block login
+        return false;
+    }
+
+    /** Check if the value begins with one of the prefixes.
+     * @param array $prefixes
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    private function matchPrefix($value, array $prefixes)
+    {
+        foreach ($prefixes as $prefix)
+        {
+            if (0 == strncasecmp(strval($value), $prefix, strlen($prefix)))
+            {
+                return true;
+            }
+        }
         return false;
     }
 }

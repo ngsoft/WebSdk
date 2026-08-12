@@ -253,7 +253,7 @@ class AdminerLoginServers
         {
             $user = $_GET['username'];
         }
-        return [$this->servers[SERVER]['server'], $user, get_password()];
+        return [idx(idx($this->servers, SERVER), 'server'), $user, get_password()];
     }
 
     public function login($login, $password)
@@ -270,13 +270,16 @@ class AdminerLoginServers
             return password_verify($password, $this->passwordHashes[$driver]);
         }
 
-        // password-less drivers
+        // password-less drivers / ADMINER_PASSWORDLESS
         if (empty($password))
         {
             return isset(self::$passwordLess[$driver]) || $this->passwordEmpty;
         }
-
-        return null;
+        // Non-empty auth[password]: must accept here. Adminer's default login()
+        // returns an error when password_required() is false (e.g. PostgreSQL trust
+        // auth), even if a password was submitted — so returning null would ignore it.
+        // The real DB credential check still happens in connect via credentials().
+        return true;
     }
 
     /** @noinspection HtmlUnknownAttribute */
@@ -543,7 +546,7 @@ class AdminerLoginServers
                             let name = serverSelect.value,
                                 driver = servers[name]["driver"],
                                 hideUser = canHideUser.includes(driver),
-                                hidePass = canHidePass[driver] ?? false;
+                                hidePass = canHidePass[driver] ? : false;
 
                             userForm.querySelector("input").value = passForm.querySelector("input").value = "";
                             userForm.style.display = hideUser ? "none" : null;

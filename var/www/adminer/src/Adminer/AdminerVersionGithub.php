@@ -16,13 +16,14 @@ class AdminerVersionGithub
         'de' => ['' => 'Neue Versionen von GitHub verifizieren'],
         'ja' => ['' => 'GitHub の新版を管理'],
         'pl' => ['' => 'Weryfikuj nowe wersje z GitHuba'],
+        'hr' => ['' => 'Provjera novih verzija s GitHuba'],
     ];
 
     public function head($dark = null)
     {
         ?>
         <script <?= nonce(); ?>>
-            verifyVersion = current => {
+            verifyVersion = () => {
                 // dummy value to prevent repeated verifications after AJAX failure
                 cookie('adminer_version=0', 1);
                 ajax('https://api.github.com/repos/vrana/adminer/releases/latest', request => {

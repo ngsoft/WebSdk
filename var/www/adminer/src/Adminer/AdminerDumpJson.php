@@ -26,12 +26,7 @@ class AdminerDumpJson
         }
     }
 
-    public function _database()
-    {
-        echo "}\n";
-    }
-
-    public function dumpData($table, $style, $query)
+    public function dumpData($table, $style, $query, $select = [], $where = [], $group = [], $order = [])
     {
         if ('json' == $_POST['format'])
         {
@@ -42,10 +37,12 @@ class AdminerDumpJson
             {
                 $this->database = true;
                 echo "{\n";
-                register_shutdown_function([$this, '_database']);
             }
-            $connection = connection();
-            $result     = $connection->query($query, 1);
+            $result = (
+                '' != $query
+                ? connection()->query($query, 1) // 1 - MYSQLI_USE_RESULT
+                : driver()->select($table, $select ?: ['*'], $where, $group, $order, 0) // 0 - all rows
+            );
 
             if ($result)
             {
@@ -75,6 +72,14 @@ class AdminerDumpJson
         {
             header('Content-Type: application/json; charset=utf-8');
             return $this->checkOutput('json');
+        }
+    }
+
+    public function dumpFooter()
+    {
+        if ('json' == $_POST['format'] && $this->database)
+        {
+            echo "}\n";
         }
     }
 

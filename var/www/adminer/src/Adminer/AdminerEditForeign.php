@@ -19,6 +19,7 @@ class AdminerEditForeign
         'pl' => ['' => 'Wybierz klucz obcy w formularzu edycji'],
         'ro' => ['' => 'Selectați cheia străină în formularul de editare'],
         'ja' => ['' => '外部キーを編集フォームで選択'],
+        'hr' => ['' => 'Odabir stranog ključa u obrascu za uređivanje'],
     ];
 
     public function __construct($limit = 0)
@@ -53,7 +54,9 @@ class AdminerEditForeign
                     {
                         $column = "HEX({$column})";
                     }
-                    $options = ['' => ''] + get_vals("SELECT {$column} FROM " . table($target) . ' ORDER BY 1' . ($this->limit ? ' LIMIT ' . ($this->limit + 1) : ''));
+                    $options = ['' => ''] + get_vals("SELECT {$column} FROM "
+                        . (empty($foreignKey['ns']) ? '' : idf_escape($foreignKey['ns']) . '.') . idf_escape($target)
+                        . ' ORDER BY 1' . ($this->limit ? ' LIMIT ' . ($this->limit + 1) : ''));
 
                     if ($this->limit && count($options) - 1 > $this->limit)
                     {

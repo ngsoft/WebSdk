@@ -12,11 +12,18 @@ namespace Adminer;
 class AdminerTablesFilter
 {
     protected $translations = [
-        'cs' => ['' => 'Filtruje názvy v seznamu tabulek'],
+        'cs' => [
+            ''       => 'Filtruje názvy v seznamu tabulek',
+            'Filter' => 'Filtr',
+        ],
         'de' => ['' => 'Filtern Sie Namen in der Tabellenliste'],
         'pl' => ['' => 'Filtruj nazwy na liście tabel'],
         'ro' => ['' => 'Nume de filtre în lista de tabele'],
         'ja' => ['' => 'テーブル一覧をテーブル名でフィルタリング'],
+        'hr' => [
+            ''       => 'Filtriranje tablice prema imenu',
+            'Filter' => 'Filtar',
+        ],
     ];
 
     public function tablesPrint($tables)

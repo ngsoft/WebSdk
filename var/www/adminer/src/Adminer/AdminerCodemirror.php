@@ -12,7 +12,14 @@ namespace Adminer;
  */
 class AdminerCodemirror
 {
-    private $root = 'codemirror5';
+    protected $translations = [
+        'cs' => ['' => 'Použít CodeMirror 5 pro zvýrazňování syntaxe a <textarea> včetně našeptávání klíčových slov a tabulek'],
+        'de' => ['' => 'CodeMirror 5 verwenden für die Syntaxhervorhebung und <textarea> einschließlich der Überschrift von Schlüsselwörtern und Tabellen'],
+        'ja' => ['' => 'CodeMirror 5 を用い、キーワードやテーブルを含む構文や <textarea> を強調表示'],
+        'pl' => ['' => 'Użyj CodeMirror 5 do podświetlania składni i <textarea>, uwzględniając wcześniejsze wpisywanie słów kluczowych i tabel'],
+        'hr' => ['' => 'Koristi CodeMirror 5 za isticanje sintakse i <textarea>, uključujući dovršavanje ključnih riječi i tablica'],
+    ];
+    private $root           = 'codemirror5';
 
     public function syntaxHighlighting($tableStatuses)
     {

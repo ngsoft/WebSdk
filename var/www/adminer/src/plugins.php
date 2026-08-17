@@ -16,6 +16,7 @@ use Adminer\AdminerJsonColumn;
 use Adminer\AdminerLoginIp;
 use Adminer\AdminerLoginServers;
 use Adminer\AdminerPrettyJsonColumn;
+use Adminer\AdminerSelectModifyHeader;
 use Adminer\AdminerTablesFilter;
 use Adminer\AdminerVersionGithub;
 use Adminer\AdminerVersionNoverify;
@@ -105,6 +106,11 @@ if (Config::getItem('ADMINER_TABLE_FILTER'))
 if (Config::getItem('ADMINER_DATABASE_FILTER'))
 {
     $plugins[] = new AdminerDatabaseFilter();
+}
+
+if (Config::getItem('ADMINER_SELECT_MODIFY_HEADER'))
+{
+    $plugins[] = new AdminerSelectModifyHeader();
 }
 
 $plugins[]      = new AdminerDatabaseHide(Config::getItem('HIDE_DATABASES', []));

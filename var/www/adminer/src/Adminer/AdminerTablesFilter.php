@@ -87,7 +87,8 @@ class AdminerTablesFilter
 
         </script>
         <style <?= nonce(); ?>>
-            .js-only {
+            /* jsonly is hidden by the core without JavaScript, tables-filter carries the layout - it must not leak to the other jsonly elements */
+            .tables-filter {
                 padding: 4px 8px;
                 display: flex;
                 justify-content: flex-start;
@@ -101,7 +102,7 @@ class AdminerTablesFilter
                 }
             }
         </style>
-        <p class="js-only">
+        <p class="jsonly tables-filter">
             <label for="filter-field"></label>
             <input placeholder="Search table" value="" id="filter-field" autocomplete="off"
                    type="search"></p>

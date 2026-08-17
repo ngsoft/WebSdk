@@ -52,6 +52,15 @@ class AdminerLoginServers
 
     protected $passwordHashes      = [];
 
+    protected $translations        = [
+        'cs' => ['' => 'V přihlašovacím formuláři zobrazuje předdefinovaný seznam serverů'],
+        'de' => ['' => 'Anzeige einer konstanten Serverliste im Anmeldeformular'],
+        'pl' => ['' => 'Wyświetlaj stałą listę serwerów w formularzu logowania'],
+        'ro' => ['' => 'Afișarea unei liste constante de servere în formularul de conectare'],
+        'ja' => ['' => 'ログイン画面に定義済のサーバリストを表示'],
+        'hr' => ['' => 'Prikazuje konstantan popis poslužitelja u obrascu za prijavu'],
+    ];
+
     /** Set supported servers.
      * @param array<int|string,array{driver:null|string,name:null|string,server:null|string}|string> $servers       array($description => array("server" => "127.0.0.1", "driver" => "server|pgsql|sqlite|..."))
      * @param string|string[]                                                                        $defaultDriver

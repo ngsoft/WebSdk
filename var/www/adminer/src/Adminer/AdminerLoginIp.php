@@ -11,9 +11,18 @@ namespace Adminer;
  */
 class AdminerLoginIp
 {
-    public $ips           = [];
+    public $ips             = [];
 
-    public $forwarded_for = [];
+    public $forwarded_for   = [];
+
+    protected $translations = [
+        'cs' => ['' => 'Zkontroluje IP adresu a povolí prázdné heslo'],
+        'de' => ['' => 'Überprüft die IP-Adresse und lässt ein leeres Passwort zu'],
+        'pl' => ['' => 'Sprawdzaj adres IP i zezwakaj na puste hasło'],
+        'ro' => ['' => 'Verificați adresa IP și permiteți parola goală'],
+        'ja' => ['' => 'IP アドレスの確認、及び空パスワードの許可'],
+        'hr' => ['' => 'Provjerava IP adresu i dopušta praznu lozinku'],
+    ];
 
     /** Set allowed IP addresses.
      * @param array $ips           IP address prefixes

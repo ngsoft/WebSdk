@@ -11,7 +11,16 @@ namespace Adminer;
  */
 class AdminerDumpJson
 {
-    public $database = false;
+    public $database        = false;
+
+    protected $translations = [
+        'cs' => ['' => 'Export do formátu JSON'],
+        'de' => ['' => 'Export im JSON-Format'],
+        'pl' => ['' => 'Zrzuć do formatu JSON'],
+        'ro' => ['' => 'Dump în format JSON'],
+        'ja' => ['' => 'JSON 形式でエクスポート'],
+        'hr' => ['' => 'Izvoz u JSON format'],
+    ];
 
     public function dumpFormat()
     {

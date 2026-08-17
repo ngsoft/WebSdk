@@ -3,7 +3,7 @@
 use Adminer\Config;
 
 Config::setItem('ADMINER_DEV', false);
-Config::setItem('ADMINER_VERSION', '6.0.0');
+Config::setItem('ADMINER_VERSION', '6.0.1');
 Config::setItem('HIDE_DATABASES', ['sys', 'mysql', 'information_schema', 'performance_schema']);
 Config::setItem('ADMINER_ACL', ['127.0', '192.168', '::1']);
 Config::setItem('ADMINER_TRUSTED_PROXY', []);
@@ -33,3 +33,4 @@ Config::setItem('ADMINER_FOREIGN_LINKS', true);
 Config::setItem('ADMINER_AUTOCOMPLETE_QUERY', true);
 Config::setItem('ADMINER_VERSION_GITHUB', false);
 Config::setItem('ADMINER_VERSION_CHECK', false);
+Config::setItem('ADMINER_SELECT_MODIFY_HEADER', true);

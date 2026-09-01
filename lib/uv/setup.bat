@@ -44,7 +44,12 @@ goto main
 
 
 :install_uv (
-    echo Installing UV...
+    if not [%~1] == [] (
+        set "pyversion=%~1"
+        set "standalone=1"
+        set "pyuv=%lib%uv\packages\cpython-%pyversion%-windows-x86_64-none"
+    )
+
     set "UV_INSTALL_DIR=%~dp0bin"
     set "UV_PYTHON_BIN_DIR=%~dp0py"
     set "UV_PYTHON_INSTALL_DIR=%~dp0packages"
@@ -53,17 +58,22 @@ goto main
     setx UV_PYTHON_BIN_DIR "%UV_PYTHON_BIN_DIR%" > NUL 2>&1
     setx UV_PYTHON_INSTALL_DIR "%UV_PYTHON_INSTALL_DIR%" > NUL 2>&1
     setx UV_BREAK_SYSTEM_PACKAGES true > NUL 2>&1
-    call :add_path "%UV_INSTALL_DIR%" false
-    @REM call :prepend_global_path "%UV_PYTHON_BIN_DIR%" false
-    call :prepend_global_path "%~dp0packages\cpython-%pyversion%-windows-x86_64-none" false
-    if ERRORLEVEL 1 (
-        echo You must run this script as an administrator for it to work
-        exit /b 1
+    if not [%standalone%] == [1] (
+        call :add_path "%UV_INSTALL_DIR%" false
+        @REM call :prepend_global_path "%UV_PYTHON_BIN_DIR%" false
+        call :prepend_global_path "%~dp0packages\cpython-%pyversion%-windows-x86_64-none" false
+        if ERRORLEVEL 1 (
+            echo You must run this script as an administrator for it to work
+            exit /b 1
+        )
+        call :prepend_global_path "%~dp0packages\cpython-%pyversion%-windows-x86_64-none\Scripts" false
+        @REM call :add_path "%pyuv%" false
+        @REM call :add_path "%pyuv%Scripts" false
     )
-    call :prepend_global_path "%~dp0packages\cpython-%pyversion%-windows-x86_64-none\Scripts" false
-    @REM call :add_path "%pyuv%" false
-    @REM call :add_path "%pyuv%Scripts" false
+
     if not exist "%pyuv%\python.exe" (
+        echo Installing Python %pyversion% using UV...
+        echo Install Dir: %pyuv%
         "%UV_INSTALL_DIR%\uv.exe" python install %pyversion% >  NUL 2>&1
         if not exist "%pyuv%\python.exe" (
             echo Python %pyversion% was not installed, please run setup again.
@@ -79,7 +89,7 @@ goto main
 
 setlocal enabledelayedexpansion
 call "%~dp0..\sdk\loadenv.bat"
-call :install_uv
+call :install_uv %1
 
 
 @REM UV_INSTALL_DIR=%lib%uv

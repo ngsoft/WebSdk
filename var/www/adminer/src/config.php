@@ -1,5 +1,6 @@
 <?php
 
+use Adminer\AdminerCustomDriver;
 use Adminer\Config;
 
 Config::setItem('ADMINER_DEV', false);
@@ -7,13 +8,14 @@ Config::setItem('ADMINER_VERSION', '6.0.1');
 Config::setItem('HIDE_DATABASES', ['sys', 'mysql', 'information_schema', 'performance_schema']);
 Config::setItem('ADMINER_ACL', ['127.0', '192.168', '::1']);
 Config::setItem('ADMINER_TRUSTED_PROXY', []);
-
-Config::setItem('ADMINER_DRIVERS', ['mysql', 'pgsql', 'sqlite']);
-Config::setItem('ADMINER_SERVERS', [
-    'MySql'      => ['driver' => 'mysql', 'server' => '127.0.0.1'],
-    'PostgreSql' => ['driver' => 'pgsql', 'server' => '127.0.0.1'],
-    'SqLite'     => ['driver' => 'sqlite', 'server' => 'sqlite'],
-]);
+Config::setItem('ADMINER_DRIVERS', 'server');
+Config::setItem('ADMINER_SERVERS', []);
+// Config::setItem('ADMINER_DRIVERS', ['mysql', 'pgsql', 'sqlite']);
+// Config::setItem('ADMINER_SERVERS', [
+//    'MySql' => ['driver' => 'mysql', 'server' => '127.0.0.1'],
+//    'PostgreSql' => ['driver' => 'pgsql', 'server' => '127.0.0.1'],
+//    'SqLite' => ['driver' => 'sqlite', 'server' => 'sqlite'],
+// ]);
 Config::setItem('ADMINER_SAVEFILE', false);
 Config::setItem('ADMINER_DYNAMIC_SERVERS', true);
 Config::setItem('ADMINER_PASSWORDLESS', true);
@@ -34,3 +36,6 @@ Config::setItem('ADMINER_AUTOCOMPLETE_QUERY', true);
 Config::setItem('ADMINER_VERSION_GITHUB', false);
 Config::setItem('ADMINER_VERSION_CHECK', false);
 Config::setItem('ADMINER_SELECT_MODIFY_HEADER', true);
+Config::setItem('ADMINER_CUSTOM_DRIVERS', [
+    new AdminerCustomDriver('redis', 'Redis', 'redis.php'),
+]);

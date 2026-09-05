@@ -13,4 +13,20 @@ function adminer_object()
 }
 
 $version = Config::getItem('ADMINER_VERSION');
-require_once __DIR__ . "/dist/adminer-{$version}.php";
+$archive = __DIR__ . "/dist/adminer-{$version}.zip";
+$app = __DIR__ . "/dist/adminer-{$version}.php";
+$extractor = require_once __DIR__ . '/src/extractor.php';
+
+try {
+    $extractor($archive, $app);
+} catch (Exception $e) {
+    $product = 'Adminer';
+    $pageTitle = $product;
+    $title = 'Extraction failed';
+    $subTitle = basename($archive);
+    $message = $e->getMessage();
+    require __DIR__ . '/src/layout.php';
+    exit;
+}
+
+require_once $app;

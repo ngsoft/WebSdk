@@ -120,10 +120,11 @@ $plugins[]      = new AdminerLoginIp(
 );
 $plugins[]      = new AdminerLoginServers(
     Config::getItem('ADMINER_SERVERS', []),
-    Config::getItem('ADMINER_DRIVERS', []),
+    Config::getItem('ADMINER_DRIVERS', 'server'),
     Config::getItem('ADMINER_SAVEFILE', false),
     Config::getItem('ADMINER_DYNAMIC_SERVERS', false),
-    Config::getItem('ADMINER_PASSWORDLESS', false)
+    Config::getItem('ADMINER_PASSWORDLESS', false),
+    Config::getItem('ADMINER_CUSTOM_DRIVERS', [])
 );
 
 // Themes

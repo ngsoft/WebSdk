@@ -22,9 +22,9 @@ if ($loggedIn && isset($_SERVER["HTTP_REFERER"]) && false !== strpos($_SERVER["H
 unset($_SESSION["theme-data"]);
 $currentData = ThemeSwitcher::loadJsonData();
 $customThemes = [
-    "default-blue" => "Custom $product Blue",
-    "default-green" => "Custom $product Green",
-    "default-orange" => "Custom $product Orange",
+        "default-blue" => "Custom $product Blue",
+        "default-green" => "Custom $product Green",
+        "default-orange" => "Custom $product Orange",
 ];
 
 
@@ -109,11 +109,11 @@ elseif (!$loggedIn) : ?>
                         theme
                     </option>
                     <option
-                        <?= renderArgs(["selected" => $currentData["type"] === "custom", "value" => "custom"]) ?>>
+                            <?= renderArgs(["selected" => $currentData["type"] === "custom", "value" => "custom"]) ?>>
                         Custom theme
                     </option>
                     <option
-                        <?= renderArgs(["selected" => $currentData["type"] === "adminer", "value" => "adminer"]) ?>>
+                            <?= renderArgs(["selected" => $currentData["type"] === "adminer", "value" => "adminer"]) ?>>
                         <?= $product ?> theme
                     </option>
                 </optgroup>
@@ -279,12 +279,12 @@ elseif (!$loggedIn) : ?>
                 if (ThemeSwitcher::isSelectedDark() && !$dark) {
                     $dark = true;
                     ThemeSwitcher::saveJsonData("config/adminer.json",
-                        $type,
-                        $theme,
-                        $select,
-                        true,
-                        $fix,
-                        $lang
+                            $type,
+                            $theme,
+                            $select,
+                            true,
+                            $fix,
+                            $lang
                     );
                 }
 
@@ -338,122 +338,5 @@ elseif (!$loggedIn) : ?>
 
 <?php endif;
 $body = ob_get_clean();
-?>
-<!doctype html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title><?= $product ?> Theme Switcher</title>
-    <link href="./static/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-    <style>
-        .cursor-pointer {
-            cursor: pointer;
-        }
-
-        #darkModeSwitch {
-            background-image: none;
-        }
-    </style>
-    <link rel="icon" href="./static/images/touchIcon-android.png">
-    <script type="module">
-        (function () {
-            const
-                darkMode = globalThis.matchMedia('(prefers-color-scheme: dark)'),
-                darkModeSwitch = document.getElementById("darkModeSwitch"),
-                darkModeSwitchLabel = darkModeSwitch.previousElementSibling,
-                userSelectedValueKey = "adminerThemeSwitcherDarkMode",
-                darkModeRangeLabels = ["auto", "off", "on"];
-
-            let isDark = null;
-
-            function getUserSelectedValue() {
-                return localStorage.getItem(userSelectedValueKey) ?? "auto";
-            }
-
-            function updateSwitch() {
-                darkModeSwitchLabel.innerHTML = getUserSelectedValue();
-                setDarkMode();
-            }
-
-            function setDarkMode() {
-                const userValue = getUserSelectedValue();
-                isDark = darkMode.matches;
-                if (userValue !== "auto") {
-                    isDark = userValue === "on";
-                }
-                document.documentElement.setAttribute("data-bs-theme", isDark ? "dark" : "light");
-            }
-
-
-            darkModeSwitch.addEventListener("change", () => {
-                let index = JSON.parse("" + darkModeSwitch.value),
-                    value = darkModeRangeLabels[index];
-                localStorage.setItem(userSelectedValueKey, value)
-                updateSwitch();
-            });
-
-
-            darkModeSwitch.value = darkModeRangeLabels.indexOf(getUserSelectedValue())
-            darkMode.onchange = setDarkMode;
-            updateSwitch();
-        })();
-    </script>
-    <style>
-        main {
-            max-width: 840px !important;
-        }
-
-        main > .card:first-of-type {
-            min-height: 50vh;
-        }
-    </style>
-
-</head>
-
-<body class="d-flex flex-column min-vh-100 justify-content-evenly align-items-center bg-secondary-subtle">
-<header>
-    <?php if (!empty($pageTitle)): ?>
-        <h1 class="text-body-secondary mb-0"><?= $pageTitle ?></h1>
-    <?php endif; ?>
-</header>
-<main class="container">
-    <div class="card bg-body-tertiary w-100 min-h-100">
-        <div class="card-header d-flex">
-
-            <div>
-                <?php if (!empty($title)): ?>
-                    <h5 class="card-title"><?= $title ?></h5>
-                    <?php if (!empty($subTitle)): ?>
-                        <h6 class="card-subtitle text-body-secondary ms-2 fst-italic"><?= $subTitle ?></h6>
-                    <?php endif;
-                endif; ?>
-            </div>
-
-
-            <div class="form-check form-switch ms-auto user-select-none">
-                <label class="form-check-label visually-hidden" for="darkModeSwitch">Dark Mode</label>
-                <div class="d-flex align-items-center">
-                    <div class="text-uppercase cursor-pointer"></div>
-                    <input class="form-check-input cursor-pointer ms-2" type="range" min="0" max="2" id="darkModeSwitch"
-                           title="Toggle dark Mode">
-                </div>
-
-
-            </div>
-        </div>
-
-
-        <div class="card-body p-4 d-flex">
-            <?= !empty($body) ? $body : "" ?>
-        </div>
-    </div>
-
-</main>
-<footer><?= !empty($footer) ? $footer : "" ?></footer>
-</body>
-
-</html>
+$min_height = true;
+require __DIR__ . '/src/layout.php';

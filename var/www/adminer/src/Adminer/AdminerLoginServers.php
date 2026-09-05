@@ -67,9 +67,28 @@ class AdminerLoginServers
      * @param false|string                                                                           $save          save filename
      * @param bool                                                                                   $dynamic       Authorize dynamic login form
      * @param bool                                                                                   $passwordLess  Authorize empty passwords
+     * @param AdminerCustomDriver[]                                                                  $customDrivers Custom Driver plugins
      */
-    public function __construct($servers = [], $defaultDriver = 'server', $save = false, $dynamic = true, $passwordLess = false)
+    public function __construct($servers = [], $defaultDriver = 'server', $save = false, $dynamic = true, $passwordLess = false, array $customDrivers = [])
     {
+        foreach ($customDrivers as $customDriver)
+        {
+            if ($customDriver instanceof AdminerCustomDriver)
+            {
+                $customDriver->loadDriver();
+
+                if ($customDriver->file)
+                {
+                    self::$driverList[$customDriver->key] = $customDriver->name;
+
+                    if ($customDriver->passwordLessKey)
+                    {
+                        self::$passwordLess[$customDriver->key] = $customDriver->passwordLessKey;
+                    }
+                }
+            }
+        }
+
         /**
          * Master password SQLite db.
          */

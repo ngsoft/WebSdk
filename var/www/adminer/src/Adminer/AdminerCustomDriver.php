@@ -6,8 +6,9 @@ class AdminerCustomDriver
 {
     public $key;
     public $name;
-    public $file            = null;
     public $passwordLessKey = null;
+    public $available       = false;
+    private $file           = null;
 
     private $loaded         = false;
 
@@ -33,7 +34,6 @@ class AdminerCustomDriver
         }
         $this->loaded      = true;
         $file              = $this->file;
-        $this->file        = null;
         $driverDirectories = ['', __DIR__ . '/../drivers/', __DIR__ . '/../../config/drivers/'];
 
         foreach ($driverDirectories as $driverDirectory)
@@ -42,13 +42,14 @@ class AdminerCustomDriver
 
             if ($location && is_file($location))
             {
-                $loaded     = @require_once $location;
+                $loaded          = @require_once $location;
 
                 if (false === $loaded)
                 {
                     return;
                 }
-                $this->file = $location;
+                $this->available = true;
+                $this->file      = $location;
                 return;
             }
         }

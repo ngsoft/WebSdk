@@ -37,5 +37,12 @@ Config::setItem('ADMINER_VERSION_GITHUB', false);
 Config::setItem('ADMINER_VERSION_CHECK', false);
 Config::setItem('ADMINER_SELECT_MODIFY_HEADER', true);
 Config::setItem('ADMINER_CUSTOM_DRIVERS', [
-    new AdminerCustomDriver('redis', 'Redis', 'redis.php'),
+    new AdminerCustomDriver('redis', 'Redis/KeyDB', __DIR__ . '/drivers/redis.php'),
+    new AdminerCustomDriver('imap', 'IMAP', __DIR__ . '/drivers/imap.php'),
+    new AdminerCustomDriver('clickhouse', 'ClickHouse', __DIR__ . '/drivers/clickhouse.php'),
+    new AdminerCustomDriver('elastic', 'Elasticsearch/OpenSearch', __DIR__ . '/drivers/elastic.php'),
+    new AdminerCustomDriver('firebird', 'Firebird', __DIR__ . '/drivers/firebird.php'),
+    new AdminerCustomDriver('igdb', 'IGDB API', __DIR__ . '/drivers/igdb.php'),
+    new AdminerCustomDriver('mongo', 'MongoDB', __DIR__ . '/drivers/mongo.php'),
+    new AdminerCustomDriver('simpledb', 'SimpleDB', __DIR__ . '/drivers/simpledb.php', 'ADMINER_SIMPLEDB_PASSWORD'),
 ]);

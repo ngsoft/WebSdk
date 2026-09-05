@@ -1,11 +1,8 @@
 <?php
 
-namespace Adminer;
+// ! clone
 
-if ( ! extension_loaded('redis'))
-{
-    return false;
-}
+namespace Adminer;
 
 add_driver('redis', 'Redis');
 
@@ -168,13 +165,7 @@ if (isset($_GET['redis']))
         public $extension = 'socket';
         private $fp;
 
-        /** Connect to server.
-         * @param mixed $server
-         * @param mixed $username
-         * @param mixed $password
-         *
-         * @return string error message
-         */
+        /** @return string */
         public function attach($server, $username, $password)
         {
             if ('' == $server)
@@ -212,11 +203,7 @@ if (isset($_GET['redis']))
             return $this->send(['SELECT', $database]);
         }
 
-        /** Quote string to use in SQL.
-         * @param mixed $string
-         *
-         * @return string escaped string enclosed in "
-         */
+        /** @return string */
         public function quote($string)
         {
             return quote_arg(unescape_value($string)); // the values are used as arguments of the commands
@@ -377,9 +364,7 @@ if (isset($_GET['redis']))
             return $row ? array_values($row) : false;
         }
 
-        /** Get information about the next column.
-         * @return \stdClass
-         */
+        /** @return \stdClass */
         public function fetch_field()
         {
             $field = current($this->fields);
@@ -396,24 +381,14 @@ if (isset($_GET['redis']))
         public $operators   = ['*'];
 
         /** Get the JUSH module inlined in the released driver by the release script.
-         * @return string JavaScript code
+         * @return string
          */
         public static function jushModule()
         {
-            return <<<'JS'
-jush.tr.redis = { quo: /"/, apo: /'/ };
-
-jush.slugs.redis = name => name.toLowerCase().replace(/\s+/g, '-'); // CONFIG GET -> config-get
-
-jush.build_links2('redis', 'https://redis.io/docs/latest/commands/$1/', /(^[ \t]*)/, /(\b)/gim, { // commands are linked only at the beginning of a line
-	'$1': /(ACL\s+CAT|ACL\s+DELUSER|ACL\s+DRYRUN|ACL\s+GENPASS|ACL\s+GETUSER|ACL\s+HELP|ACL\s+LIST|ACL\s+LOAD|ACL\s+LOG|ACL\s+SAVE|ACL\s+SETUSER|ACL\s+USERS|ACL\s+WHOAMI|ACL|APPEND|ARCOUNT|ARDEL|ARDELRANGE|ARGET|ARGETRANGE|ARGREP|ARINFO|ARINSERT|ARLASTITEMS|ARLEN|ARMGET|ARMSET|ARNEXT|AROP|ARRING|ARSCAN|ARSEEK|ARSET|ASKING|AUTH|BACKUP\s+ABORT|BACKUP\s+CLEANUP|BACKUP\s+HELP|BACKUP\s+LIST|BACKUP\s+SEAL|BACKUP\s+START|BACKUP\s+STATUS|BACKUP|BGREWRITEAOF|BGSAVE|BITCOUNT|BITFIELD|BITFIELD_RO|BITOP|BITPOS|BLMOVE|BLMOVEM|BLMPOP|BLPOP|BRPOP|BRPOPLPUSH|BZMPOP|BZPOPMAX|BZPOPMIN|CLIENT\s+CACHING|CLIENT\s+GETNAME|CLIENT\s+GETREDIR|CLIENT\s+HELP|CLIENT\s+ID|CLIENT\s+INFO|CLIENT\s+KILL|CLIENT\s+LIST|CLIENT\s+NO-EVICT|CLIENT\s+NO-TOUCH|CLIENT\s+PAUSE|CLIENT\s+REPLY|CLIENT\s+SETINFO|CLIENT\s+SETNAME|CLIENT\s+TRACKING|CLIENT\s+TRACKINGINFO|CLIENT\s+UNBLOCK|CLIENT\s+UNPAUSE|CLIENT|CLUSTER\s+ADDSLOTS|CLUSTER\s+ADDSLOTSRANGE|CLUSTER\s+BUMPEPOCH|CLUSTER\s+COUNT-FAILURE-REPORTS|CLUSTER\s+COUNTKEYSINSLOT|CLUSTER\s+DELSLOTS|CLUSTER\s+DELSLOTSRANGE|CLUSTER\s+FAILOVER|CLUSTER\s+FLUSHSLOTS|CLUSTER\s+FORGET|CLUSTER\s+GETKEYSINSLOT|CLUSTER\s+HELP|CLUSTER\s+INFO|CLUSTER\s+KEYSLOT|CLUSTER\s+LINKS|CLUSTER\s+MEET|CLUSTER\s+MIGRATION|CLUSTER\s+MYID|CLUSTER\s+MYSHARDID|CLUSTER\s+NODES|CLUSTER\s+REPLICAS|CLUSTER\s+REPLICATE|CLUSTER\s+RESET|CLUSTER\s+SAVECONFIG|CLUSTER\s+SET-CONFIG-EPOCH|CLUSTER\s+SETSLOT|CLUSTER\s+SHARDS|CLUSTER\s+SLAVES|CLUSTER\s+SLOT-STATS|CLUSTER\s+SLOTS|CLUSTER\s+SYNCSLOTS|CLUSTER|COMMAND\s+COUNT|COMMAND\s+DOCS|COMMAND\s+GETKEYS|COMMAND\s+GETKEYSANDFLAGS|COMMAND\s+HELP|COMMAND\s+INFO|COMMAND\s+LIST|COMMAND|CONFIG\s+GET|CONFIG\s+HELP|CONFIG\s+RESETSTAT|CONFIG\s+REWRITE|CONFIG\s+SET|CONFIG|COPY|DBSIZE|DEBUG|DECR|DECRBY|DEL|DELEX|DIGEST|DISCARD|DUMP|ECHO|EVAL|EVALSHA|EVALSHA_RO|EVAL_RO|EXEC|EXISTS|EXPIRE|EXPIREAT|EXPIRETIME|FAILOVER|FCALL|FCALL_RO|FLUSHALL|FLUSHDB|FUNCTION\s+DELETE|FUNCTION\s+DUMP|FUNCTION\s+FLUSH|FUNCTION\s+HELP|FUNCTION\s+KILL|FUNCTION\s+LIST|FUNCTION\s+LOAD|FUNCTION\s+RESTORE|FUNCTION\s+STATS|FUNCTION|GEOADD|GEODIST|GEOHASH|GEOPOS|GEORADIUS|GEORADIUSBYMEMBER|GEORADIUSBYMEMBER_RO|GEORADIUS_RO|GEOSEARCH|GEOSEARCHSTORE|GET|GETBIT|GETDEL|GETEX|GETRANGE|GETSET|HDEL|HELLO|HEXISTS|HEXPIRE|HEXPIREAT|HEXPIRETIME|HGET|HGETALL|HGETDEL|HGETEX|HIMPORT\s+DISCARD|HIMPORT\s+DISCARDALL|HIMPORT\s+PREPARE|HIMPORT\s+SET|HIMPORT|HINCRBY|HINCRBYFLOAT|HKEYS|HLEN|HMGET|HMSET|HOTKEYS\s+GET|HOTKEYS\s+HELP|HOTKEYS\s+RESET|HOTKEYS\s+START|HOTKEYS\s+STOP|HOTKEYS|HPERSIST|HPEXPIRE|HPEXPIREAT|HPEXPIRETIME|HPTTL|HRANDFIELD|HSCAN|HSET|HSETEX|HSETNX|HSTRLEN|HTTL|HVALS|INCR|INCRBY|INCRBYFLOAT|INCREX|INFO|KEYS|LASTSAVE|LATENCY\s+DOCTOR|LATENCY\s+GRAPH|LATENCY\s+HELP|LATENCY\s+HISTOGRAM|LATENCY\s+HISTORY|LATENCY\s+LATEST|LATENCY\s+RESET|LATENCY|LCS|LINDEX|LINSERT|LLEN|LMOVE|LMOVEM|LMPOP|LOLWUT|LPOP|LPOS|LPUSH|LPUSHX|LRANGE|LREM|LSET|LTRIM|MEMORY\s+DOCTOR|MEMORY\s+HELP|MEMORY\s+MALLOC-STATS|MEMORY\s+PURGE|MEMORY\s+STATS|MEMORY\s+USAGE|MEMORY|MGET|MIGRATE|MODULE\s+HELP|MODULE\s+LIST|MODULE\s+LOAD|MODULE\s+LOADEX|MODULE\s+UNLOAD|MODULE|MONITOR|MOVE|MSET|MSETEX|MSETNX|MULTI|OBJECT\s+ENCODING|OBJECT\s+FREQ|OBJECT\s+HELP|OBJECT\s+IDLETIME|OBJECT\s+REFCOUNT|OBJECT|PERSIST|PEXPIRE|PEXPIREAT|PEXPIRETIME|PFADD|PFCOUNT|PFDEBUG|PFMERGE|PFSELFTEST|PING|PSETEX|PSUBSCRIBE|PSYNC|PTTL|PUBLISH|PUBSUB\s+CHANNELS|PUBSUB\s+HELP|PUBSUB\s+NUMPAT|PUBSUB\s+NUMSUB|PUBSUB\s+SHARDCHANNELS|PUBSUB\s+SHARDNUMSUB|PUBSUB|PUNSUBSCRIBE|QUIT|RANDOMKEY|READONLY|READWRITE|RENAME|RENAMENX|REPLCONF|REPLICAOF|RESET|RESTORE-ASKING|RESTORE|ROLE|RPOP|RPOPLPUSH|RPUSH|RPUSHX|SADD|SAVE|SCAN|SCARD|SCRIPT\s+DEBUG|SCRIPT\s+EXISTS|SCRIPT\s+FLUSH|SCRIPT\s+HELP|SCRIPT\s+KILL|SCRIPT\s+LOAD|SCRIPT|SDIFF|SDIFFCARD|SDIFFSTORE|SELECT|SENTINEL\s+CKQUORUM|SENTINEL\s+CONFIG|SENTINEL\s+DEBUG|SENTINEL\s+FAILOVER|SENTINEL\s+FLUSHCONFIG|SENTINEL\s+GET-MASTER-ADDR-BY-NAME|SENTINEL\s+HELP|SENTINEL\s+INFO-CACHE|SENTINEL\s+IS-MASTER-DOWN-BY-ADDR|SENTINEL\s+MASTER|SENTINEL\s+MASTERS|SENTINEL\s+MONITOR|SENTINEL\s+MYID|SENTINEL\s+PENDING-SCRIPTS|SENTINEL\s+REMOVE|SENTINEL\s+REPLICAS|SENTINEL\s+RESET|SENTINEL\s+SENTINELS|SENTINEL\s+SET|SENTINEL\s+SIMULATE-FAILURE|SENTINEL\s+SLAVES|SENTINEL|SET|SETBIT|SETEX|SETNX|SETRANGE|SFLUSH|SHUTDOWN|SINTER|SINTERCARD|SINTERSTORE|SISMEMBER|SLAVEOF|SLOWLOG\s+GET|SLOWLOG\s+HELP|SLOWLOG\s+LEN|SLOWLOG\s+RESET|SLOWLOG|SMEMBERS|SMISMEMBER|SMOVE|SORT|SORT_RO|SPOP|SPUBLISH|SRANDMEMBER|SREM|SSCAN|SSUBSCRIBE|STRLEN|SUBSCRIBE|SUBSTR|SUNION|SUNIONCARD|SUNIONSTORE|SUNSUBSCRIBE|SWAPDB|SYNC|TIME|TOUCH|TRIMSLOTS|TTL|TYPE|UNLINK|UNSUBSCRIBE|UNWATCH|WAIT|WAITAOF|WATCH|XACK|XACKDEL|XADD|XAUTOCLAIM|XCFGSET|XCLAIM|XDEL|XDELEX|XGROUP\s+CREATE|XGROUP\s+CREATECONSUMER|XGROUP\s+DELCONSUMER|XGROUP\s+DESTROY|XGROUP\s+HELP|XGROUP\s+SETID|XGROUP|XIDMPRECORD|XINFO\s+CONSUMERS|XINFO\s+GROUPS|XINFO\s+HELP|XINFO\s+STREAM|XINFO|XLEN|XNACK|XPENDING|XRANGE|XREAD|XREADGROUP|XREVRANGE|XSETID|XTRIM|ZADD|ZCARD|ZCOUNT|ZDIFF|ZDIFFSTORE|ZINCRBY|ZINTER|ZINTERCARD|ZINTERSTORE|ZLEXCOUNT|ZMPOP|ZMSCORE|ZPOPMAX|ZPOPMIN|ZRANDMEMBER|ZRANGE|ZRANGEBYLEX|ZRANGEBYSCORE|ZRANGESTORE|ZRANK|ZREM|ZREMRANGEBYLEX|ZREMRANGEBYRANK|ZREMRANGEBYSCORE|ZREVRANGE|ZREVRANGEBYLEX|ZREVRANGEBYSCORE|ZREVRANK|ZSCAN|ZSCORE|ZUNION|ZUNIONSTORE)/,
-});
-JS;
+            return ''; // the repository and the source archive load adminer/static/jush/modules/jush-redis.js
         }
 
-        /** Get JavaScript expression creating the autocompleter of the query <textarea>, empty if the driver has none.
-         * @param null|list<string> $statements statements offered at the beginning of a query, null for all
-         *
+        /** @param null|array $statements
          * @return string
          */
         public static function jushAutocomplete(array $tables, $statements)
@@ -421,7 +396,7 @@ JS;
             return ''; // the commands are not SQL
         }
 
-        public function select($table, array $select, array $where, array $group, array $order = [], $limit = 1, $page = 0, $print = false)
+        public function select($table, $select, $where, $group, $order = [], $limit = 1, $page = 0, $print = false)
         {
             $next         = $_GET['next'];
             $_GET['next'] = ''; // there is no following page unless SCAN returns a cursor
@@ -507,36 +482,30 @@ JS;
             return new Result($return);
         }
 
-        /** Check if C-style escapes are supported.
-         * @return bool
-         */
+        /** @return bool */
         public function hasCStyleEscapes()
         {
             return true;
         }
 
-        /** Get regular expression matching the start of a line comment; must not match an empty string.
-         * @return string
-         */
+        /** @return string */
         public function lineComment()
         {
             return '[^\s\S]'; // Redis has no comments
         }
 
-        /** Get all fields in the current schema.
-         * @return array
-         */
+        /** @return mixed[] */
         public function allFields()
         {
             return []; // the parent implementation would send a SQL query
         }
 
-        public function insert($table, array $set)
+        public function insert($table, $set)
         {
             return queries('SET ' . implode(' ', $set)); // the values are quoted by quote()
         }
 
-        public function update($table, array $set, $queryWhere, $limit = 0, $separator = "\n")
+        public function update($table, $set, $queryWhere, $limit = 0, $separator = "\n")
         {
             $args                      = [];
             $where                     = $this->where($queryWhere);
@@ -700,11 +669,7 @@ JS;
         return false;
     }
 
-    /** Get last auto increment ID.
-     * @param mixed $result
-     *
-     * @return string
-     */
+    /** @return string */
     function last_id($result)
     {
         return '';

@@ -14,30 +14,22 @@ use ReflectionClass;
 class AdminerLoginServers
 {
     protected static $driverList   = [
-        'server'   => 'MySQL',
-        'sqlite'   => 'SQLite 3',
-        'sqlite2'  => 'SQLite 2',
-        'pgsql'    => 'PostgreSQL',
-        'oracle'   => 'Oracle',
-        'mssql'    => 'MS SQL',
-        'firebird' => 'Firebird',
-        'simpledb' => 'SimpleDB',
-        'mongo'    => 'MongoDB',
-        'elastic'  => 'Elasticsearch',
-        'elastic7' => 'Elasticsearch 7',
+        'server' => 'MySQL/MariaDB',
+        'sqlite' => 'SQLite',
+        'pgsql'  => 'PostgreSQL',
+        'oracle' => 'Oracle',
+        'mssql'  => 'MS SQL',
     ];
 
     protected static $basicDrivers = [
         'server' => 'MySQL',
-        'sqlite' => 'SQLite 3',
+        'sqlite' => 'SQLite',
         'pgsql'  => 'PostgreSQL',
         'oracle' => 'Oracle',
         'mssql'  => 'MS SQL',
     ];
     protected static $passwordLess = [
-        'sqlite'   => 'ADMINER_SQLITE_PASSWORD',
-        'sqlite2'  => 'ADMINER_SQLITE2_PASSWORD',
-        'simpledb' => 'ADMINER_SIMPLEDB_PASSWORD',
+        'sqlite' => 'ADMINER_SQLITE_PASSWORD',
     ];
 
     protected $servers             = [];
@@ -77,7 +69,7 @@ class AdminerLoginServers
             {
                 $customDriver->loadDriver();
 
-                if ($customDriver->file)
+                if ($customDriver->available)
                 {
                     self::$driverList[$customDriver->key] = $customDriver->name;
 

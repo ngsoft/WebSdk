@@ -7,7 +7,7 @@ set "etc=%WEB_SDK%etc\"
 set "sdk=%lib%sdk\"
 @REM nodejs
 set "nvm=%lib%nvm\"
-set "node_version=22"
+set "node_version=24"
 @REM mariadb
 set "mariadb=%lib%mariadb\"
 @REM pgsql
@@ -16,6 +16,8 @@ set "pgversion=18.0"
 @REM web
 set "nginx=%lib%nginx\"
 set "httpd=%lib%httpd\bin\"
+@REM Redis
+set "redis=%lib%redis\"
 @REM php
 set "php81=%lib%php\8.1\"
 set "php82=%lib%php\8.2\"

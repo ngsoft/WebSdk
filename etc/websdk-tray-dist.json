@@ -42,7 +42,7 @@
             ]
         },
         {
-            "name": "httpd_postgres",
+            "name": "httpd-postgres",
             "label": "Démarrer WebSdk[apache|postgres]",
             "notify": [
                 "Démarrage du WebSdk [apache|postgres]"
@@ -60,7 +60,7 @@
             ]
         },
         {
-            "name": "httpd_mariadb",
+            "name": "httpd-mariadb",
             "label": "Démarrer WebSdk[apache|mariadb]",
             "notify": [
                 "Démarrage du WebSdk [apache|mariadb]"
@@ -84,7 +84,7 @@
             ]
         },
         {
-            "name": "on_mariadb",
+            "name": "on-mariadb",
             "label": "Démarrer WebSdk[nginx|php8.4|mariadb]",
             "notify": [
                 "Démarrage du WebSdk [nginx|php8.4|mariadb]"
@@ -110,7 +110,7 @@
             ]
         },
         {
-            "name": "on_httpd_postgres",
+            "name": "on-httpd-postgres",
             "label": "Démarrer WebSdk[apache|postgres]",
             "notify": [
                 "Démarrage du WebSdk [apache|postgres]"
@@ -159,20 +159,21 @@
                 "cmd.exe /C start  http://localhost/adminer/info.php"
             ],
             "visible": [
-                "!off"
+                "!off",
+                "adm-enabled"
             ]
         },
         {
             "name": "cgi-conf",
             "label": "Changer nginx PHP version",
             "notify": [
-                "Modifier la version de php et relancer le WebSDK"
+                "Modifier la version de php et reDémarrer le WebSDK"
             ],
             "start": [
                 "notepad.exe C:\\WebSdk\\etc\\php-cgi.bat"
             ],
             "visible": [
-                "on_mariadb"
+                "on-mariadb"
             ]
         },
         {
@@ -185,12 +186,12 @@
                 "explorer.exe C:\\WebSdk\\lib\\httpd\\conf\\custom"
             ],
             "visible": [
-                "httpd_mariadb"
+                "httpd-mariadb"
             ]
         },
         {
             "name": "adm",
-            "label": "Lancer Adminer",
+            "label": "Démarrer Adminer",
             "start": [
                 "cmd.exe /C start  https://localhost/adminer/?server=MySql&username=root"
             ],
@@ -201,7 +202,7 @@
         },
         {
             "name": "pma",
-            "label": "Lancer PhpMyAdmin",
+            "label": "Démarrer PhpMyAdmin",
             "start": [
                 "cmd.exe /C start  http://localhost/phpmyadmin/index.php?route=/"
             ],
@@ -226,8 +227,28 @@
         },
         "separator",
         {
+            "name": "redis",
+            "label": "Démarrer Redis",
+            "notify": [
+                "Lancement de Redis",
+                "Arrêt de Redis"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/start-redis.bat"
+            ],
+            "stop": [
+                "cmd.exe /C C:/WebSdk/lib/sdk/scripts/stop-redis.bat"
+            ],
+            "checks": {
+                "process": [
+                    "redis-server.exe"
+                ]
+            }
+        },
+        "separator",
+        {
             "name": "pg-sql",
-            "label": "Lancer PostgreSql",
+            "label": "Démarrer PostgreSql",
             "notify": [
                 "Lancement de PostgreSql",
                 "Arrêt de PostgreSql"
@@ -242,10 +263,7 @@
                 "process": [
                     "postgres.exe"
                 ]
-            },
-            "visible": [
-                "!on_httpd_postgres"
-            ]
+            }
         },
         {
             "name": "pg-console",
@@ -277,6 +295,16 @@
             "checks": {
                 "files": [
                     "c:/WebSdk/var/www/PhpMyAdmin/index.php"
+                ]
+            }
+        },
+        {
+            "name": "redis-on",
+            "label": "redis-on",
+            "visible": false,
+            "checks": {
+                "process": [
+                    "redis-server.exe"
                 ]
             }
         },

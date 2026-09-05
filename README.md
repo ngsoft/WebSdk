@@ -1,27 +1,45 @@
 # WebSdk
 
+Environnement de développement web complet pour Windows, installable à la racine de `C:\` et pilotable
+depuis une application de barre des tâches (SysTray).
+
 ## Que contient WebSdk ?
 
-- [Node version manager for windows](https://github.com/coreybutler/nvm-windows)
+Serveurs et bases de données :
 
-- [nginx  for  Windows](http://nginx.org/en/docs/windows.html)
+- [Apache httpd](https://httpd.apache.org/docs/2.4/) 2.4 (Apache Lounge, HTTPS activé)
 
-- [MariaDB.](https://mariadb.org/documentation/)
+- [nginx pour Windows](http://nginx.org/en/docs/windows.html) 1.27 (PHP en FastCGI)
 
-- [Php](https://www.php.net/)    5.5/5.6/7.4/8.1/8.2/8.3
+- [MariaDB](https://mariadb.org/documentation/) 12.2
 
-- [PEAR](https://pear.php.net/) est disponible pour toutes les versions de php
+- [PostgreSQL](https://www.postgresql.org/docs/) 17 / 18
 
-- [Adminer](https://www.adminer.org/) avec themes
+- [Redis](https://redis.io/docs/latest/) 8 (service Windows, port 6379)
 
-- [Composer](https://getcomposer.org/)
+Langages et outils :
 
-- [Phan](https://github.com/phan/phan)
+- [Php](https://www.php.net/) 5.6 / 7.4 / 8.1 / 8.2 / 8.3 / 8.4 / 8.5
 
-- [Python](https://www.python.org/downloads/)
+- [PEAR / PECL](https://pear.php.net/) (exécutés dans un environnement php5.6)
 
-- [Go](https://go.dev/dl/)
-  
+- [Composer](https://getcomposer.org/) (une commande par version de PHP)
+
+- [Phan](https://github.com/phan/phan), [PHP-CS-Fixer](https://cs.symfony.com/)
+  et [Rector](https://getrector.com/) pour l'analyse et la modernisation du code
+
+- [Node version manager for windows](https://github.com/coreybutler/nvm-windows) + NodeJS 24 + NPM
+
+- [Python](https://www.python.org/downloads/) 3.14 installé via [uv](https://docs.astral.sh/uv/)
+
+- [Go](https://go.dev/dl/) 1.25 installé via [gvm](https://github.com/andrewkroh/gvm)
+
+Applications web :
+
+- [Adminer](https://www.adminer.org/) avec thèmes (installé dans `var/www/adminer`)
+
+- [phpMyAdmin](https://www.phpmyadmin.net/) (optionnel, à déposer dans `var/www/phpMyAdmin`)
+
 ## Prérequis
 
 Si MySQL est déjà installé, veuillez exporter les bases de données que vous voulez conserver et désinstaller le
@@ -65,18 +83,22 @@ Cela va installer:
 
 - Les variables d'environnement PATH pour tous les exécutables
 
-- Nvm + NodeJS (dernière version) + NPM
+- Nvm + NodeJS + NPM
 
-- Python3 (pip + virtualenv)
+- Python 3 via uv (pip + virtualenv + pyinstaller)
 
-- Go (Téléchargement du zip et extraction)
+- Go via gvm (+ `minica` pour la génération des certificats)
 
 - Création d'une base de donnée MariaDB
 
-- Téléchargement de dernier certificats
+- Téléchargement des derniers certificats
   openssl/curl [curl - Extract CA Certs from Mozilla](https://curl.se/docs/caextract.html)
 
-- Composer (php 7.4 8.1 8.2 8.3), Composer LTS (php 5.5 5.6)
+- Composer (php >= 7.4), Composer LTS (php 5.6)
+
+- Génération et installation d'un certificat racine de développement (`lib/ca`) pour servir le SDK en `https://`
+
+- L'application de barre des tâches `websdk-tray` au démarrage de Windows, et son raccourci dans le menu Démarrer
 
 Il vous est recommandé de redémarrer votre PC après cette opération.
 
@@ -86,22 +108,21 @@ Plusieurs versions de Php sont disponibles, donc pour exécuter une version spé
 le terminal:
 
 ```shell
-php5.5 -v
 php5.6 -v
 php7.4 -v
 php8.1 -v
 php8.2 -v
 php8.3 -v
+php8.4 -v
+php8.5 -v
 ```
 
-La version de php par défaut est la 8.1 car les extensions pecl ne sont pas encore disponibles pour la 8.2 sur Windows
+La version de php par défaut est la 8.2 car c'est celle qui dispose du plus grand nombre d'extensions pecl compilées
+pour Windows
 
 ```shell
 php -v
 ```
-
-Php 8.2 est utilisée avec Nginx en FastCGI et est configurée pour utiliser Opcache
-et [Just-in-time compilation](https://en.wikipedia.org/wiki/Just-in-time_compilation)
 
 Les autres commandes disponibles sont :
 
@@ -110,19 +131,24 @@ pear # exécuté dans un environement php5.6
 pecl # exécuté dans un environement php5.6
 node -v
 npm -v
+py -V # python fourni par uv
+uv --version
+go version
 ```
 
 Composer à aussi des commandes liées à la version de php
 
 ```shell
-composer # va exécuter composer8.1
-composer5.5 # va exécuter le version LTS de composer (php5.5)
-composer5.6 # va exécuter le version LTS de composer (php5.6)
+composer # va exécuter composer avec la version de php par défaut
+composer5.6 # va exécuter la version LTS de composer (php5.6)
 composer7.4 # va exécuter composer dans un environnement 7.4
 composer8.1
 composer8.2
 composer8.3
+composer8.4
+composer8.5
 ```
+
 Vous pouvez aussi charger les librairies installées en utilisant `composer global require` :
 
 ```php
@@ -142,6 +168,36 @@ phan
 phan7.4
 phan8.1
 phan8.2
+phan8.3
+phan8.4
+```
+
+PHP-CS-Fixer et Rector sont installés à la demande (au premier lancement) dans `lib/` :
+
+```shell
+php-cs-fixer setup   # copie .php-cs-fixer.dist.php dans le projet courant
+php-cs-fixer update  # met à jour l'outil
+php-cs-fixer fix
+
+rector setup         # copie rector.php dans le projet courant
+rector update
+rector process
+```
+
+Quelques raccourcis pour les projets PHP et front-end :
+
+```shell
+artisan       # php artisan (projet Laravel)
+laravel       # laravel installer, ou artisan si un projet est détecté
+console       # php bin/console (projet Symfony)
+biome         # npx @biomejs/biome
+svelte        # npx sv
+jsrepo        # npx jsrepo
+shadcn-svelte # npx shadcn-svelte@latest
+adminer       # ouvre Adminer dans le navigateur
+pma           # ouvre phpMyAdmin (s'il est installé)
+7zcat         # affiche le contenu d'une archive sur la sortie standard
+e / e.        # ouvre l'explorateur de fichiers
 ```
 
 ## Win32 API
@@ -149,38 +205,79 @@ phan8.2
 l'extension `win32std` à été compilée et intégrée aux versions php `8.2`, `8.3` et `8.4`
 En attandant que des stubs soient générés, une documentation est disponible à l'adresse suivante: [win32std - Windows binding for PHP](http://wildphp.free.fr/wiki/doku.php?id=win32std:index)
 
+## Démarrer et arrêter les services
 
-## Les commandes du SDK:
+Une application développée en Python (SysTray App) permet de piloter le SDK : `websdk-tray.exe` est lancé au démarrage
+de Windows et son menu permet de démarrer/arrêter les services. Elle est configurée
+par `etc/websdk-tray.json` (copié depuis `etc/websdk-tray-dist.json` lors de l'installation).
 
-Ce sdk fournit des commandes pour démarrer et arrêter les services :
+Le menu propose notamment :
 
-```shell
-websdk-start
+- **WebSdk [apache|mariadb]** : Apache + MariaDB (PHP en module ou en FastCGI selon la configuration Apache)
+
+- **WebSdk [nginx|php|mariadb]** : nginx + PHP FastCGI (port 9802) + MariaDB
+
+- **WebSdk [apache|postgres]** : Apache + PostgreSQL
+
+- **Redis** et **PostgreSQL** : démarrage/arrêt indépendants
+
+- **Console MariaDB** / **Console PostgreSql**
+
+- **Configurer Apache** (ouvre `lib/httpd/conf/custom`) et **Changer nginx PHP version** (ouvre `etc/php-cgi.bat`)
+
+- **Adminer**, **phpMyAdmin** et **informations PHP**
+
+Les mêmes actions sont disponibles en ligne de commande dans `lib/sdk/scripts` (élévation UAC automatique) :
+
+```batch
+lib\sdk\scripts\start-httpd.bat     & lib\sdk\scripts\stop-httpd.bat
+lib\sdk\scripts\start-nginx.bat     & lib\sdk\scripts\stop-nginx.bat
+lib\sdk\scripts\start-cgi.bat       & lib\sdk\scripts\stop-cgi.bat
+lib\sdk\scripts\start-mariadb.bat   & lib\sdk\scripts\stop-mariadb.bat
+lib\sdk\scripts\start-pg.bat        & lib\sdk\scripts\stop-pg.bat
+lib\sdk\scripts\start-redis.bat     & lib\sdk\scripts\stop-redis.bat
 ```
 
-Cette commande va démarrer les services `MariaDB`, `Nginx avec PHP8.2` et lancer le navigateur sur `PhpMyAdmin`
+Apache et Redis sont installés en tant que services Windows (`httpd`, `Redis`) démarrés à la demande.
 
-Les identifiants de la base de donnée sont :
+## Accès aux bases de données
 
-`mysql://root:toor@localhost:3306/dbname`
+MariaDB (port 3306) :
+
+`mysql://root:toor@127.0.0.1:3306/dbname`
 
 |     **user** | `root` |
 | -----------: | ------ |
 | **password** | `toor` |
 
-Les applications web installées sont:
+PostgreSQL (port 5432, utilisateur `postgres`, base `postgres`) : voir `lib/pg/env.bat`
 
-- [Adminer](http://localhost/adminer)
+Redis : `redis://root:toor@127.0.0.1:6379`
 
+|     **user** | `root` |
+| -----------: | ------ |
+| **password** | `toor` |
 
-```shell
-websdk-stop
-```
+Les applications web installées sont :
 
-Cette commande va arrêter tous les services démarrés par `websdk-start`
+- [Adminer](https://localhost/adminer)
 
-Une application a été développée en Python pour faciliter le démarrage du SDK (SysTray App)
+## Configuration
 
+- **Racine web** : `var/www` (`DocumentRoot` par défaut d'Apache et de nginx)
 
+- **Apache** : déposer vos fichiers de configuration dans `lib/httpd/conf/custom` (ils sont tous inclus).
+  `000-php.conf` sert d'exemple : le copier en `111-php.conf` pour activer `mod_fcgid` et choisir la version de PHP
+  (`Define PHPCGIVERSION "8.5"` en FastCGI, `Define PHPVERSION "8.5"` pour le module Apache).
+  La variable `${SDKROOT}` pointe sur `C:\WebSdk`.
 
+- **nginx** : la version de PHP utilisée par le FastCGI se règle dans `etc/php-cgi.bat` (`set "php_version=8.4"`),
+  des options par version peuvent être ajoutées dans `etc/php-cgi/<version>.bat`.
 
+- **PHP** : la configuration commune recommandée est documentée dans `lib/php/conf.md` (opcache, apcu, timezone,
+  `curl.cainfo` / `openssl.cafile` pointant sur `lib/certs/cacert.pem`).
+
+- **HTTPS** : les certificats sont générés par [minica](https://github.com/jsha/minica) dans `lib/ca`
+  (`generate-certs.bat` pour `localhost` et le nom de la machine, `install-certs.bat` pour ajouter le certificat racine
+  au magasin Windows). Le bundle CA de Mozilla est mis à jour automatiquement au démarrage d'Apache
+  (`lib/certs/update.bat`).

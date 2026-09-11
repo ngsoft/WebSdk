@@ -13,3 +13,4 @@ Config::setItem('ADMINER_SERVERS', [
     'SqLite' => ['driver' => 'sqlite', 'server' => 'sqlite'],
     'Redis' => ['driver' => 'redis', 'server' => '127.0.0.1'],
 ]);
+

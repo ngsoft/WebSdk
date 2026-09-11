@@ -90,9 +90,10 @@ class AdminerCodemirror
                     if (mode) {
                         const width = el.clientWidth;
                         const height = el.clientHeight;
+                        const isJson = mode === 'application/json';
                         const cm = CodeMirror.fromTextArea(el, {
                             mode: mode,
-                            extraKeys: {
+                            extraKeys: isJson ? {} : {
                                 'Ctrl-Space': 'autocomplete'
                             },
                             hintOptions: {
@@ -102,12 +103,18 @@ class AdminerCodemirror
                             }
                         });
                         cm.setSize(width, height);
-                        cm.on('inputRead', () => {
-                            const token = cm.getTokenAt(cm.getCursor());
-                            if (/^[.`"\w]\w*$/.test(token.string)) {
-                                CodeMirror.commands.autocomplete(cm);
-                            }
-                        });
+                        // Keep the underlying textarea in sync: Adminer ajaxForm
+                        // serializes fields without firing the form "submit" event
+                        // that CodeMirror.fromTextArea normally hooks.
+                        cm.on('changes', () => cm.save());
+                        if (!isJson) {
+                            cm.on('inputRead', () => {
+                                const token = cm.getTokenAt(cm.getCursor());
+                                if (/^[.`"\w]\w*$/.test(token.string)) {
+                                    CodeMirror.commands.autocomplete(cm);
+                                }
+                            });
+                        }
                         setupSubmitHighlightInput(cm.getWrapperElement());
                         el.onchange = () => cm.setValue(el.value);
                     }

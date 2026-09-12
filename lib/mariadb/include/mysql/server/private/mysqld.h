@@ -1,5 +1,5 @@
 /* Copyright (c) 2006, 2016, Oracle and/or its affiliates.
-   Copyright (c) 2010, 2021, MariaDB Corporation.
+   Copyright (c) 2010, 2026, MariaDB plc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -83,6 +83,8 @@ void unlink_thd(THD *thd);
 void refresh_status_legacy(THD *thd);
 void refresh_session_status(THD *thd);
 void refresh_global_status();
+void clear_opt_noacl();
+bool var_is_ro_after_init(const char *addr);
 bool is_secure_file_path(char *path);
 extern void init_net_server_extension(THD *thd);
 extern void handle_accepted_socket(MYSQL_SOCKET new_sock, MYSQL_SOCKET sock);
@@ -107,21 +109,25 @@ extern CHARSET_INFO *character_set_filesystem;
 void temp_pool_clear_bit(uint bit);
 uint temp_pool_set_next();
 
-extern bool opt_large_files;
-extern bool opt_bin_log, opt_error_log, opt_bin_log_compress;
+extern my_bool opt_bin_log, opt_large_files;
+extern bool opt_error_log, opt_bin_log_compress;
+extern char *opt_binlog_storage_engine;
+extern const char *opt_binlog_directory;
+extern handlerton *opt_binlog_engine_hton;
 extern uint opt_bin_log_compress_min_len;
 extern my_bool opt_log, opt_bootstrap;
 extern my_bool opt_support_flashback;
 extern ulonglong log_output_options;
-extern bool opt_disable_networking, opt_skip_show_db;
-extern bool opt_skip_name_resolve;
-extern bool opt_ignore_builtin_innodb;
+extern my_bool opt_disable_networking, opt_skip_show_db;
+extern my_bool opt_skip_name_resolve;
+extern my_bool opt_ignore_builtin_innodb;
 extern my_bool opt_character_set_client_handshake;
 extern my_bool debug_assert_on_not_freed_memory;
 extern MYSQL_PLUGIN_IMPORT bool volatile abort_loop;
 extern my_bool opt_safe_user_create;
 extern my_bool opt_local_infile, opt_myisam_use_mmap;
 extern my_bool opt_slave_compressed_protocol, use_temp_pool;
+extern my_bool opt_silent_startup;
 extern ulong slave_exec_mode_options, slave_ddl_exec_mode_options;
 extern ulong slave_retried_transactions;
 extern ulong transactions_multi_engine;
@@ -244,6 +250,7 @@ extern ulonglong slave_max_statement_time;
 extern double slave_max_statement_time_double;
 extern double slave_abort_blocking_timeout;
 extern ulong opt_binlog_rows_event_max_size;
+extern uint opt_binlog_row_event_fragment_threshold;
 extern ulong binlog_row_metadata;
 extern my_bool opt_binlog_gtid_index;
 extern uint opt_binlog_gtid_index_page_size;
@@ -267,7 +274,7 @@ extern time_t server_start_time;
 extern char *opt_mysql_tmpdir, mysql_charsets_dir[];
 extern size_t mysql_unpacked_real_data_home_len;
 extern MYSQL_PLUGIN_IMPORT MY_TMPDIR mysql_tmpdir_list;
-extern const char *first_keyword, *delayed_user, *slave_user;
+extern const char *first_keyword, *delayed_user, *slave_user, *wsrep_user;
 extern MYSQL_PLUGIN_IMPORT const char  *my_localhost;
 extern MYSQL_PLUGIN_IMPORT const char **errmesg;			/* Error messages */
 extern const Lex_ident_column in_left_expr_name, in_additional_cond, in_having_cond;
@@ -304,6 +311,9 @@ extern const char *encryption_algorithm_names[];
 extern long opt_secure_timestamp;
 extern uint default_password_lifetime;
 extern my_bool disconnect_on_expired_password;
+#ifndef DBUG_OFF
+extern bool is_in_ddl_recovery;
+#endif
 
 enum secure_timestamp { SECTIME_NO, SECTIME_SUPER, SECTIME_REPL, SECTIME_YES };
 bool is_set_timestamp_forbidden(THD *thd);
@@ -313,7 +323,8 @@ extern PSI_mutex_key key_PAGE_lock, key_LOCK_sync, key_LOCK_active,
        key_LOCK_pool, key_LOCK_pending_checkpoint;
 #endif /* HAVE_MMAP */
 
-extern PSI_mutex_key key_BINLOG_LOCK_index, key_BINLOG_LOCK_xid_list,
+extern PSI_mutex_key key_BINLOG_LOCK_index, key_BINLOG_LOCK_binlog_use,
+  key_BINLOG_LOCK_xid_list,
   key_BINLOG_LOCK_binlog_background_thread,
   key_LOCK_binlog_end_pos,
   key_delayed_insert_mutex, key_hash_filo_lock, key_LOCK_active_mi,
@@ -359,7 +370,7 @@ extern PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
 extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;
 #endif /* HAVE_MMAP */
 
-extern PSI_cond_key key_BINLOG_COND_xid_list,
+extern PSI_cond_key key_BINLOG_COND_binlog_use, key_BINLOG_COND_xid_list,
   key_BINLOG_COND_binlog_background_thread,
   key_BINLOG_COND_binlog_background_thread_end,
   key_COND_cache_status_changed, key_COND_manager, key_COND_server_started,
@@ -386,7 +397,7 @@ extern PSI_cond_key key_TABLE_SHARE_COND_rotation;
 extern PSI_thread_key key_thread_delayed_insert,
   key_thread_handle_manager, key_thread_main,
   key_thread_one_connection, key_thread_signal_hand,
-  key_thread_slave_background, key_rpl_parallel_thread;
+  key_thread_slave_deadlock_handler, key_rpl_parallel_thread;
 
 extern PSI_file_key key_file_binlog, key_file_binlog_cache,
        key_file_binlog_index, key_file_binlog_index_cache, key_file_casetest,
@@ -513,6 +524,7 @@ extern PSI_stage_info stage_alter_inplace_prepare;
 extern PSI_stage_info stage_alter_inplace;
 extern PSI_stage_info stage_alter_inplace_commit;
 extern PSI_stage_info stage_after_apply_event;
+extern PSI_stage_info stage_buffer_partial_rows;
 extern PSI_stage_info stage_changing_master;
 extern PSI_stage_info stage_checking_master_version;
 extern PSI_stage_info stage_checking_permissions;
@@ -521,6 +533,7 @@ extern PSI_stage_info stage_checking_query_cache_for_query;
 extern PSI_stage_info stage_cleaning_up;
 extern PSI_stage_info stage_closing_tables;
 extern PSI_stage_info stage_connecting_to_master;
+extern PSI_stage_info stage_constructing_rows_ev;
 extern PSI_stage_info stage_converting_heap_to_myisam;
 extern PSI_stage_info stage_copying_to_group_table;
 extern PSI_stage_info stage_copying_to_tmp_table;
@@ -643,6 +656,7 @@ extern PSI_stage_info stage_slave_background_process_request;
 extern PSI_stage_info stage_slave_background_wait_request;
 extern PSI_stage_info stage_waiting_for_deadlock_kill;
 extern PSI_stage_info stage_starting;
+extern PSI_stage_info stage_waiting_for_reset_master;
 #ifdef WITH_WSREP
 // Additional Galera thread states
 extern PSI_stage_info stage_waiting_isolation;
@@ -717,7 +731,8 @@ extern mysql_mutex_t
        LOCK_error_log, LOCK_delayed_insert, LOCK_short_uuid_generator,
        LOCK_delayed_status, LOCK_delayed_create, LOCK_crypt, LOCK_timezone,
        LOCK_active_mi, LOCK_manager, LOCK_user_conn,
-       LOCK_prepared_stmt_count, LOCK_error_messages,  LOCK_backup_log,
+       LOCK_prepared_stmt_count, LOCK_error_messages,
+       LOCK_slave_deadlock_handler, LOCK_backup_log,
        LOCK_optimizer_costs;
 extern MYSQL_PLUGIN_IMPORT mysql_mutex_t LOCK_global_system_variables;
 extern mysql_rwlock_t LOCK_all_status_vars;
@@ -729,6 +744,7 @@ extern mysql_rwlock_t LOCK_ssl_refresh;
 extern mysql_prlock_t LOCK_system_variables_hash;
 extern mysql_cond_t COND_start_thread;
 extern mysql_cond_t COND_manager;
+extern mysql_cond_t COND_slave_deadlock_handler;
 
 extern my_bool opt_use_ssl;
 extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
@@ -808,6 +824,7 @@ enum options_mysqld
   OPT_TLS_VERSION, OPT_SECURE_AUTH,
   OPT_MYSQL_TO_BE_IMPLEMENTED,
   OPT_SEQURE_FILE_PRIV,
+  OPT_MASTER_HEARTBEAT_PERIOD,
   OPT_which_is_always_the_last
 };
 #endif

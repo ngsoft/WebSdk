@@ -88,10 +88,10 @@ typedef struct st_key_part_info {	/* Info about a key part */
      - possible HA_KEY_BLOB_LENGTH bytes needed to store actual value length.
   */
   uint store_length;
-  uint16 key_type;
+  uint16 key_type;                      /* Bitmap of FIELDFLAG_* flags */
   field_index_t fieldnr;                /* Fieldnr begins counting from 1 */
   uint16 key_part_flag;                 /* 0 or HA_REVERSE_SORT */
-  uint8 type;
+  uint8 type;                           /* One of HA_KEYTYPE_* values  */
   uint8 null_bit;                       /* Position to null_bit */
 } KEY_PART_INFO ;
 
@@ -155,6 +155,12 @@ typedef struct st_key {
     For temporary heap tables this member is NULL.
   */
   ulong *rec_per_key;
+
+  /*
+    Average space index tuple takes on disk, according to the engine's
+    statistics. 0 if statistics is not available.
+  */
+  size_t stat_storage_length;
 
   /*
     This structure is used for statistical data on the index
@@ -267,7 +273,7 @@ struct LEX_USER: public AUTHID
   USER_AUTH *auth;
   bool has_auth()
   {
-    return auth && (auth->plugin.length || auth->auth_str.length || auth->pwtext.length);
+    return auth;
   }
 };
 

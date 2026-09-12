@@ -239,6 +239,7 @@ public:
             item_walk_flags flags) override;
   bool unknown_splocal_processor(void *arg) override;
   bool mark_as_eliminated_processor(void *arg) override;
+  bool unmark_as_eliminated_processor(void *arg) override;
   bool eliminate_subselect_processor(void *arg) override;
   bool enumerate_field_refs_processor(void *arg) override;
   bool check_vcol_func_processor(void *arg) override
@@ -275,10 +276,11 @@ public:
   void register_as_with_rec_ref(With_element *with_elem);
   void init_expr_cache_tracker(THD *thd);
 
-  Item* do_build_clone(THD *thd) const override { return nullptr; }
-  Item *do_get_copy(THD *thd) const override { return 0; }
-
   st_select_lex *wrap_tvc_into_select(THD *thd, st_select_lex *tvc_sl);
+
+protected:
+  Item* deep_copy(THD *thd) const override { return nullptr; }
+  Item *shallow_copy(THD *thd) const override { return nullptr; }
 
   friend class select_result_interceptor;
   friend class Item_in_optimizer;

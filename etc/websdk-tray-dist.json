@@ -245,6 +245,19 @@
                 ]
             }
         },
+        {
+            "name": "redis-console",
+            "label": "Console Redis",
+            "notify": [
+                "Accès à la console Redis"
+            ],
+            "start": [
+                "cmd.exe /C C:/WebSdk/lib/redis/console.bat"
+            ],
+            "visible": [
+                "redis"
+            ]
+        },
         "separator",
         {
             "name": "pg-sql",

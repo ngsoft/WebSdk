@@ -21,6 +21,7 @@
 #include "item.h"
 #include "lex_string.h"
 #include "item_func.h"
+#include "sql_type_vector.h"
 
 class Item_func_vec_distance: public Item_real_func
 {
@@ -61,7 +62,7 @@ public:
     return NULL;
   }
   key_map part_of_sortkey() const override;
-  Item *do_get_copy(THD *thd) const override
+  Item *shallow_copy(THD *thd) const override
   { return get_item_copy<Item_func_vec_distance>(thd, this); }
 };
 
@@ -82,7 +83,7 @@ public:
     static LEX_CSTRING name= { STRING_WITH_LEN("VEC_ToText") };
     return name;
   }
-  Item *do_get_copy(THD *thd) const override
+  Item *shallow_copy(THD *thd) const override
   { return get_item_copy<Item_func_vec_totext>(thd, this); }
 };
 
@@ -97,12 +98,16 @@ public:
   bool fix_length_and_dec(THD *thd) override;
   Item_func_vec_fromtext(THD *thd, Item *a);
   String *val_str(String *buf) override;
+  const Type_handler *type_handler() const override
+  { return &type_handler_vector; }
+  Field *create_field_for_create_select(MEM_ROOT *root, TABLE *table) override
+  { return create_table_field_from_handler(root, table); }
   LEX_CSTRING func_name_cstring() const override
   {
     static LEX_CSTRING name= { STRING_WITH_LEN("VEC_FromText") };
     return name;
   }
-  Item *do_get_copy(THD *thd) const override
+  Item *shallow_copy(THD *thd) const override
   { return get_item_copy<Item_func_vec_fromtext>(thd, this); }
    void cleanup() override
   {

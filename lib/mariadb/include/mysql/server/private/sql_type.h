@@ -219,28 +219,30 @@ static inline constexpr expr_event_t operator&(const expr_event_t a,
 }
 
 
-class Hasher
+class Hasher: public my_hasher_st
 {
-  ulong m_nr1;
-  ulong m_nr2;
 public:
-  Hasher(): m_nr1(1), m_nr2(4)
-  { }
+  Hasher() : my_hasher_st(my_hasher_mysql5x()) {}
+  Hasher(my_hasher_st hasher): my_hasher_st(hasher) {}
   void add_null()
   {
-    m_nr1^= (m_nr1 << 1) | 1;
+    if (m_hash_str)
+      m_hash_str(this, NULL, 0);
+    else                        /* mysql5x */
+      m_nr1^= (m_nr1 << 1) | 1;
   }
   void add(CHARSET_INFO *cs, const uchar *str, size_t length)
   {
-    cs->coll->hash_sort(cs, str, length, &m_nr1, &m_nr2);
+    cs->coll->hash_sort(this, cs, str, length);
   }
   void add(CHARSET_INFO *cs, const char *str, size_t length)
   {
     add(cs, (const uchar *) str, length);
   }
-  uint32 finalize() const
+  uint64 finalize()
   {
-    return (uint32) m_nr1;
+    DBUG_ASSERT(m_finalize);
+    return m_finalize(this);
   }
 };
 
@@ -924,7 +926,7 @@ class Year
 protected:
   uint m_year;
   bool m_truncated;
-  uint year_precision(const Item *item) const;
+  static uint year_precision(const Item *item);
 public:
   Year(): m_year(0), m_truncated(false) { }
   Year(longlong value, bool unsigned_flag, uint length);
@@ -3417,8 +3419,9 @@ public:
   void aggregate_attributes_int(Item **items, uint nitems)
   {
     collation= DTCollation_numeric();
-    fix_char_length(find_max_char_length(items, nitems));
     unsigned_flag= count_unsigned(items, nitems) > 0;
+    fix_char_length(find_max_decimal_int_part(items, nitems) +
+                    (unsigned_flag ? 0 : 1));
     decimals= 0;
   }
   void aggregate_attributes_real(Item **items, uint nitems)
@@ -3916,7 +3919,7 @@ protected:
 
   bool Item_func_or_sum_illegal_param(const LEX_CSTRING &name) const;
   bool Item_func_or_sum_illegal_param(const Item_func_or_sum *) const;
-  bool check_null(const Item *item, st_value *value) const;
+  void set_null_if_needed(const Item *item, st_value *value) const;
   bool Item_send_str(Item *item, Protocol *protocol, st_value *buf) const;
   bool Item_send_tiny(Item *item, Protocol *protocol, st_value *buf) const;
   bool Item_send_short(Item *item, Protocol *protocol, st_value *buf) const;
@@ -3943,6 +3946,17 @@ public:
   {
     FUNCTION,
     PROCEDURE
+  };
+
+  enum column_attributes
+  {
+    ATTR_NONE= 0,
+    ATTR_LENGTH= 1,
+    ATTR_DEC= 2,
+    ATTR_CHARSET= 4,
+    ATTR_SRID= 8,
+
+    ATTR_ALL= ATTR_LENGTH | ATTR_DEC | ATTR_CHARSET | ATTR_SRID
   };
 
   static const Type_handler *handler_by_name(THD *thd, const LEX_CSTRING &name);
@@ -3987,6 +4001,7 @@ public:
   virtual const Name version() const;
   virtual const Name &default_value() const= 0;
   virtual uint32 flags() const { return 0; }
+  virtual uint get_column_attributes() const { return ATTR_ALL; }
   virtual ulong KEY_pack_flags(uint column_nr) const { return 0; }
   bool is_unsigned() const { return flags() & UNSIGNED_FLAG; }
   virtual enum_field_types field_type() const= 0;
@@ -4226,6 +4241,8 @@ public:
   */
   virtual bool has_functors() const { return false; }
   virtual bool has_null_predicate() const { return true; }
+  virtual Type_std_attributes Item_type_std_attributes_generic(
+                                                       const Item *item) const;
   virtual decimal_digits_t Item_time_precision(THD *thd, Item *item) const;
   virtual decimal_digits_t Item_datetime_precision(THD *thd, Item *item) const;
   virtual decimal_digits_t Item_decimal_scale(const Item *item) const;
@@ -4497,7 +4514,7 @@ public:
   virtual uint32 calc_pack_length(uint32 length) const= 0;
   virtual uint calc_key_length(const Column_definition &def) const;
   virtual void Item_update_null_value(Item *item) const= 0;
-  virtual bool Item_save_in_value(THD *thd, Item *item, st_value *value) const= 0;
+  virtual void Item_save_in_value(THD *thd, Item *item, st_value *value) const= 0;
   virtual void Item_param_setup_conversion(THD *thd, Item_param *) const {}
   virtual void Item_param_set_param_func(Item_param *param,
                                          uchar **pos, ulong len) const;
@@ -4884,6 +4901,17 @@ public:
   void raise_bad_data_type_for_functor(const Qualified_ident &ident,
                                        const Lex_ident_sys &field=
                                          Lex_ident_sys()) const;
+  /*
+    Check (this, dst_std_attr, dst_extra_attr) is a supertype to
+    (src_th, src_std_attr, src_extra_attr).
+
+    The method has 100% precision, but may return false negatives.
+  */
+  virtual bool is_supertype(const Type_std_attributes &dst_std_attr,
+                            const Type_extra_attributes &dst_extra_attr,
+                            const Type_handler *src_th,
+                            const Type_std_attributes &src_std_attr,
+                            const Type_extra_attributes &src_extra_attr) const = 0;
 };
 
 
@@ -4977,7 +5005,7 @@ public:
   bool Item_eq_value(THD *thd, const Type_cmp_attributes *attr,
                      Item *a, Item *b) const override;
   decimal_digits_t Item_decimal_precision(const Item *item) const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
+  void Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
   bool Item_param_set_from_value(THD *thd,
                                  Item_param *param,
                                  const Type_all_attributes *attr,
@@ -5041,6 +5069,19 @@ public:
   bool Item_func_mul_fix_length_and_dec(Item_func_mul *) const override;
   bool Item_func_div_fix_length_and_dec(Item_func_div *) const override;
   bool Item_func_mod_fix_length_and_dec(Item_func_mod *) const override;
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    if (this != src_th)
+      return false;
+    if (dst_std_attr.unsigned_flag && !src_std_attr.unsigned_flag)
+      return false;
+    return dst_std_attr.max_length >= src_std_attr.max_length &&
+      dst_std_attr.decimals >= src_std_attr.decimals;
+  }
 };
 
 
@@ -5106,7 +5147,7 @@ public:
     return va.ptr() && vb.ptr() && !va.cmp(vb);
   }
   decimal_digits_t Item_decimal_precision(const Item *item) const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
+  void Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
   void Item_param_set_param_func(Item_param *param,
                                  uchar **pos, ulong len) const override;
   bool Item_param_set_from_value(THD *thd,
@@ -5179,6 +5220,23 @@ public:
   bool Item_func_mul_fix_length_and_dec(Item_func_mul *) const override;
   bool Item_func_div_fix_length_and_dec(Item_func_div *) const override;
   bool Item_func_mod_fix_length_and_dec(Item_func_mod *) const override;
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    if (type_handler_for_comparison() != src_th->type_handler_for_comparison())
+      return false;
+    if (dst_std_attr.unsigned_flag && !src_std_attr.unsigned_flag)
+      return false;
+    if (dst_std_attr.decimals < src_std_attr.decimals)
+      return false;
+    if (dst_std_attr.unsigned_flag == src_std_attr.unsigned_flag)
+      return dst_std_attr.max_length >= src_std_attr.max_length;
+    /* dst is signed and src is unsigned. compare the unsigned range */
+    return dst_std_attr.max_length - 1 >= src_std_attr.max_length;
+  }
 };
 
 
@@ -5232,6 +5290,24 @@ public:
   { }
   uint32 precision() const { return m_precision; }
   uint32 char_length() const { return m_char_length; }
+  bool contains(bool this_unsigned_flag,
+                const Type_limits_int &other,
+                bool other_unsigned_flag) const
+  {
+    if (!this_unsigned_flag && !other_unsigned_flag)
+      return min_signed() <= other.min_signed() &&
+        max_signed() >= other.max_signed();
+    if (this_unsigned_flag && other_unsigned_flag)
+      return max_unsigned() >= other.max_unsigned();
+    /*
+      Unsigned cannot be supertype of signed because it cannot be
+      negative.
+    */
+    if (this_unsigned_flag && !other_unsigned_flag)
+      return false;
+    /* !this_unsigned_flag && other_unsigned_flag */
+    return (ulonglong) max_signed() >= other.max_unsigned();
+  }
 };
 
 
@@ -5387,8 +5463,10 @@ public:
                      bool binary_cmp) const override;
   bool Item_eq_value(THD *thd, const Type_cmp_attributes *attr,
                      Item *a, Item *b) const override;
+  Type_std_attributes Item_type_std_attributes_generic(
+                                              const Item *item) const override;
   decimal_digits_t Item_decimal_precision(const Item *item) const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
+  void Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
   bool Item_param_set_from_value(THD *thd,
                                  Item_param *param,
                                  const Type_all_attributes *attr,
@@ -5473,6 +5551,18 @@ public:
                                     partition_value_print_mode_t)
                                     const override;
   const Vers_type_handler *vers() const override { return &vers_type_trx; }
+  bool is_supertype(const Type_std_attributes &, const Type_extra_attributes &,
+                    const Type_handler *src_th, const Type_std_attributes &,
+                    const Type_extra_attributes &) const override
+  {
+    const Type_handler_general_purpose_int *src_gp=
+      dynamic_cast<const Type_handler_general_purpose_int*>(src_th);
+    if (!src_gp)
+      return false;
+    return type_limits_int()->contains(is_unsigned(),
+                                       *src_gp->type_limits_int(),
+                                       src_th->is_unsigned());
+  };
 };
 
 
@@ -5561,6 +5651,14 @@ public:
   bool Item_func_div_fix_length_and_dec(Item_func_div *) const override;
   bool Item_func_mod_fix_length_and_dec(Item_func_mod *) const override;
   const Vers_type_handler *vers() const override;
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    return this == src_th && dst_std_attr.decimals >= src_std_attr.decimals;
+  }
 };
 
 
@@ -5635,7 +5733,7 @@ public:
   }
   decimal_digits_t Item_decimal_precision(const Item *item) const override;
   void Item_update_null_value(Item *item) const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
+  void Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
   void Item_param_setup_conversion(THD *thd, Item_param *) const override;
   void Item_param_set_param_func(Item_param *param,
                                  uchar **pos, ulong len) const override;
@@ -6130,6 +6228,17 @@ public:
                                             date_mode_t fuzzydate)
                                             const override;
   const Vers_type_handler *vers() const override { return NULL; }
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    if (!dynamic_cast<const Type_handler_year *>(src_th))
+      return false;
+    /* YEAR(4) is a supertype of YEAR(2) */
+    return dst_std_attr.max_length >= src_std_attr.max_length;
+  }
 };
 
 
@@ -6194,6 +6303,16 @@ public:
                                    const Bit_addr &bit,
                                    const Column_definition_attributes *attr,
                                    uint32 flags) const override;
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    if (this != src_th)
+      return false;
+    return dst_std_attr.max_length >= src_std_attr.max_length;
+  }
 };
 
 
@@ -6244,6 +6363,7 @@ public:
                                  uchar **pos, ulong len) const override;
 
   Item_cache *Item_get_cache(THD *thd, const Item *item) const override;
+  Item_copy *create_item_copy(THD *thd, Item *item) const override;
   String *Item_func_hybrid_field_type_val_str(Item_func_hybrid_field_type *,
                                               String *) const override;
   String *Item_func_min_max_val_str(Item_func_min_max *, String *)
@@ -6299,6 +6419,7 @@ public:
                                  uchar **pos, ulong len) const override;
 
   Item_cache *Item_get_cache(THD *thd, const Item *item) const override;
+  Item_copy *create_item_copy(THD *thd, Item *item) const override;
   String *Item_func_hybrid_field_type_val_str(Item_func_hybrid_field_type *,
                                               String *) const override;
   String *Item_func_min_max_val_str(Item_func_min_max *, String *)
@@ -6372,7 +6493,7 @@ public:
                                           const uchar *buffer,
                                           LEX_CUSTRING *gis_options)
                                           const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
+  void Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
   bool Item_send(Item *item, Protocol *protocol, st_value *buf) const override
   {
     return Item_send_time(item, protocol, buf);
@@ -6500,7 +6621,7 @@ public:
                      Item *a, Item *b) const override;
   int stored_field_cmp_to_item(THD *thd, Field *field, Item *item)
                                const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value)
+  void Item_save_in_value(THD *thd, Item *item, st_value *value)
                           const override;
   bool Item_send(Item *item, Protocol *protocol, st_value *buf) const override
   {
@@ -7069,7 +7190,7 @@ public:
   uint32 calc_pack_length(uint32 length) const override { return 0; }
   bool Item_const_eq(const Item_const *a, const Item_const *b,
                      bool binary_cmp) const override;
-  bool Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
+  void Item_save_in_value(THD *thd, Item *item, st_value *value) const override;
   bool Item_send(Item *item, Protocol *protocol, st_value *buf) const override;
   Field *make_conversion_table_field(MEM_ROOT *root,
                                      TABLE *table, uint metadata,
@@ -7106,6 +7227,16 @@ public:
                                    const Bit_addr &bit,
                                    const Column_definition_attributes *attr,
                                    uint32 flags) const override;
+  void Item_param_set_param_func(Item_param *param,
+                                 uchar **pos, ulong len) const override;
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    return this == src_th;
+  }
 };
 
 
@@ -7115,6 +7246,33 @@ public:
   bool type_can_have_key_part() const override
   {
     return true;
+  }
+  /*
+    BLOB/TEXT have a different max_length notation versus
+    CHAR/VARCHAR/BINARY/VARBINARY: max octet length vs max character
+    length.
+  */
+  virtual bool capacity_limit_is_in_characters() const { return true; };
+  bool is_supertype(const Type_std_attributes &dst_std_attr,
+                    const Type_extra_attributes &dst_extra_attr,
+                    const Type_handler *src_th,
+                    const Type_std_attributes &src_std_attr,
+                    const Type_extra_attributes &src_extra_attr) const override
+  {
+    /*
+      BLOB/TEXT have a different max_length notation versus
+      CHAR/VARCHAR/BINARY/VARBINARY: max octet length vs max character
+      length. So don't mix types of different notations for safety.
+    */
+    const Type_handler_longstr* src_th_longstr=
+      dynamic_cast<const Type_handler_longstr *>(src_th);
+    if (!src_th_longstr ||
+        capacity_limit_is_in_characters() !=
+          src_th_longstr->capacity_limit_is_in_characters())
+      return false;
+    if (dst_std_attr.collation.collation != src_std_attr.collation.collation)
+      return false;
+    return dst_std_attr.max_length >= src_std_attr.max_length;
   }
 };
 
@@ -7279,8 +7437,23 @@ class Type_handler_hex_hybrid: public Type_handler_varchar
 public:
   virtual ~Type_handler_hex_hybrid() = default;
   const Type_handler *cast_to_int_type_handler() const override;
+  bool Item_hybrid_func_fix_attributes(THD *thd, const LEX_CSTRING &name,
+                                       Type_handler_hybrid_field_type *h,
+                                       Type_all_attributes *attr,
+                                       Item **items, uint nitems)
+                                       const override;
+  decimal_digits_t Item_decimal_precision(const Item *item) const override;
+  int Item_save_in_field(Item *item, Field *field, bool no_conversions)
+                         const override;
   bool Item_func_round_fix_length_and_dec(Item_func_round *) const override;
   bool Item_func_int_val_fix_length_and_dec(Item_func_int_val*) const override;
+  longlong Item_func_hybrid_field_type_val_int(Item_func_hybrid_field_type *)
+                                               const override;
+  double Item_func_hybrid_field_type_val_real(Item_func_hybrid_field_type *)
+                                              const override;
+  my_decimal *Item_func_hybrid_field_type_val_decimal(
+                                              Item_func_hybrid_field_type *,
+                                              my_decimal *) const override;
 };
 
 
@@ -7328,6 +7501,7 @@ public:
       return HA_BINARY_PACK_KEY | HA_VAR_LENGTH_KEY;
     return HA_PACK_KEY;
   }
+  bool capacity_limit_is_in_characters() const override { return false; };
   Field *make_conversion_table_field(MEM_ROOT *root,
                                      TABLE *table, uint metadata,
                                      const Field *target) const override;
@@ -7526,6 +7700,19 @@ public:
   void Item_param_set_param_func(Item_param *param,
                                  uchar **pos, ulong len) const override;
   const Vers_type_handler *vers() const override { return NULL; }
+  bool is_supertype(const Type_std_attributes &,
+                    const Type_extra_attributes &,
+                    const Type_handler *,
+                    const Type_std_attributes &,
+                    const Type_extra_attributes &) const override
+  {
+    /*
+      We can implement this method to return true in some cases
+      eventually. It'll need deep comparison of the TYPELIBs of the
+      two sides. Let's skip for now for simplicity.
+    */
+    return false;
+  }
 };
 
 

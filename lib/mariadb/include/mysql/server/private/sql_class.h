@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2000, 2016, Oracle and/or its affiliates.
-   Copyright (c) 2009, 2025, MariaDB Corporation.
+   Copyright (c) 2009, 2026, MariaDB plc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -52,6 +52,7 @@
 #include <mysql/psi/mysql_table.h>
 #include <mysql_com_server.h>
 #include "session_tracker.h"
+#include "sql_path.h"
 #include "backup.h"
 #include "xa.h"
 #include "scope.h"
@@ -72,7 +73,7 @@ void set_thd_stage_info(void *thd,
   (thd)->enter_stage(&stage, __func__, __FILE__, __LINE__)
 
 #include "my_apc.h"
-#include "rpl_gtid.h"
+#include "rpl_gtid_base.h"
 
 #include "wsrep.h"
 #include "wsrep_on.h"
@@ -126,7 +127,8 @@ enum enum_slave_run_triggers_for_rbr { SLAVE_RUN_TRIGGERS_FOR_RBR_NO,
                                        SLAVE_RUN_TRIGGERS_FOR_RBR_LOGGING,
                                        SLAVE_RUN_TRIGGERS_FOR_RBR_ENFORCE};
 enum enum_slave_type_conversions { SLAVE_TYPE_CONVERSIONS_ALL_LOSSY,
-                                   SLAVE_TYPE_CONVERSIONS_ALL_NON_LOSSY};
+                                   SLAVE_TYPE_CONVERSIONS_ALL_NON_LOSSY,
+                                   SLAVE_TYPE_CONVERSIONS_ERROR_IF_MISSING_FIELD };
 enum read_only_options { READONLY_OFF, READONLY_ON, READONLY_NO_LOCK,
                          READONLY_NO_LOCK_NO_ADMIN};
 
@@ -203,6 +205,8 @@ enum enum_binlog_row_image {
 #define MODE_TIME_ROUND_FRACTIONAL      (1ULL << 34)
 /* The following modes are specific to MySQL */
 #define MODE_MYSQL80_TIME_TRUNCATE_FRACTIONAL (1ULL << 32)
+#define WAS_ORACLE                      (1ULL << 35)
+#define IS_OR_WAS_ORACLE                (MODE_ORACLE | WAS_ORACLE)
 
 
 /* Bits for different old style modes */
@@ -227,7 +231,7 @@ void old_mode_deprecated_warnings(ulonglong v);
   See sys_vars.cc /new_mode_all_names
 */
 
-#define NEW_MODE_MAX                                                         0
+#define NEW_MODE_MAX                                                0
 
 /* Definitions above that have transitioned from new behaviour to default */
 
@@ -283,6 +287,19 @@ public:
   CHARSET_INFO *charset() const { return cs; }
 
   friend LEX_STRING * thd_query_string (MYSQL_THD thd);
+};
+
+
+template <typename T> class Slice
+{
+  T m_offset;
+  T m_count;
+public:
+  Slice(T offset, T count)
+   :m_offset(offset), m_count(count)
+  { }
+  T offset() const { return m_offset; }
+  T count() const { return m_count; }
 };
 
 
@@ -646,7 +663,7 @@ extern const LEX_CSTRING Diag_condition_item_names[];
   These states are bit coded with HARD. For each state there must be a pair
   <state_even_num>, and <state_odd_num>_HARD.
 */
-enum killed_state
+enum killed_state : uint32_t
 {
   NOT_KILLED= 0,
   KILL_HARD_BIT= 1,                             /* Bit for HARD KILL */
@@ -950,6 +967,7 @@ typedef struct system_variables
   my_bool binlog_alter_two_phase;
 
   Charset_collation_map_st character_set_collations;
+  Sql_path path;
 } SV;
 
 /**
@@ -1095,13 +1113,15 @@ typedef struct system_status_var
   double last_query_cost;
   uint32 threads_running;
 
-  /* Following variables are not cleared by FLUSH STATUS */
+  /* Memory used by internal temporary tables and on disk transaction cache */
   ulonglong max_tmp_space_used;
   /* Memory used for thread local storage */
   int64 max_local_memory_used;
-  /* Don't copy variables back to THD after this in show status */
+  /*
+    Following variables are not cleared by FLUSH STATUS
+    Don't copy them back to THD after show status
+  */
   ulonglong tmp_space_used;
-  /* Don't reset variables after this */
   volatile int64 local_memory_used;
   /* Memory allocated for global usage */
   volatile int64 global_memory_used;
@@ -1120,12 +1140,12 @@ typedef struct system_status_var
 
 #define STATUS_OFFSET(A) offsetof(STATUS_VAR,A)
 /* Clear as part of flush */
-#define clear_for_flush_status      STATUS_OFFSET(tmp_space_used)
-/* Clear as part of startup */
-#define clear_for_new_connection         STATUS_OFFSET(local_memory_used)
+#define clear_for_flush_status           STATUS_OFFSET(tmp_space_used)
+/* Clear as part of a new connection and reuse connection */
+#define clear_for_new_connection         STATUS_OFFSET(max_tmp_space_used)
 /* Full initialization. Note that global_memory_used is updated early! */
-#define clear_for_server_start  STATUS_OFFSET(global_memory_used)
-#define last_restored_status_var        clear_for_flush_status
+#define clear_for_server_start           STATUS_OFFSET(global_memory_used)
+#define last_restored_status_var         clear_for_flush_status
 
 
 /** Number of contiguous global status variables */
@@ -1216,7 +1236,7 @@ public:
   done before any other THD constructors and decrement - after any other THD
   destructors.
 
-  Destructor unblocks close_conneciton() if there are no more THD's left.
+  Destructor unblocks close_connection() if there are no more THD's left.
 */
 struct THD_count
 {
@@ -1645,7 +1665,169 @@ struct send_column_info_state
   }
 };
 
-extern uint sql_command_flags[];
+
+/* Bits in sql_command_flags */
+
+enum cf_flags_t : uint {
+  CF_CHANGES_DATA = 1U << 0,
+  CF_REPORT_PROGRESS = 1U << 1,
+  CF_STATUS_COMMAND = 1U << 2,
+  CF_SHOW_TABLE_COMMAND = 1U << 3,
+  CF_WRITE_LOGS_COMMAND = 1U << 4,
+
+/**
+  Must be set for SQL statements that may contain
+  Item expressions and/or use joins and tables.
+  Indicates that the parse tree of such statement may
+  contain rule-based optimizations that depend on metadata
+  (i.e. number of columns in a table), and consequently
+  that the statement must be re-prepared whenever
+  referenced metadata changes. Must not be set for
+  statements that themselves change metadata, e.g. RENAME,
+  ALTER and other DDL, since otherwise will trigger constant
+  reprepare. Consequently, complex item expressions and
+  joins are currently prohibited in these statements.
+*/
+  CF_REEXECUTION_FRAGILE = 1U << 5,
+/**
+  Implicitly commit before the SQL statement is executed.
+
+  Statements marked with this flag will cause any active
+  transaction to end (commit) before proceeding with the
+  command execution.
+
+  This flag should be set for statements that probably can't
+  be rolled back or that do not expect any previously metadata
+  locked tables.
+*/
+  CF_IMPLICIT_COMMIT_BEGIN = 1U << 6,
+/**
+  Implicitly commit after the SQL statement.
+
+  Statements marked with this flag are automatically committed
+  at the end of the statement.
+
+  This flag should be set for statements that will implicitly
+  open and take metadata locks on system tables that should not
+  be carried for the whole duration of a active transaction.
+*/
+  CF_IMPLICIT_COMMIT_END = 1U << 7,
+/**
+  CF_IMPLICT_COMMIT_BEGIN and CF_IMPLICIT_COMMIT_END are used
+  to ensure that the active transaction is implicitly committed
+  before and after every DDL statement and any statement that
+  modifies our currently non-transactional system tables.
+*/
+#define CF_AUTO_COMMIT_TRANS  (CF_IMPLICIT_COMMIT_BEGIN | CF_IMPLICIT_COMMIT_END)
+
+/**
+  Diagnostic statement.
+  Diagnostic statements:
+  - SHOW WARNING
+  - SHOW ERROR
+  - GET DIAGNOSTICS (WL#2111)
+  do not modify the diagnostics area during execution.
+*/
+  CF_DIAGNOSTIC_STMT = 1U << 8,
+
+/**
+  Identifies statements that may generate row events
+  and that may end up in the binary log.
+*/
+  CF_CAN_GENERATE_ROW_EVENTS = 1U << 9,
+
+/**
+  Identifies statements which may deal with temporary tables and for which
+  temporary tables should be pre-opened to simplify privilege checks.
+*/
+  CF_PREOPEN_TMP_TABLES = 1U << 10,
+
+/**
+  Identifies statements for which open handlers should be closed in the
+  beginning of the statement.
+*/
+  CF_HA_CLOSE = 1U << 11,
+
+/**
+  Identifies statements that can be explained with EXPLAIN.
+*/
+  CF_CAN_BE_EXPLAINED = 1U << 12,
+
+/** Identifies statements which may generate an optimizer trace */
+  CF_OPTIMIZER_TRACE = 1U << 14,
+
+/**
+   Identifies statements that should always be disallowed in
+   read only transactions.
+*/
+  CF_DISALLOW_IN_RO_TRANS = 1U << 15,
+
+/**
+  Statement that need the binlog format to be unchanged.
+*/
+  CF_FORCE_ORIGINAL_BINLOG_FORMAT = 1U << 16,
+
+/**
+  Statement that inserts new rows (INSERT, REPLACE, LOAD, ALTER TABLE)
+*/
+  CF_INSERTS_DATA = 1U << 17,
+
+/**
+  Statement that updates existing rows (UPDATE, multi-update)
+*/
+  CF_UPDATES_DATA = 1U << 18,
+
+/**
+  Not logged into slow log as "admin commands"
+*/
+  CF_ADMIN_COMMAND = 1U << 19,
+
+/**
+  SP Bulk execution safe
+*/
+  CF_PS_ARRAY_BINDING_SAFE = 1U << 20,
+/**
+  SP Bulk execution optimized
+*/
+  CF_PS_ARRAY_BINDING_OPTIMIZED = 1U << 21,
+/**
+  If command creates or drops a table
+*/
+  CF_SCHEMA_CHANGE = 1U << 22,
+/**
+  If command creates or drops a database
+*/
+  CF_DB_CHANGE = 1U << 23,
+/**
+  Statement that deletes existing rows (DELETE, DELETE_MULTI)
+*/
+  CF_DELETES_DATA = 1U << 24,
+
+#ifdef WITH_WSREP
+/**
+  DDL statement that may be subject to error filtering.
+*/
+  CF_WSREP_MAY_IGNORE_ERRORS = 1U << 25,
+/**
+   Basic DML statements that create writeset.
+*/
+  CF_WSREP_BASIC_DML = 1U << 26,
+#endif /* WITH_WSREP */
+
+};
+
+static inline constexpr cf_flags_t operator|(cf_flags_t a, cf_flags_t b)
+{
+  return static_cast<cf_flags_t>(static_cast<ulonglong>(a) |
+                                  static_cast<ulonglong>(b));
+}
+
+static inline cf_flags_t& operator|=(cf_flags_t &a, cf_flags_t b)
+{
+  return a= a | b;
+}
+
+extern cf_flags_t sql_command_flags[];
 
 
 /**
@@ -1727,7 +1909,7 @@ public:
   {
     set_query_inner(CSET_STRING());
   }
-  ulong sql_command_flags() const
+  cf_flags_t sql_command_flags() const
   {
     return ::sql_command_flags[lex->sql_command];
   }
@@ -1940,7 +2122,7 @@ public:
   void
   restore_security_context(THD *thd, Security_context *backup);
 #endif
-  bool user_matches(Security_context *);
+  bool priv_user_matches(const Security_context *) const;
   /**
     Check global access
     @param want_access The required privileges
@@ -1949,9 +2131,9 @@ public:
     @return True if the security context fulfills the access requirements.
   */
   bool check_access(const privilege_t want_access, bool match_any = false);
-  bool is_priv_user(const LEX_CSTRING &user, const LEX_CSTRING &host);
+  bool is_priv_user(const LEX_CSTRING &user, const LEX_CSTRING &host) const;
   bool is_user_defined() const
-    { return user && user != delayed_user && user != slave_user; };
+    { return user && user != delayed_user && user != slave_user && user != wsrep_user; };
 };
 
 
@@ -2414,6 +2596,76 @@ public:
     return false;
   }
   Counting_error_handler() : errors(0) {}
+};
+
+
+extern "C" void my_message_sql(uint error, const char *str, myf MyFlags);
+
+/**
+  Error handler that captures and postpones errors.
+  Warnings and notes are passed through to the next handler.
+  Stored errors can be re-emitted later via emit_errors().
+*/
+
+class Postponed_error_handler : public Internal_error_handler
+{
+  struct Error_entry
+  {
+    uint sql_errno;
+    char message[MYSQL_ERRMSG_SIZE];
+    Error_entry *next;
+  };
+
+  Error_entry *m_first;
+  Error_entry *m_last;
+  MEM_ROOT *m_mem_root;
+
+public:
+  Postponed_error_handler(MEM_ROOT *mem_root)
+    : m_first(nullptr), m_last(nullptr), m_mem_root(mem_root)
+  {}
+
+  bool handle_condition(THD *thd,
+                        uint sql_errno,
+                        const char *sqlstate,
+                        Sql_condition::enum_warning_level *level,
+                        const char *msg,
+                        Sql_condition **cond_hdl) override
+  {
+    /* Only capture errors, let warnings and notes pass through */
+    if (*level != Sql_condition::WARN_LEVEL_ERROR)
+      return false;
+
+    Error_entry *entry= (Error_entry*) alloc_root(m_mem_root,
+                                                  sizeof(Error_entry));
+    if (!entry)
+      return false;  // Can't store, let error propagate
+
+    entry->sql_errno= sql_errno;
+    strmake(entry->message, msg, sizeof(entry->message) - 1);
+    entry->next= nullptr;
+
+    if (m_last)
+      m_last->next= entry;
+    else
+      m_first= entry;
+    m_last= entry;
+
+    return true;
+  }
+
+  bool has_errors() const { return m_first != nullptr; }
+
+  void emit_errors()
+  {
+    for (Error_entry *e= m_first; e; e= e->next)
+      my_message_sql(e->sql_errno, e->message, MYF(0));
+  }
+
+  void clear()
+  {
+    m_first= m_last= nullptr;
+  }
 };
 
 
@@ -3399,6 +3651,7 @@ public:
     must be reset (all items be removed from it).
   */
   bool reset_sp_cache;
+  bool killed_for_exceeding_limit_rows_warning_given;
 
   /* container for handler's private per-connection data */
   Ha_data ha_data[MAX_HA];
@@ -3462,7 +3715,7 @@ public:
   {
     if (!log_current_statement())
       return false;
-    auto *cache_mngr= binlog_get_cache_mngr();
+    binlog_cache_mngr *cache_mngr= binlog_get_cache_mngr();
     if (!cache_mngr)
       return true;
     return !binlog_get_pending_rows_event(cache_mngr,
@@ -3471,6 +3724,13 @@ public:
   }
 
   bool binlog_for_noop_dml(bool transactional_table);
+
+  void binlog_truncate_tmp_files()
+  {
+    binlog_cache_mngr *cache_mngr= binlog_get_cache_mngr();
+    if (cache_mngr)
+      ::binlog_truncate_tmp_files(cache_mngr);
+  }
 
   /**
     Determine the binlog format of the current statement.
@@ -3624,7 +3884,16 @@ public:
       void reset(THD *thd)
       {
         tv_sec= thd->query_start();
-        tv_usec= (long) thd->query_start_sec_part();
+
+        /*
+          The type of tv_usec depends on the system and on macOS
+          it is __darwin_suseconds_t.  Using decltype is system
+          agnostic because its result is whatever the underlying
+          type of tv_usec is.  This should be more portable than
+          assuming that the left hand side is (long) (the previous
+          cast value).
+         */
+        tv_usec= static_cast<decltype(tv_usec)>(thd->query_start_sec_part());
       }
     } start_time;
 
@@ -3999,10 +4268,11 @@ public:
     Check if the number of rows accessed by a statement exceeded
     LIMIT ROWS EXAMINED. If so, signal the query engine to stop execution.
   */
+  void killed_for_exceeding_limit_rows();
   inline void check_limit_rows_examined()
   {
     if (++accessed_rows_and_keys > lex->limit_rows_examined_cnt)
-      set_killed(ABORT_QUERY);
+      killed_for_exceeding_limit_rows();
   }
 
   USER_CONN *user_connect;
@@ -4388,12 +4658,16 @@ public:
   }
   void close_active_vio();
 #endif
-  void awake_no_mutex(killed_state state_to_set);
-  void awake(killed_state state_to_set)
+  void awake_no_mutex(killed_state state_to_set,
+                       int killed_errno_arg= 0,
+                       const char *killed_err_msg_arg= 0);
+  void awake(killed_state state_to_set,
+             int killed_errno_arg= 0,
+             const char *killed_err_msg_arg= 0)
   {
     mysql_mutex_lock(&LOCK_thd_kill);
     mysql_mutex_lock(&LOCK_thd_data);
-    awake_no_mutex(state_to_set);
+    awake_no_mutex(state_to_set, killed_errno_arg, killed_err_msg_arg);
     mysql_mutex_unlock(&LOCK_thd_data);
     mysql_mutex_unlock(&LOCK_thd_kill);
   }
@@ -5718,6 +5992,7 @@ public:
 
   void mark_transaction_to_rollback(bool all);
   bool internal_transaction() { return transaction != &default_transaction; }
+  MEM_ROOT *user_vars_root() { return &user_vars_memroot; }
 private:
 
   /** The current internal error handler for this thread, or NULL. */
@@ -5739,6 +6014,10 @@ private:
     tree itself is reused between executions and thus is stored elsewhere.
   */
   MEM_ROOT main_mem_root;
+  /**
+    Memory root the user_var_entry objects and their names are allocated on.
+  */
+  MEM_ROOT user_vars_memroot;
   Diagnostics_area main_da;
   Diagnostics_area *m_stmt_da;
 
@@ -5775,7 +6054,7 @@ public:
       1) Non-leader threads use COND_wakeup_ready to wait for the leader thread
          to complete binlog commit.
       2) The leader thread uses COND_wakeup_ready to await ACKs from the
-         replica before signalling the non-leader threads to wake up.
+         slave before signalling the non-leader threads to wake up.
 
     With wait_point=AFTER_COMMIT, there is no overlap as binlogging has
     finished, so COND_wakeup_ready is safe to re-use.
@@ -5791,7 +6070,7 @@ private:
   rpl_gtid m_last_commit_gtid;
 
 public:
-  rpl_gtid get_last_commit_gtid() { return m_last_commit_gtid; }
+  const rpl_gtid *get_last_commit_gtid() { return &m_last_commit_gtid; }
   void set_last_commit_gtid(rpl_gtid &gtid);
 
 
@@ -6241,6 +6520,12 @@ public:
              (variables.note_verbosity & NOTE_VERBOSITY_EXPLAIN)));
   }
 
+  uint gconcat_max_len()
+  {
+    return MY_MIN(variables.group_concat_max_len,
+                  (uint)variables.max_allowed_packet);
+  }
+
   bool vers_insert_history_fast(const TABLE *table)
   {
     DBUG_ASSERT(table->versioned());
@@ -6314,11 +6599,6 @@ class start_new_trans
   uint in_sub_stmt;
   uint server_status;
   my_bool wsrep_on;
-  /*
-    THD:rgi_slave may hold a part of the replicated "old" transaction's
-    execution context. Therefore it has to be reset/restored too.
-  */
-  rpl_group_info* org_rgi_slave;
 
 public:
   start_new_trans(THD *thd);
@@ -7728,153 +8008,6 @@ public:
   void reset_for_next_ps_execution() override;
 };
 
-/* Bits in sql_command_flags */
-
-#define CF_CHANGES_DATA           (1U << 0)
-#define CF_REPORT_PROGRESS        (1U << 1)
-#define CF_STATUS_COMMAND         (1U << 2)
-#define CF_SHOW_TABLE_COMMAND     (1U << 3)
-#define CF_WRITE_LOGS_COMMAND     (1U << 4)
-
-/**
-  Must be set for SQL statements that may contain
-  Item expressions and/or use joins and tables.
-  Indicates that the parse tree of such statement may
-  contain rule-based optimizations that depend on metadata
-  (i.e. number of columns in a table), and consequently
-  that the statement must be re-prepared whenever
-  referenced metadata changes. Must not be set for
-  statements that themselves change metadata, e.g. RENAME,
-  ALTER and other DDL, since otherwise will trigger constant
-  reprepare. Consequently, complex item expressions and
-  joins are currently prohibited in these statements.
-*/
-#define CF_REEXECUTION_FRAGILE    (1U << 5)
-/**
-  Implicitly commit before the SQL statement is executed.
-
-  Statements marked with this flag will cause any active
-  transaction to end (commit) before proceeding with the
-  command execution.
-
-  This flag should be set for statements that probably can't
-  be rolled back or that do not expect any previously metadata
-  locked tables.
-*/
-#define CF_IMPLICIT_COMMIT_BEGIN   (1U << 6)
-/**
-  Implicitly commit after the SQL statement.
-
-  Statements marked with this flag are automatically committed
-  at the end of the statement.
-
-  This flag should be set for statements that will implicitly
-  open and take metadata locks on system tables that should not
-  be carried for the whole duration of a active transaction.
-*/
-#define CF_IMPLICIT_COMMIT_END    (1U << 7)
-/**
-  CF_IMPLICT_COMMIT_BEGIN and CF_IMPLICIT_COMMIT_END are used
-  to ensure that the active transaction is implicitly committed
-  before and after every DDL statement and any statement that
-  modifies our currently non-transactional system tables.
-*/
-#define CF_AUTO_COMMIT_TRANS  (CF_IMPLICIT_COMMIT_BEGIN | CF_IMPLICIT_COMMIT_END)
-
-/**
-  Diagnostic statement.
-  Diagnostic statements:
-  - SHOW WARNING
-  - SHOW ERROR
-  - GET DIAGNOSTICS (WL#2111)
-  do not modify the diagnostics area during execution.
-*/
-#define CF_DIAGNOSTIC_STMT        (1U << 8)
-
-/**
-  Identifies statements that may generate row events
-  and that may end up in the binary log.
-*/
-#define CF_CAN_GENERATE_ROW_EVENTS (1U << 9)
-
-/**
-  Identifies statements which may deal with temporary tables and for which
-  temporary tables should be pre-opened to simplify privilege checks.
-*/
-#define CF_PREOPEN_TMP_TABLES   (1U << 10)
-
-/**
-  Identifies statements for which open handlers should be closed in the
-  beginning of the statement.
-*/
-#define CF_HA_CLOSE             (1U << 11)
-
-/**
-  Identifies statements that can be explained with EXPLAIN.
-*/
-#define CF_CAN_BE_EXPLAINED       (1U << 12)
-
-/** Identifies statements which may generate an optimizer trace */
-#define CF_OPTIMIZER_TRACE        (1U << 14)
-
-/**
-   Identifies statements that should always be disallowed in
-   read only transactions.
-*/
-#define CF_DISALLOW_IN_RO_TRANS   (1U << 15)
-
-/**
-  Statement that need the binlog format to be unchanged.
-*/
-#define CF_FORCE_ORIGINAL_BINLOG_FORMAT (1U << 16)
-
-/**
-  Statement that inserts new rows (INSERT, REPLACE, LOAD, ALTER TABLE)
-*/
-#define CF_INSERTS_DATA (1U << 17)
-
-/**
-  Statement that updates existing rows (UPDATE, multi-update)
-*/
-#define CF_UPDATES_DATA (1U << 18)
-
-/**
-  Not logged into slow log as "admin commands"
-*/
-#define CF_ADMIN_COMMAND (1U << 19)
-
-/**
-  SP Bulk execution safe
-*/
-#define CF_PS_ARRAY_BINDING_SAFE (1U << 20)
-/**
-  SP Bulk execution optimized
-*/
-#define CF_PS_ARRAY_BINDING_OPTIMIZED (1U << 21)
-/**
-  If command creates or drops a table
-*/
-#define CF_SCHEMA_CHANGE (1U << 22)
-/**
-  If command creates or drops a database
-*/
-#define CF_DB_CHANGE (1U << 23)
-/**
-  Statement that deletes existing rows (DELETE, DELETE_MULTI)
-*/
-#define CF_DELETES_DATA (1U << 24)
-
-#ifdef WITH_WSREP
-/**
-  DDL statement that may be subject to error filtering.
-*/
-#define CF_WSREP_MAY_IGNORE_ERRORS (1U << 25)
-/**
-   Basic DML statements that create writeset.
-*/
-#define CF_WSREP_BASIC_DML (1u << 26)
-#endif /* WITH_WSREP */
-
 /* Bits in server_command_flags */
 /**
   Skip the increase of the global query id counter. Commonly set for
@@ -8131,7 +8264,7 @@ class Sql_mode_save
   Sql_mode_save(THD *thd) : thd(thd), old_mode(thd->variables.sql_mode) {}
   ~Sql_mode_save() { thd->variables.sql_mode = old_mode; }
 
- private:
+ protected:
   THD *thd;
   sql_mode_t old_mode; // SQL mode saved at construction time.
 };
@@ -8148,6 +8281,9 @@ public:
   Sql_mode_save_for_frm_handling(THD *thd)
    :Sql_mode_save(thd)
   {
+    if (thd->variables.sql_mode & MODE_ORACLE)
+      thd->variables.sql_mode|= IS_OR_WAS_ORACLE;
+
     /*
       - MODE_REAL_AS_FLOAT            affect only CREATE TABLE parsing
       + MODE_PIPES_AS_CONCAT          affect expression parsing
@@ -8177,6 +8313,12 @@ public:
                                 MODE_IGNORE_SPACE | MODE_NO_BACKSLASH_ESCAPES |
                                 MODE_ORACLE | MODE_EMPTY_STRING_IS_NULL);
   };
+
+  ~Sql_mode_save_for_frm_handling()
+  {
+    if (thd->variables.sql_mode & IS_OR_WAS_ORACLE)
+      thd->variables.sql_mode&= ~IS_OR_WAS_ORACLE;
+  }
 };
 
 
@@ -8292,7 +8434,7 @@ public:
   bool eq_routine_name(const Database_qualified_name *other) const
   {
 
-    return m_db.streq(other->m_db) &&
+    return m_db.streq_safe(other->m_db) &&
            Lex_ident_routine(m_name).streq(other->m_name);
   }
   /*
@@ -8333,6 +8475,7 @@ public:
 
 class ErrConvDQName: public ErrConv
 {
+protected:
   const Database_qualified_name *m_name;
 public:
   ErrConvDQName(const Database_qualified_name *name)
@@ -8340,11 +8483,16 @@ public:
   { }
   LEX_CSTRING lex_cstring() const override
   {
-    size_t length= m_name->to_identifier_chain2().make_qname(err_buffer,
+    if (m_name->m_db.length)
+    {
+      size_t length= m_name->to_identifier_chain2().make_qname(err_buffer,
                                                            sizeof(err_buffer));
-    return {err_buffer, length};
+      return {err_buffer, length};
+    }
+    return {m_name->m_name.str, m_name->m_name.length};
   }
 };
+
 
 class Type_holder: public Sql_alloc,
                    public Item_args,

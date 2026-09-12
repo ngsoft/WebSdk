@@ -1,5 +1,6 @@
 /* Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
- 
+   Copyright (c) 2026, MariaDB plc.
+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; version 2 of the License.
@@ -184,6 +185,7 @@
 /* #undef HAVE_MMAP */
 /* #undef HAVE_MMAP64 */
 /* #undef HAVE_MPROTECT */
+/* #undef HAVE_RO_AFTER_INIT */
 #define HAVE_PERROR 1
 /* #undef HAVE_POLL */
 /* #undef HAVE_POSIX_FALLOCATE */
@@ -446,11 +448,6 @@
 /* This should mean case insensitive file system */
 #define FN_NO_CASE_SENSE 1
 
-/* Whether an anonymous private mapping is unaccessible after
-madvise(MADV_DONTNEED) or madvise(MADV_FREE) or similar has been invoked;
-this is the case with Microsoft Windows VirtualFree(MEM_DECOMMIT) */
-#define HAVE_UNACCESSIBLE_AFTER_MEM_DECOMMIT 1
-
 #define HAVE_CHARSET_armscii8 1
 #define HAVE_CHARSET_ascii 1
 #define HAVE_CHARSET_big5 1
@@ -506,29 +503,29 @@ this is the case with Microsoft Windows VirtualFree(MEM_DECOMMIT) */
 #define WITH_ARIA_STORAGE_ENGINE 1
 #define USE_ARIA_FOR_TMP_TABLES 1
 
-#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 12.2"
+#define DEFAULT_MYSQL_HOME "C:/Program Files/MariaDB 12.3"
 #define SHAREDIR "share"
-#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 12.2"
-#define MYSQL_DATADIR "C:/Program Files/MariaDB 12.2/data"
-#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 12.2"
-#define PLUGINDIR "C:/Program Files/MariaDB 12.2/lib/plugin"
+#define DEFAULT_BASEDIR "C:/Program Files/MariaDB 12.3"
+#define MYSQL_DATADIR "C:/Program Files/MariaDB 12.3/data"
+#define DEFAULT_CHARSET_HOME "C:/Program Files/MariaDB 12.3"
+#define PLUGINDIR "C:/Program Files/MariaDB 12.3/lib/plugin"
 /* #undef DEFAULT_SYSCONFDIR */
 #define DEFAULT_TMPDIR P_tmpdir
 
 /* #undef SO_EXT */
 
 #define MYSQL_VERSION_MAJOR 12
-#define MYSQL_VERSION_MINOR 2
-#define MYSQL_VERSION_PATCH 1
+#define MYSQL_VERSION_MINOR 3
+#define MYSQL_VERSION_PATCH 3
 #define MYSQL_VERSION_EXTRA ""
 
 #define PACKAGE "mysql"
 #define PACKAGE_BUGREPORT ""
 #define PACKAGE_NAME "MySQL Server"
-#define PACKAGE_STRING "MySQL Server 12.2.1"
+#define PACKAGE_STRING "MySQL Server 12.3.3"
 #define PACKAGE_TARNAME "mysql"
-#define PACKAGE_VERSION "12.2.1"
-#define VERSION "12.2.1"
+#define PACKAGE_VERSION "12.3.3"
+#define VERSION "12.3.3"
 #define PROTOCOL_VERSION 10
 #define PCRE2_CODE_UNIT_WIDTH 8
 
@@ -551,3 +548,5 @@ this is the case with Microsoft Windows VirtualFree(MEM_DECOMMIT) */
 #endif
 
 /* #undef HAVE_VFORK */
+
+#define IO_SIZE 4096

@@ -406,6 +406,13 @@ enum mariadb_field_attr_t
 
 #define SERVER_STATUS_ANSI_QUOTES       32768U
 
+/*
+  Set for stored procedures if the select query returned a row
+  To check for an empty query, one must also check thd::get_sent_row_count()
+*/
+
+#define SERVER_STATUS_RETURNED_ROW      (1U << 16)
+
 /**
   Server status flags that must be cleared when starting
   execution of a new SQL statement.
@@ -422,7 +429,8 @@ enum mariadb_field_attr_t
                                  SERVER_STATUS_DB_DROPPED |\
                                  SERVER_STATUS_CURSOR_EXISTS|\
                                  SERVER_STATUS_LAST_ROW_SENT|\
-                                 SERVER_SESSION_STATE_CHANGED)
+                                 SERVER_SESSION_STATE_CHANGED|\
+                                 SERVER_STATUS_RETURNED_ROW)
 
 #define MYSQL_ERRMSG_SIZE	512
 #define NET_READ_TIMEOUT	30		/* Timeout on read */
@@ -438,6 +446,7 @@ typedef struct st_vio Vio;
 #define MAX_INT_WIDTH           10      /* Max width for a LONG w.o. sign */
 #define MAX_BIGINT_WIDTH        20      /* Max width for a LONGLONG */
 #define MAX_CHAR_WIDTH		255	/* Max length for a CHAR column */
+#define MYSQL_UDF_MAX_RESULT_LENGTH 255 /* Max length for a UDF result */
 #define MAX_BLOB_WIDTH		16777216	/* Default width for blob */
 
 typedef struct st_net {
@@ -462,7 +471,10 @@ typedef struct st_net {
   my_bool thread_specific_malloc;
   unsigned char compress;
   my_bool pkt_nr_can_be_reset;
+  /* Bits: NET_PROXY_PROTOCOL, NET_PROXY_PROTOCOL_CONNECT_ERRORS */
   my_bool using_proxy_protocol;
+#define NET_PROXY_PROTOCOL 1
+#define NET_PROXY_PROTOCOL_CONNECT_ERRORS 2
   /*
     Pointer to query object in query cache, do not equal NULL (0) for
     queries in cache that have not stored its results yet

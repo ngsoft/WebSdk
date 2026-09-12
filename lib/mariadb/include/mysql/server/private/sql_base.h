@@ -165,7 +165,7 @@ TABLE_LIST *find_table_in_list(TABLE_LIST *table,
                                TABLE_LIST *TABLE_LIST::*link,
                                const LEX_CSTRING *db_name,
                                const LEX_CSTRING *table_name);
-int close_thread_tables(THD *thd);
+int close_thread_tables(THD *thd) noexcept;
 int close_thread_tables_for_query(THD *thd);
 void switch_to_nullable_trigger_fields(List<Item> &items, TABLE *);
 void switch_defaults_to_nullable_trigger_fields(TABLE *table);
@@ -451,6 +451,14 @@ class Multiupdate_prelocking_strategy : public DML_prelocking_strategy
 {
   bool done;
   bool has_prelocking_list;
+public:
+  void reset(THD *thd) override;
+  bool handle_end(THD *thd) override;
+};
+
+class Multidelete_prelocking_strategy : public DML_prelocking_strategy
+{
+  bool done;
 public:
   void reset(THD *thd) override;
   bool handle_end(THD *thd) override;

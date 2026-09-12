@@ -130,8 +130,7 @@ bool check_stack_overrun(THD *thd, long margin, uchar *dummy);
 /* Variables */
 
 extern const Lex_ident_db_normalized any_db;
-extern uint sql_command_flags[];
-extern uint server_command_flags[];
+/* sql_command_flags[] is declared in sql_class.h, where cf_flags_t is defined */
 extern const LEX_CSTRING command_name[];
 extern uint server_command_flags[];
 
@@ -188,5 +187,19 @@ check_table_access(THD *thd, privilege_t requirements,TABLE_LIST *tables,
                    bool no_errors)
 { return false; }
 #endif /*NO_EMBEDDED_ACCESS_CHECKS*/
+
+/**
+  Due to an issue with the bison parser, we need to use a different name.
+
+  This is a workaround!
+
+  If we use the global charset variable name we get a warning in the bison
+  parser stderr : suspicious sequence in the output: b4_bin [-Wother]
+  So we work around by having this define that doesn't have 'b4_bin' in it.
+
+  This has been reported, but not fixed yet:
+   https://lists.gnu.org/archive/html/bug-bison/2021-10/msg00027.html
+*/
+#define MY_CHARSET_UTF8MB4_BIN my_charset_utf8mb4_bin
 
 #endif /* SQL_PARSE_INCLUDED */

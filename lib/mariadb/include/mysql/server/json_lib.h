@@ -2,6 +2,7 @@
 #define JSON_LIB_INCLUDED
 
 #include <my_sys.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,7 +48,8 @@ enum json_errors {
 
   JE_ESCAPING= -6,     /* Error in the escaping. */
 
-  JE_DEPTH= -7,        /* The limit on the JSON depth was overrun. Still used in columnstore*/
+  JE_DEPTH= -7,        /* The limit on the JSON depth was overrun. */
+  JE_KILLED= -8,       /* Killed during processing */
 };
 
 
@@ -131,6 +133,7 @@ typedef struct st_json_path_t
 } json_path_t;
 
 
+__attribute__((nonnull, warn_unused_result))
 int json_path_setup(json_path_t *p,
                     CHARSET_INFO *i_cs, const uchar *str, const uchar *end);
 
@@ -247,7 +250,7 @@ typedef struct st_json_engine_t
   /* Keeps the stack of nested JSON structures. */
   MEM_ROOT_DYNAMIC_ARRAY stack;
   int stack_p;                 /* The 'stack' pointer. */
-  volatile uchar *killed_ptr;
+  volatile const uint32_t *killed_ptr;
 } json_engine_t;
 
 
@@ -475,6 +478,15 @@ int json_normalize(DYNAMIC_STRING *result,
                    MEM_ROOT_DYNAMIC_ARRAY *stack);
 
 int json_skip_array_and_count(json_engine_t *j, int* n_item);
+
+/*
+  Compare two JSON string values semantically, taking Unicode escape
+  sequences into account. For example, "A" and "\u0041" are considered equal.
+  Returns 0 if the strings are equal, non-zero otherwise.
+*/
+int json_string_compare(CHARSET_INFO *cs,
+                        const uchar *str1, int len1, int escaped1,
+                        const uchar *str2, int len2, int escaped2);
 
 inline static int json_scan_ended(json_engine_t *j)
 {

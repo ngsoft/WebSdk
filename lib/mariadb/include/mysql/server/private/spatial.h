@@ -272,6 +272,19 @@ public:
 
   virtual const Class_info *get_class_info() const=0;
   virtual uint32 get_data_size() const=0;
+
+  /*
+    The 'binary_valid' spatial object can be stored in the database
+    and be the correct argument to the spatial functions.
+    It can still be not valid by the OPENGIS standard like
+    having self-intersecting borders.
+  */
+  bool is_binary_valid() const
+  {
+    uint32 data_size= get_data_size();
+
+    return (data_size == GET_SIZE_ERROR) ? false : !no_data(m_data, data_size);
+  }
   virtual bool init_from_wkt(Gis_read_stream *trs, String *wkb)=0;
   /* returns the length of the wkb that was read */
   virtual uint init_from_wkb(const char *wkb, uint len, wkbByteOrder bo,
@@ -312,6 +325,14 @@ public:
 
   static Geometry *construct(Geometry_buffer *buffer,
                              const char *data, uint32 data_len);
+  /*
+    A WKB starts with a SRID and a WKB header.  A buffer shorter than
+    the length of these together cannot possibly hold a geometry.
+  */
+  static bool is_valid_geometry_length(uint32 data_len)
+  {
+    return data_len >= SRID_SIZE + WKB_HEADER_SIZE;
+  }
   static Geometry *create_from_wkt(Geometry_buffer *buffer,
 				   Gis_read_stream *trs, String *wkt,
 				   bool init_stream=1);

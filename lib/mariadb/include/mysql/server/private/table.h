@@ -95,6 +95,7 @@ class Opt_hints_table;
 typedef ulonglong nested_join_map;
 
 #define VIEW_MD5_LEN 32
+#define MD5_BUFF_LENGTH (VIEW_MD5_LEN + 1) /* hex digest + NUL */
 
 
 #define tmp_file_prefix "#sql"			/**< Prefix for tmp tables */
@@ -104,6 +105,21 @@ typedef ulonglong nested_join_map;
 
 #define HLINDEX_TEMPLATE "#i#%02u"
 #define HLINDEX_BUF_LEN  16 /* with extension .ibd/.MYI/etc and safety margin */
+
+/*
+  to satisfy marked_for_write_or_computed() Field's assert we temporarily
+  mark field for write before storing the generated value in it
+*/
+#ifdef DBUG_ASSERT_EXISTS
+#define DBUG_FIX_WRITE_SET(f, write_set)                                      \
+  bool _write_set_fixed= !bitmap_fast_test_and_set(write_set, (f)->field_index)
+#define DBUG_RESTORE_WRITE_SET(f, write_set)                                  \
+  if (_write_set_fixed)                                                       \
+  bitmap_clear_bit(write_set, (f)->field_index)
+#else
+#define DBUG_FIX_WRITE_SET(f, write_set)
+#define DBUG_RESTORE_WRITE_SET(f, write_set)
+#endif
 
 /**
   Enumerate possible types of a table from re-execution
@@ -239,6 +255,7 @@ private:
 /* Order clause list element */
 
 typedef int (*fast_field_copier)(Field *to, Field *from);
+class Item_window_func;
 
 
 typedef struct st_order {
@@ -267,6 +284,7 @@ typedef struct st_order {
   char	 *buff;				/* If tmp-table group */
   table_map used; /* NOTE: the below is only set to 0 but is still used by eq_ref_table */
   table_map depend_map;
+  List<Item_window_func> window_funcs;
 } ORDER;
 
 /**
@@ -558,6 +576,12 @@ TABLE_CATEGORY get_table_category(const Lex_ident_db &db,
                                   const Lex_ident_table &name);
 
 
+/*
+  Set this bit in TABLE_FIELD_TYPE::type.length to mark a column as nullable.
+  The actual type string length is type.length & ~CAN_BE_NULL.
+*/
+#define CAN_BE_NULL (1UL << 31)
+
 typedef struct st_table_field_type
 {
   LEX_CSTRING name;
@@ -741,7 +765,11 @@ struct TABLE_SHARE
   LEX_CUSTRING tabledef_version;
 
   engine_option_value *option_list;     /* text options for table */
-  ha_table_option_struct *option_struct; /* structure with parsed options */
+  /*
+    Structure with parsed options. Table-wide, engines should use
+    handler::option_struct, otherwise they won't see per-partition options.
+  */
+  ha_table_option_struct *option_struct_table;
 
   /* The following is copied to each TABLE on OPEN */
   Field **field;
@@ -789,7 +817,6 @@ struct TABLE_SHARE
   Lex_ident_table table_name;            /* Table name (for open) */
   LEX_CSTRING path;                	/* Path to .frm file (from datadir) */
   LEX_CSTRING normalized_path;		/* unpack_filename(path) */
-  LEX_CSTRING connect_string;
 
   /* 
      Set of keys in use, implemented as a Bitmap.
@@ -1714,7 +1741,7 @@ public:
   {
     read_set= read_set_arg;
     if (file)
-      file->column_bitmaps_signal();
+      file->column_bitmaps_signal(false);
   }
   inline void column_bitmaps_set(MY_BITMAP *read_set_arg,
                                  MY_BITMAP *write_set_arg)
@@ -1722,7 +1749,7 @@ public:
     read_set= read_set_arg;
     write_set= write_set_arg;
     if (file)
-      file->column_bitmaps_signal();
+      file->column_bitmaps_signal(false);
   }
   inline void column_bitmaps_set_no_signal(MY_BITMAP *read_set_arg,
                                            MY_BITMAP *write_set_arg)
@@ -1819,7 +1846,20 @@ public:
   uint actual_n_key_parts(KEY *keyinfo);
   ulong actual_key_flags(KEY *keyinfo);
   int update_virtual_field(Field *vf, bool ignore_warnings);
-  inline size_t key_storage_length(uint index)
+
+  size_t key_storage_length(uint index);
+  /*
+    @brief
+      Estimate how index tuple takes in storage, based solely on table's DDL
+
+    @detail
+      This is a conservative number that assumes the value is stored in
+      KeyTupleFormat (or table->record format for clustered PK), without
+      endspace compression, etc.
+      On the other hand, it doesn't account that the storage engine may need
+      to store transactionIds, etc.
+  */
+  inline size_t key_storage_length_from_ddl(uint index)
   {
     if (is_clustering_key(index))
       return s->stored_rec_length;
@@ -2549,8 +2589,7 @@ struct TABLE_LIST
           const LEX_CSTRING *table_name_arg, const LEX_CSTRING *alias_arg,
           enum thr_lock_type lock_type_arg, prelocking_types prelocking_type,
           TABLE_LIST *belong_to_view_arg, uint8 trg_event_map_arg,
-          TABLE_LIST ***last_ptr, my_bool insert_data,
-          my_bool override_fk_ignore_table= FALSE)
+          TABLE_LIST ***last_ptr, my_bool insert_data)
   {
     init_one_table(db_arg, table_name_arg, alias_arg, lock_type_arg);
     cacheable_table= 1;
@@ -2561,8 +2600,7 @@ struct TABLE_LIST
     belong_to_view= belong_to_view_arg;
     trg_event_map= trg_event_map_arg;
     /* MDL is enough for read-only FK checks, we don't need the table */
-    if (prelocking_type == PRELOCK_FK && lock_type < TL_FIRST_WRITE &&
-        !override_fk_ignore_table)
+    if (prelocking_type == PRELOCK_FK && lock_type < TL_FIRST_WRITE)
       open_strategy= OPEN_STUB;
 
     **last_ptr= this;
@@ -2813,6 +2851,7 @@ struct TABLE_LIST
   ulonglong	file_version;		/* version of file's field set */
   ulonglong	mariadb_version;	/* version of server on creation */
   ulonglong     updatable_view;         /* VIEW can be updated */
+  LEX_CSTRING m_sql_path;   /* The session PATH on creation */
   /** 
       @brief The declared algorithm, if this is a view.
       @details One of
@@ -3019,6 +3058,7 @@ struct TABLE_LIST
   /* Hints for query block of this table. */
   Opt_hints_qb *opt_hints_qb;
 
+  /* buffer must be at least MD5_BUFF_LENGTH bytes long */
   void calc_md5(char *buffer);
   int view_check_option(THD *thd, bool ignore_failure);
   bool create_field_translation(THD *thd);
@@ -3229,6 +3269,7 @@ struct TABLE_LIST
   bool is_active_sjm();
   bool is_sjm_scan_table();
   bool is_jtbm() { return MY_TEST(jtbm_subselect != NULL); }
+  bool is_pure_alias() const;
   st_select_lex_unit *get_unit();
   st_select_lex *get_single_select();
   void wrap_into_nested_join(List<TABLE_LIST> &join_list);
@@ -3608,7 +3649,13 @@ int closefrm(TABLE *table);
 void free_blobs(TABLE *table);
 void free_field_buffers_larger_than(TABLE *table, uint32 size);
 ulong get_form_pos(File file, uchar *head, TYPELIB *save_names);
-void append_unescaped(String *res, const char *pos, size_t length);
+void append_unescaped(String *res, const char *pos, size_t length,
+                      bool in_comment= false);
+static inline void append_unescaped(String *res, const LEX_CSTRING &str,
+                      bool in_comment= false)
+{
+  append_unescaped(res, str.str, str.length, in_comment);
+}
 void prepare_frm_header(THD *thd, uint reclength, uchar *fileinfo,
                         HA_CREATE_INFO *create_info, uint keys, KEY *key_info);
 const char *fn_frm_ext(const char *name);
@@ -3639,12 +3686,14 @@ extern Lex_ident_table MYSQL_PROC_NAME;
 
 inline bool is_infoschema_db(const LEX_CSTRING *name)
 {
-  return INFORMATION_SCHEMA_NAME.streq(*name);
+  DBUG_ASSERT(name->str || !name->length);
+  return name->length && INFORMATION_SCHEMA_NAME.streq(*name);
 }
 
 inline bool is_perfschema_db(const LEX_CSTRING *name)
 {
-  return PERFORMANCE_SCHEMA_DB_NAME.streq(*name);
+  DBUG_ASSERT(name->str || !name->length);
+  return name->length && PERFORMANCE_SCHEMA_DB_NAME.streq(*name);
 }
 
 inline void mark_as_null_row(TABLE *table)

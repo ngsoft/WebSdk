@@ -2,10 +2,6 @@
 
 namespace Adminer;
 
-if ( ! class_exists('MongoDB\Driver\Manager'))
-{
-    return false;
-}
 add_driver('mongo', 'MongoDB alpha');
 
 if (isset($_GET['mongo']))
@@ -19,8 +15,7 @@ if (isset($_GET['mongo']))
             public $extension   = 'MongoDB';
             public $server_info = MONGODB_VERSION;
             public $last_id;
-            /** @var \MongoDB\Driver\Manager */
-            public $_link;
+            /** @var \MongoDB\Driver\Manager */ public $_link;
             public $_db;
             public $_db_name;
 
@@ -111,9 +106,9 @@ if (isset($_GET['mongo']))
         class Result
         {
             public $num_rows;
-            private $rows    = [];
-            private $offset  = 0;
-            private $charset = [];
+            private $rows   = [];
+            private $offset = 0;
+            private $types  = [];
 
             public function __construct($result)
             {
@@ -125,15 +120,15 @@ if (isset($_GET['mongo']))
                     {
                         if (is_a($val, 'MongoDB\BSON\Binary'))
                         {
-                            $this->charset[$key] = 63;
+                            $this->types[$key] = 'blob'; // 'binary' is not recognized by is_blob()
                         }
                         $row[$key]
                             = (is_a($val, 'MongoDB\BSON\ObjectID') ? 'MongoDB\BSON\ObjectID("' . "{$val}\")"
-                                : (is_a($val, 'MongoDB\BSON\UTCDatetime') ? $val->toDateTime()->format('Y-m-d H:i:s')
-                                    : (is_a($val, 'MongoDB\BSON\Binary') ? $val->getData() // ! allow downloading
-                                        : (is_a($val, 'MongoDB\BSON\Regex') ? "{$val}"
-                                            : (is_object($val) || is_array($val) ? json_encode($val, 256) // 256 - JSON_UNESCAPED_UNICODE available since PHP 5.4
-                                                : $val))))); // MongoMinKey, MongoMaxKey
+                            : (is_a($val, 'MongoDB\BSON\UTCDatetime') ? $val->toDateTime()->format('Y-m-d H:i:s')
+                            : (is_a($val, 'MongoDB\BSON\Binary') ? $val->getData() // ! allow downloading
+                            : (is_a($val, 'MongoDB\BSON\Regex') ? "{$val}"
+                            : (is_object($val) || is_array($val) ? json_encode($val, 256) // 256 - JSON_UNESCAPED_UNICODE available since PHP 5.4
+                            : $val))))); // MongoMinKey, MongoMaxKey
                     }
                     $this->rows[] = $row;
 
@@ -182,9 +177,8 @@ if (isset($_GET['mongo']))
                 $keys = array_keys($this->rows[0]);
                 $name = $keys[$this->offset++];
                 return (object) [
-                    'name'      => $name,
-                    'type'      => 15,
-                    'charsetnr' => $this->charset[$name],
+                    'name'        => $name,
+                    'native_type' => $this->types[$name],
                 ];
             }
         }
@@ -560,6 +554,11 @@ if (isset($_GET['mongo']))
             }
             $bulk->insert($set);
             return $this->conn->executeBulkWrite("{$db}.{$table}", $bulk, 'getInsertedCount');
+        }
+
+        public function isSystem($db, $schema = '')
+        {
+            return in_array($db, ['admin', 'config', 'local']);
         }
     }
 

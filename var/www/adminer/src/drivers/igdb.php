@@ -3,7 +3,7 @@
 /** Driver for https://api-docs.igdb.com/.
  * @see https://demo.adminer.org/igdb/?igdb=IGDB&db=api
  * username: your Client-ID
- * password: your access token from https://id.twitch.tv/oauth2/token
+ * password: your Client Secret from https://dev.twitch.tv/console/apps
  * @see https://www.adminer.org/static/plugins/igdb.png
  */
 
@@ -20,12 +20,39 @@ if (isset($_GET['igdb']))
         public $extension   = 'json';
         public $server_info = 'v4';
         private $username;
-        private $password;
+        private $token;
 
         public function attach(array $server, $username, $password)
         {
             $this->username = $username;
-            $this->password = $password;
+            $key            = $_COOKIE['adminer_key'];
+            $hash           = md5($password); // the cached token must not be used with a different secret, otherwise any password would be accepted
+            $cache          = get_session('igdb_token'); // hash of the secret, expiration, token encrypted the same way as the password
+
+            if (idx($cache, 0) === $hash && $cache[1] > time())
+            {
+                $this->token = ($key ? decrypt_string($cache[2], $key) : $cache[2]);
+            }
+
+            if ( ! $this->token)
+            {
+                $url                               = 'https://id.twitch.tv/oauth2/token';
+                $context                           = stream_context_create(['http' => [
+                    'method'        => 'POST',
+                    'header'        => 'Content-Type: application/x-www-form-urlencoded',
+                    'content'       => http_build_query(['client_id' => $username, 'client_secret' => $password, 'grant_type' => 'client_credentials']),
+                    'ignore_errors' => true,
+                ]]);
+                list($response, $status, , $error) = get_url($url, $context);
+                $json                              = (array) json_decode($response, true); // idx() requires an array
+                $this->token                       = $json['access_token'];
+
+                if ( ! $this->token)
+                {
+                    return "{$url}: " . ($error ?: idx($json, 'message', "HTTP {$status}")); // the URL is a constant so displaying the response doesn't disclose anything
+                }
+                set_session('igdb_token', [$hash, time() + $json['expires_in'], $key ? encrypt_string($this->token, $key) : $this->token]);
+            }
             return '';
         }
 
@@ -41,7 +68,7 @@ if (isset($_GET['igdb']))
                 'header'        => [
                     'Content-Type: text/plain',
                     "Client-ID: {$this->username}",
-                    "Authorization: Bearer {$this->password}",
+                    "Authorization: Bearer {$this->token}",
                 ],
                 'content'       => $query,
                 'ignore_errors' => true,
@@ -174,7 +201,7 @@ if (isset($_GET['igdb']))
         {
             $field = current($this->fields);
             next($this->fields);
-            return (object) ('' != $field ? ['name' => $field, 'type' => 15, 'charsetnr' => 0, 'orgtable' => $this->table] : []);
+            return (object) ('' != $field ? ['name' => $field, 'orgtable' => $this->table] : []);
         }
     }
 
@@ -339,9 +366,6 @@ JS;
 
         public static function connect($server, $username, $password)
         {
-            if ('' == $password) // the API requires an access token, without this Adminer would refuse the driver as accepting any password
-            {return lang('Invalid credentials.');
-            }
             $filename = self::docsFilename();
 
             if ( ! file_exists($filename))
@@ -354,6 +378,11 @@ JS;
                 }
             }
             return parent::connect($server, $username, $password);
+        }
+
+        public static function disconnect()
+        {
+            set_session('igdb_token', null);
         }
 
         public function fulltextSql($name, array $index, $query, $boolean)
@@ -610,6 +639,6 @@ JS;
 
     function support($feature)
     {
-        return in_array($feature, ['columns', 'comment', 'sql', 'table']);
+        return in_array($feature, ['columns', 'comment', 'single_db', 'sql', 'table']);
     }
 }

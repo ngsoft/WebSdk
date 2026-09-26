@@ -4,7 +4,7 @@ use Adminer\AdminerCustomDriver;
 use Adminer\Config;
 
 Config::setItem('ADMINER_DEV', false);
-Config::setItem('ADMINER_VERSION', '6.0.2');
+Config::setItem('ADMINER_VERSION', '6.1.1');
 Config::setItem('HIDE_DATABASES', ['sys', 'mysql', 'information_schema', 'performance_schema']);
 Config::setItem('ADMINER_ACL', ['127.0', '192.168', '::1']);
 Config::setItem('ADMINER_TRUSTED_PROXY', []);
@@ -38,11 +38,29 @@ Config::setItem('ADMINER_VERSION_CHECK', false);
 Config::setItem('ADMINER_SELECT_MODIFY_HEADER', true);
 Config::setItem('ADMINER_CUSTOM_DRIVERS', [
     new AdminerCustomDriver('redis', 'Redis/KeyDB', __DIR__ . '/drivers/redis.php'),
-    new AdminerCustomDriver('imap', 'IMAP', __DIR__ . '/drivers/imap.php'),
-    new AdminerCustomDriver('clickhouse', 'ClickHouse', __DIR__ . '/drivers/clickhouse.php'),
-    new AdminerCustomDriver('elastic', 'Elasticsearch/OpenSearch', __DIR__ . '/drivers/elastic.php'),
-    new AdminerCustomDriver('firebird', 'Firebird', __DIR__ . '/drivers/firebird.php'),
+    new AdminerCustomDriver('imap', 'IMAP', __DIR__ . '/drivers/imap.php', function ()
+    {
+        return extension_loaded('imap');
+    }),
+    new AdminerCustomDriver('clickhouse', 'ClickHouse', __DIR__ . '/drivers/clickhouse.php', function ()
+    {
+        return ini_get_bool('allow_url_fopen');
+    }),
+    new AdminerCustomDriver('elastic', 'Elasticsearch/OpenSearch', __DIR__ . '/drivers/elastic.php', function ()
+    {
+        return ini_get_bool('allow_url_fopen');
+    }),
+    new AdminerCustomDriver('firebird', 'Firebird', __DIR__ . '/drivers/firebird.php', function ()
+    {
+        return extension_loaded('interbase');
+    }),
     new AdminerCustomDriver('igdb', 'IGDB API', __DIR__ . '/drivers/igdb.php'),
-    new AdminerCustomDriver('mongo', 'MongoDB', __DIR__ . '/drivers/mongo.php'),
-    new AdminerCustomDriver('simpledb', 'SimpleDB', __DIR__ . '/drivers/simpledb.php', 'ADMINER_SIMPLEDB_PASSWORD'),
+    new AdminerCustomDriver('mongo', 'MongoDB', __DIR__ . '/drivers/mongo.php', function ()
+    {
+        return class_exists('MongoDB\Driver\Manager');
+    }),
+    new AdminerCustomDriver('simpledb', 'SimpleDB', __DIR__ . '/drivers/simpledb.php', 'ADMINER_SIMPLEDB_PASSWORD', function ()
+    {
+        return class_exists('SimpleXMLElement') && ini_get_bool('allow_url_fopen');
+    }),
 ]);

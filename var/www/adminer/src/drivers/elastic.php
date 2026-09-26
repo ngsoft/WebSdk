@@ -2,10 +2,6 @@
 
 namespace Adminer;
 
-if ( ! ini_bool('allow_url_fopen'))
-{
-    return false;
-}
 add_driver('elastic', 'Elasticsearch');
 
 if (isset($_GET['elastic']))
@@ -16,10 +12,9 @@ if (isset($_GET['elastic']))
     {
         class Db extends SqlDb
         {
-            public $extension = 'JSON';
+            public $extension                  = 'JSON';
             private $url;
-            /** @var array[] */
-            private $cache    = []; // results of cachedQuery()
+            /** @var array[] */ private $cache = []; // results of cachedQuery()
 
             /** Perform a request to the server.
              * @param bool       $log     remember the command to print it in the message, use it for the commands modifying data
@@ -212,7 +207,7 @@ if (isset($_GET['elastic']))
             {
                 $field = current($this->fields);
                 next($this->fields);
-                return (object) ['name' => $field, 'type' => 15, 'charsetnr' => 0];
+                return (object) ['name' => $field];
             }
         }
     }
@@ -223,6 +218,7 @@ if (isset($_GET['elastic']))
         public static $jush          = 'elastic';
 
         public static $serverSchemes = ['http', 'https'];
+        public static $serverPorts   = [80, 443];
         public static $serverPath    = true;
 
         public $insertFunctions      = ['json'];

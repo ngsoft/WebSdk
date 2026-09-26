@@ -14,10 +14,6 @@
 
 namespace Adminer;
 
-if ( ! extension_loaded('imap'))
-{
-    return false;
-}
 add_driver('imap', 'IMAP');
 
 if (isset($_GET['imap']))
@@ -35,7 +31,7 @@ if (isset($_GET['imap']))
 
             public function attach(array $server, $username, $password)
             {
-                $this->mailbox = '{' . "{$server['host']}:" . ($server['port'] ?: 993) . '/ssl}'; // Adminer disallows specifying privileged port in server name
+                $this->mailbox = '{' . "{$server['host']}:" . ($server['port'] ?: 993) . '/ssl}';
                 $this->imap    = @imap_open($this->mailbox, $username, $password, OP_HALFOPEN, 1);
                 return $this->imap ? '' : imap_last_error();
             }
@@ -174,16 +170,18 @@ if (isset($_GET['imap']))
             {
                 $field = current($this->fields);
                 next($this->fields);
-                return (object) ('' != $field ? ['name' => $field, 'type' => 15, 'charsetnr' => 0] : []);
+                return (object) ('' != $field ? ['name' => $field] : []);
             }
         }
     }
 
     class Driver extends SqlDriver
     {
-        public static $extensions = ['imap'];
-        public static $jush       = 'imap';
-        public $insertFunctions   = ['json'];
+        public static $extensions  = ['imap'];
+        public static $jush        = 'imap';
+        public static $serverPorts = [993];
+
+        public $insertFunctions    = ['json'];
     }
 
     function logged_user()
@@ -203,7 +201,10 @@ if (isset($_GET['imap']))
 
     function db_collation($db, array $collations) {}
 
-    function information_schema($db) {}
+    function information_schema($db)
+    {
+        return false;
+    }
 
     function indexes($table, $connection2 = null)
     {

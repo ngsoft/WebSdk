@@ -7,6 +7,17 @@ use Adminer\ThemeSwitcher;
 
 require_once __DIR__ . '/libs-no-sql.php';
 
+/**
+ * @param string $ini
+ *
+ * @return bool
+ */
+function ini_get_bool($ini)
+{
+    $val = ini_get($ini);
+    return (bool) (preg_match('~^(on|true|yes)$~i', $val) || (int) $val);
+}
+
 function init_debug($force = false)
 {
     @ini_set('display_errors', 0);

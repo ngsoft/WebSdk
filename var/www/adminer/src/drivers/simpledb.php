@@ -2,10 +2,6 @@
 
 namespace Adminer;
 
-if ( ! class_exists('SimpleXMLElement') || ! ini_bool('allow_url_fopen'))
-{
-    return false;
-}
 add_driver('simpledb', 'SimpleDB');
 
 if (isset($_GET['simpledb']))
@@ -144,7 +140,7 @@ if (isset($_GET['simpledb']))
             public function fetch_field()
             {
                 $keys = array_keys($this->rows[0]);
-                return (object) ['name' => $keys[$this->offset++], 'type' => 15, 'charsetnr' => 0];
+                return (object) ['name' => $keys[$this->offset++]];
             }
 
             private function processValue($element)
@@ -194,12 +190,17 @@ JS;
             return ''; // the queries are only a select expression and the columns are not known
         }
 
+        public function hasEstimatedRows()
+        {
+            return true; // DomainMetadata returns ItemCount with the time when it was calculated
+        }
+
         public function select($table, array $select, array $where, array $group, array $order = [], $limit = 1, $page = 0, $print = false)
         {
-            connection()->next = $_GET['next'];
-            $_GET['next']      = ''; // set by sdb_request_all() if there is a following page
-            $return            = parent::select($table, $select, $where, $group, $order, $limit, $page, $print);
-            connection()->next = 0;
+            $this->conn->next = $_GET['next'];
+            $_GET['next']     = ''; // set by sdb_request_all() if there is a following page
+            $return           = parent::select($table, $select, $where, $group, $order, $limit, $page, $print);
+            $this->conn->next = 0;
             return $return;
         }
 
@@ -333,7 +334,7 @@ JS;
                     return false;
                 }
             }
-            connection()->affected_rows = count($ids);
+            $this->conn->affected_rows = count($ids);
             return true;
         }
 
@@ -432,7 +433,10 @@ JS;
         return h(connection()->error);
     }
 
-    function information_schema($db) {}
+    function information_schema($db)
+    {
+        return false;
+    }
 
     function indexes($table, $connection2 = null)
     {

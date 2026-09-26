@@ -357,7 +357,7 @@ if (isset($_GET['redis']))
         {
             $field = current($this->fields);
             next($this->fields);
-            return (object) ['name' => $field, 'type' => 15, 'charsetnr' => 0];
+            return (object) ['name' => $field];
         }
     }
 
@@ -582,7 +582,10 @@ JS;
 
     function db_collation($db, array $collations) {}
 
-    function information_schema($db) {}
+    function information_schema($db)
+    {
+        return false;
+    }
 
     function indexes($table, $connection2 = null)
     {

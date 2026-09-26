@@ -10,7 +10,7 @@ Config::setItem('ADMINER_DRIVERS', ['mysql', 'pgsql', 'sqlite', 'redis']);
 Config::setItem('ADMINER_SERVERS', [
     'MySql' => ['driver' => 'mysql', 'server' => '127.0.0.1'],
     'PostgreSql' => ['driver' => 'pgsql', 'server' => '127.0.0.1'],
+    'Redis4Windows' => ['driver' => 'redis', 'server' => '127.0.0.1'],
     'SqLite' => ['driver' => 'sqlite', 'server' => 'sqlite'],
-    'Redis' => ['driver' => 'redis', 'server' => '127.0.0.1'],
 ]);
 

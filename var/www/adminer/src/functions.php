@@ -6,7 +6,6 @@ use Adminer\Config;
 use Adminer\ThemeSwitcher;
 
 require_once __DIR__ . '/libs-no-sql.php';
-@include_once dirname(__DIR__) . '/vendor/autoload.php';
 
 function init_debug($force = false)
 {
@@ -15,7 +14,7 @@ function init_debug($force = false)
 
     if (class_exists(Config::class) && ! defined('DEV_ENV'))
     {
-        @define('DEV_ENV', Config::getItem('ADMINER_DEV', false));
+        @define('DEV_ENV', $force ?: Config::getItem('ADMINER_DEV', false));
     }
 
     // set debug mode for dev define('DEV_ENV', true); const DEV_ENV = true;
@@ -59,11 +58,64 @@ function load_theme()
     return new AdminerBootstrapSelect($data['theme'], $data['dark'], $data['fix'], $data['select'], $data['lang']);
 }
 
+/**
+ * @param string ...$files
+ *
+ * @return mixed
+ */
+function load_handlers(...$files)
+{
+    if (empty($files))
+    {
+        return false;
+    }
+
+    $result = false;
+    $merged = [];
+
+    foreach ($files as $file)
+    {
+        if (is_file($file))
+        {
+            $result = @include $file;
+
+            if ($result instanceof \Closure)
+            {
+                $result = $result();
+            }
+
+            if (is_array($result))
+            {
+                $merged = array_merge($merged, $result);
+            }
+        }
+    }
+
+    return [] !== $merged ? $merged : $result;
+}
+
+/**
+ * @return (\Adminer\Plugins|object)[]
+ *
+ * @noinspection PhpIncludeInspection
+ */
+function load_plugins()
+{
+    return load_handlers(
+        dirname(__DIR__) . '/features/plugins.php',
+        dirname(__DIR__) . '/config/plugins.php',
+        __DIR__ . '/plugins.php'
+    ) ?: [];
+}
+
+/** @noinspection PhpIncludeInspection */
+@include_once dirname(__DIR__) . '/vendor/autoload.php';
+
 // Override prod classes with dev ones if modifying feature
 // class loaders work in order
 if (is_dir(dirname(__DIR__) . '/features'))
 {
-    autoload_register_namespace('Adminer', dirname(__DIR__) . '/features/');
+    autoload_register_namespace('', dirname(__DIR__) . '/features');
 }
 autoload_register_namespace('', __DIR__);
 

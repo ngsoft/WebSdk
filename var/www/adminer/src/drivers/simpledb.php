@@ -6,189 +6,192 @@ if ( ! class_exists('SimpleXMLElement') || ! ini_bool('allow_url_fopen'))
 {
     return false;
 }
-
 add_driver('simpledb', 'SimpleDB');
 
 if (isset($_GET['simpledb']))
 {
     define('Adminer\DRIVER', 'simpledb');
 
-    class Db extends SqlDb
+    if (class_exists('SimpleXMLElement') && ini_bool('allow_url_fopen'))
     {
-        public $extension   = 'SimpleXML';
-        public $server_info = '2009-04-15';
-        public $timeout;
-        public $next;
-
-        /** @return string */
-        public function attach($server, $username, $password)
+        class Db extends SqlDb
         {
-            return '';
-        }
+            public $extension   = 'SimpleXML';
+            public $server_info = '2009-04-15';
+            public $timeout;
+            public $next;
 
-        public function select_db($database)
-        {
-            return 'domain' == $database;
-        }
-
-        public function query($query, $unbuffered = false)
-        {
-            $params        = ['SelectExpression' => $query, 'ConsistentRead' => 'true'];
-
-            if ($this->next)
+            public function attach(array $server, $username, $password)
             {
-                $params['NextToken'] = $this->next;
-            }
-            $result        = sdb_request_all('Select', 'Item', $params, $this->timeout); // ! respect $unbuffered
-            $this->timeout = 0;
-
-            if (false === $result)
-            {
-                return $result;
+                return '';
             }
 
-            if (preg_match('~^\s*SELECT\s+COUNT\(~i', $query))
+            public function select_db($database)
             {
-                $sum    = 0;
+                return 'domain' == $database;
+            }
 
+            public function query($query, $unbuffered = false)
+            {
+                $params        = ['SelectExpression' => $query, 'ConsistentRead' => 'true'];
+
+                if ($this->next)
+                {
+                    $params['NextToken'] = $this->next;
+                }
+                $result        = sdb_request_all('Select', 'Item', $params, $this->timeout); // ! respect $unbuffered
+                $this->timeout = 0;
+
+                if (false === $result)
+                {
+                    return $result;
+                }
+
+                if (preg_match('~^\s*SELECT\s+COUNT\(~i', $query))
+                {
+                    $sum    = 0;
+
+                    foreach ($result as $item)
+                    {
+                        $sum += $item->Attribute->Value;
+                    }
+                    $result = [(object) ['Attribute' => [(object) [
+                        'Name'  => 'Count',
+                        'Value' => $sum,
+                    ]]]];
+                }
+                return new Result($result);
+            }
+
+            public function quote($string)
+            {
+                return "'" . str_replace("'", "''", $string) . "'";
+            }
+        }
+
+        class Result
+        {
+            public $num_rows;
+            private $rows   = [];
+            private $offset = 0;
+
+            public function __construct(array $result)
+            {
                 foreach ($result as $item)
                 {
-                    $sum += $item->Attribute->Value;
-                }
-                $result = [(object) ['Attribute' => [(object) [
-                    'Name'  => 'Count',
-                    'Value' => $sum,
-                ]]]];
-            }
-            return new Result($result);
-        }
+                    $row          = [];
 
-        /** @return string */
-        public function quote($string)
-        {
-            return "'" . str_replace("'", "''", $string) . "'";
-        }
-    }
+                    if ('' != $item->Name) // SELECT COUNT(*)
+                    {$row['itemName()'] = (string) $item->Name;
+                    }
 
-    class Result
-    {
-        public $num_rows;
-        private $rows   = [];
-        private $offset = 0;
-
-        public function __construct($result)
-        {
-            foreach ($result as $item)
-            {
-                $row          = [];
-
-                if ('' != $item->Name) // SELECT COUNT(*)
-                {$row['itemName()'] = (string) $item->Name;
-                }
-
-                foreach ($item->Attribute as $attribute)
-                {
-                    $name  = $this->processValue($attribute->Name);
-                    $value = $this->processValue($attribute->Value);
-
-                    if (isset($row[$name]))
+                    foreach ($item->Attribute as $attribute)
                     {
-                        $row[$name]   = (array) $row[$name];
-                        $row[$name][] = $value;
-                    } else
+                        $name  = $this->processValue($attribute->Name);
+                        $value = $this->processValue($attribute->Value);
+
+                        if (isset($row[$name]))
+                        {
+                            $row[$name]   = (array) $row[$name];
+                            $row[$name][] = $value;
+                        } else
+                        {
+                            $row[$name] = $value;
+                        }
+                    }
+                    $this->rows[] = $row;
+
+                    foreach ($row as $key => $val)
                     {
-                        $row[$name] = $value;
+                        if ( ! isset($this->rows[0][$key]))
+                        {
+                            $this->rows[0][$key] = null;
+                        }
                     }
                 }
-                $this->rows[] = $row;
+                $this->num_rows = count($this->rows);
+            }
 
-                foreach ($row as $key => $val)
+            public function fetch_assoc()
+            {
+                $row    = current($this->rows);
+
+                if ( ! $row)
                 {
-                    if ( ! isset($this->rows[0][$key]))
-                    {
-                        $this->rows[0][$key] = null;
-                    }
+                    return $row;
                 }
-            }
-            $this->num_rows = count($this->rows);
-        }
+                $return = [];
 
-        public function fetch_assoc()
-        {
-            $row    = current($this->rows);
-
-            if ( ! $row)
-            {
-                return $row;
-            }
-            $return = [];
-
-            foreach ($this->rows[0] as $key => $val)
-            {
-                $return[$key] = $row[$key];
-            }
-            next($this->rows);
-            return $return;
-        }
-
-        public function fetch_row()
-        {
-            $return = $this->fetch_assoc();
-
-            if ( ! $return)
-            {
+                foreach ($this->rows[0] as $key => $val)
+                {
+                    $return[$key] = $row[$key];
+                }
+                next($this->rows);
                 return $return;
             }
-            return array_values($return);
-        }
 
-        /** @return \stdClass */
-        public function fetch_field()
-        {
-            $keys = array_keys($this->rows[0]);
-            return (object) ['name' => $keys[$this->offset++], 'type' => 15, 'charsetnr' => 0];
-        }
+            public function fetch_row()
+            {
+                $return = $this->fetch_assoc();
 
-        private function processValue($element)
-        {
-            return is_object($element) && 'base64' == $element['encoding'] ? base64_decode($element) : (string) $element;
+                if ( ! $return)
+                {
+                    return $return;
+                }
+                return array_values($return);
+            }
+
+            public function fetch_field()
+            {
+                $keys = array_keys($this->rows[0]);
+                return (object) ['name' => $keys[$this->offset++], 'type' => 15, 'charsetnr' => 0];
+            }
+
+            private function processValue($element)
+            {
+                return is_object($element) && 'base64' == $element['encoding'] ? base64_decode($element) : (string) $element;
+            }
         }
     }
 
     class Driver extends SqlDriver
     {
-        public static $extensions = ['SimpleXML + allow_url_fopen'];
-        public static $jush       = 'simpledb';
-        public static $passwords  = false;
+        public static $extensions    = ['SimpleXML + allow_url_fopen'];
+        public static $jush          = 'simpledb';
+        public static $passwords     = false;
 
-        public $operators         = ['=', '<', '>', '<=', '>=', '!=', 'LIKE', 'LIKE %%', 'IN', 'IS NULL', 'NOT LIKE', 'IS NOT NULL'];
-        public $grouping          = ['count'];
+        public static $serverSchemes = ['http', 'https'];
 
-        public $primary           = 'itemName()';
+        public $grouping             = ['count'];
 
-        /** Get the JUSH module inlined in the released driver by the release script.
-         * @return string
-         */
-        public static function jushModule()
+        public $primary              = 'itemName()';
+
+        public function operators($tableStatus)
         {
-            return ''; // the repository and the source archive load adminer/static/jush/modules/jush-simpledb.js
+            return ['=', '<', '>', '<=', '>=', '!=', 'LIKE', 'LIKE %%', 'IN', 'IS NULL', 'NOT LIKE', 'IS NOT NULL'];
         }
 
-        /** @param null|array $statements
-         * @return string
-         */
+        /** Get the JUSH module inlined in the released driver by the release script */
+        public static function jushModule()
+        {
+            return <<<'JS'
+jush.tr.simpledb = { sqlite_apo: /'/, sqlite_quo: /"/, bac: /`/ };
+
+jush.build_links2('simpledb', 'https://docs.aws.amazon.com/AmazonSimpleDB/latest/DeveloperGuide/$key.html', /(\b)/, /(\b)/gi, {
+	'QuotingRulesSelect': /(select|limit)/,
+	'CountingDataSelect': /(count)/,
+	'SortingDataSelect': /(order\s+by|asc|desc)/,
+	'SimpleQueriesSelect': /(where)/,
+	'UsingSelectOperators': /(between|like|is|in)/,
+	'RangeValueQueriesSelect': /(every)/,
+	'': /(or|and|not|from|null|intersection)/,
+});
+JS;
+        }
+
         public static function jushAutocomplete(array $tables, $statements)
         {
             return ''; // the queries are only a select expression and the columns are not known
-        }
-
-        public static function connect($server, $username, $password)
-        {
-            if ('' != $server && ! preg_match('~^(https?://)?[-a-z\d.]+(:\d+)?$~', $server))
-            {
-                return lang('Invalid server.');
-            }
-            return parent::connect($server, $username, $password); // the password is refused by Adminer::login()
         }
 
         public function select($table, array $select, array $where, array $group, array $order = [], $limit = 1, $page = 0, $print = false)
@@ -309,7 +312,7 @@ if (isset($_GET['simpledb']))
             return $query;
         }
 
-        private function chunkRequest($ids, $action, $params, $expand = [])
+        private function chunkRequest(array $ids, $action, array $params, array $expand = [])
         {
             foreach (array_chunk($ids, 25) as $chunk)
             {
@@ -373,7 +376,7 @@ if (isset($_GET['simpledb']))
         return [];
     }
 
-    function db_collation($db, $collations) {}
+    function db_collation($db, array $collations) {}
 
     function tables_list()
     {
@@ -422,7 +425,7 @@ if (isset($_GET['simpledb']))
         return $return;
     }
 
-    function explain($connection, $query) {}
+    function explain(Db $connection, $query) {}
 
     function error()
     {
@@ -463,21 +466,31 @@ if (isset($_GET['simpledb']))
         return " {$query}{$where}" . ($limit ? $separator . "LIMIT {$limit}" : '');
     }
 
-    function convert_field($field) {}
+    function limit1($table, $query, $where, $separator = "\n")
+    {
+        return limit($query, $where, 1, 0, $separator);
+    }
 
-    function unconvert_field($field, $return)
+    function convert_field(array $field) {}
+
+    function unconvert_field(array $field, $return)
     {
         return $return;
     }
 
-    function fk_support($table_status) {}
+    function is_view(array $table_status)
+    {
+        return false;
+    }
 
-    function alter_table($table, $name, $fields, $foreign, $comment, $engine, $collation, $auto_increment, $partitioning)
+    function fk_support(array $table_status) {}
+
+    function alter_table($table, $name, array $fields, array $foreign, $comment, $engine, $collation, $auto_increment, $partitioning)
     {
         return '' == $table && sdb_request('CreateDomain', ['DomainName' => $name]);
     }
 
-    function drop_tables($tables)
+    function drop_tables(array $tables)
     {
         foreach ($tables as $table)
         {
@@ -489,7 +502,7 @@ if (isset($_GET['simpledb']))
         return true;
     }
 
-    function count_tables($databases)
+    function count_tables(array $databases)
     {
         foreach ($databases as $db)
         {
@@ -497,14 +510,14 @@ if (isset($_GET['simpledb']))
         }
     }
 
-    function found_rows($table_status, $where)
+    function found_rows(array $table_status, array $where)
     {
         return $where ? null : $table_status['Rows'];
     }
 
     function last_id($result) {}
 
-    function sdb_request($action, $params = [])
+    function sdb_request($action, array $params = [])
     {
         list($host, $params['AWSAccessKeyId'], $secret) = adminer()->credentials();
 
@@ -561,7 +574,7 @@ if (isset($_GET['simpledb']))
         return $xml->{$tag} ?: true;
     }
 
-    function sdb_request_all($action, $tag, $params = [], $timeout = 0)
+    function sdb_request_all($action, $tag, array $params = [], $timeout = 0)
     {
         $return = [];
         $start  = ($timeout ? microtime(true) : 0);

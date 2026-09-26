@@ -9,7 +9,7 @@ namespace Adminer;
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
-class AdminerBackwardKeys
+class AdminerBackwardKeys extends Plugin
 {
     protected $translations = [
         'cs' => [
@@ -86,6 +86,11 @@ ORDER BY s.ordinal_position', null, '') as $row
 
         foreach ($backwardKeys as $table => $backwardKey)
         {
+            if ( ! is_array($backwardKey) || ! isset($backwardKey['keys']) || ! is_iterable($backwardKey['keys']))
+            {
+                continue;
+            }
+
             foreach ($backwardKey['keys'] as $cols)
             {
                 $link     = ME . 'select=' . urlencode($table);

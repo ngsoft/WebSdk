@@ -114,7 +114,6 @@ if (isset($_GET['redis']))
                 $escapes_binary[chr($i)] = sprintf('\x%02x', $i);
             }
         }
-        $arg = (string) $arg;
         // bytes >= 0x80 are escaped only outside UTF-8 where there's no readability to preserve
         return '"' . strtr($arg, is_utf8($arg) ? $escapes : $escapes_binary) . '"';
     }
@@ -122,7 +121,7 @@ if (isset($_GET['redis']))
     /** Format arguments as a command in the redis-cli syntax.
      * @param list<string> $args
      */
-    function format_command($args)
+    function format_command(array $args)
     {
         $return = [];
 
@@ -165,20 +164,11 @@ if (isset($_GET['redis']))
         public $extension = 'socket';
         private $fp;
 
-        /** @return string */
-        public function attach($server, $username, $password)
+        public function attach(array $server, $username, $password)
         {
-            if ('' == $server)
-            {
-                $server = '127.0.0.1';
-            }
-
-            if ( ! strpos($server, ':'))
-            {
-                $server .= ':6379';
-            }
-            list($host, $port) = host_port($server);
-            $this->fp          = @fsockopen($host, $port, $errno, $error);
+            $scheme   = $server['scheme'];
+            $host     = ($scheme ? "{$scheme}://" : '') . ($server['host'] ?: '127.0.0.1');
+            $this->fp = @fsockopen($host, intval($server['port'] ?: 6379), $errno, $error);
 
             if ( ! $this->fp)
             {
@@ -203,7 +193,6 @@ if (isset($_GET['redis']))
             return $this->send(['SELECT', $database]);
         }
 
-        /** @return string */
         public function quote($string)
         {
             return quote_arg(unescape_value($string)); // the values are used as arguments of the commands
@@ -241,7 +230,7 @@ if (isset($_GET['redis']))
             return new Result($rows);
         }
 
-        public function send($args)
+        public function send(array $args)
         {
             return first($this->sendMulti([$args]));
         }
@@ -251,7 +240,7 @@ if (isset($_GET['redis']))
          *
          * @return list<mixed> replies in the order of the commands
          */
-        public function sendMulti($commands)
+        public function sendMulti(array $commands)
         {
             $cmd    = '';
 
@@ -344,7 +333,7 @@ if (isset($_GET['redis']))
         private $result;
         private $fields;
 
-        public function __construct($result)
+        public function __construct(array $result)
         {
             $this->result   = $result;
             $this->num_rows = count($result);
@@ -364,7 +353,6 @@ if (isset($_GET['redis']))
             return $row ? array_values($row) : false;
         }
 
-        /** @return \stdClass */
         public function fetch_field()
         {
             $field = current($this->fields);
@@ -375,28 +363,37 @@ if (isset($_GET['redis']))
 
     class Driver extends SqlDriver
     {
-        public static $jush = 'redis';
+        public static $jush          = 'redis';
 
-        public $delimiter   = "\n"; // commands are separated by a newline as in redis-cli
-        public $operators   = ['*'];
+        public static $serverSchemes = ['ssl', 'tls'];
 
-        /** Get the JUSH module inlined in the released driver by the release script.
-         * @return string
-         */
-        public static function jushModule()
+        public $delimiter            = "\n"; // commands are separated by a newline as in redis-cli
+
+        public function operators($tableStatus)
         {
-            return ''; // the repository and the source archive load adminer/static/jush/modules/jush-redis.js
+            return ['*'];
         }
 
-        /** @param null|array $statements
-         * @return string
-         */
+        /** Get the JUSH module inlined in the released driver by the release script */
+        public static function jushModule()
+        {
+            return <<<'JS'
+jush.tr.redis = { quo: /"/, apo: /'/ };
+
+jush.slugs.redis = name => name.toLowerCase().replace(/\s+/g, '-'); // CONFIG GET -> config-get
+
+jush.build_links2('redis', 'https://redis.io/docs/latest/commands/$1/', /(^[ \t]*)/, /(\b)/gim, { // commands are linked only at the beginning of a line
+	'$1': /(ACL\s+CAT|ACL\s+DELUSER|ACL\s+DRYRUN|ACL\s+GENPASS|ACL\s+GETUSER|ACL\s+HELP|ACL\s+LIST|ACL\s+LOAD|ACL\s+LOG|ACL\s+SAVE|ACL\s+SETUSER|ACL\s+USERS|ACL\s+WHOAMI|ACL|APPEND|ARCOUNT|ARDEL|ARDELRANGE|ARGET|ARGETRANGE|ARGREP|ARINFO|ARINSERT|ARLASTITEMS|ARLEN|ARMGET|ARMSET|ARNEXT|AROP|ARRING|ARSCAN|ARSEEK|ARSET|ASKING|AUTH|BACKUP\s+ABORT|BACKUP\s+CLEANUP|BACKUP\s+HELP|BACKUP\s+LIST|BACKUP\s+SEAL|BACKUP\s+START|BACKUP\s+STATUS|BACKUP|BGREWRITEAOF|BGSAVE|BITCOUNT|BITFIELD|BITFIELD_RO|BITOP|BITPOS|BLMOVE|BLMOVEM|BLMPOP|BLPOP|BRPOP|BRPOPLPUSH|BZMPOP|BZPOPMAX|BZPOPMIN|CLIENT\s+CACHING|CLIENT\s+GETNAME|CLIENT\s+GETREDIR|CLIENT\s+HELP|CLIENT\s+ID|CLIENT\s+INFO|CLIENT\s+KILL|CLIENT\s+LIST|CLIENT\s+NO-EVICT|CLIENT\s+NO-TOUCH|CLIENT\s+PAUSE|CLIENT\s+REPLY|CLIENT\s+SETINFO|CLIENT\s+SETNAME|CLIENT\s+TRACKING|CLIENT\s+TRACKINGINFO|CLIENT\s+UNBLOCK|CLIENT\s+UNPAUSE|CLIENT|CLUSTER\s+ADDSLOTS|CLUSTER\s+ADDSLOTSRANGE|CLUSTER\s+BUMPEPOCH|CLUSTER\s+COUNT-FAILURE-REPORTS|CLUSTER\s+COUNTKEYSINSLOT|CLUSTER\s+DELSLOTS|CLUSTER\s+DELSLOTSRANGE|CLUSTER\s+FAILOVER|CLUSTER\s+FLUSHSLOTS|CLUSTER\s+FORGET|CLUSTER\s+GETKEYSINSLOT|CLUSTER\s+HELP|CLUSTER\s+INFO|CLUSTER\s+KEYSLOT|CLUSTER\s+LINKS|CLUSTER\s+MEET|CLUSTER\s+MIGRATION|CLUSTER\s+MYID|CLUSTER\s+MYSHARDID|CLUSTER\s+NODES|CLUSTER\s+REPLICAS|CLUSTER\s+REPLICATE|CLUSTER\s+RESET|CLUSTER\s+SAVECONFIG|CLUSTER\s+SET-CONFIG-EPOCH|CLUSTER\s+SETSLOT|CLUSTER\s+SHARDS|CLUSTER\s+SLAVES|CLUSTER\s+SLOT-STATS|CLUSTER\s+SLOTS|CLUSTER\s+SYNCSLOTS|CLUSTER|COMMAND\s+COUNT|COMMAND\s+DOCS|COMMAND\s+GETKEYS|COMMAND\s+GETKEYSANDFLAGS|COMMAND\s+HELP|COMMAND\s+INFO|COMMAND\s+LIST|COMMAND|CONFIG\s+GET|CONFIG\s+HELP|CONFIG\s+RESETSTAT|CONFIG\s+REWRITE|CONFIG\s+SET|CONFIG|COPY|DBSIZE|DEBUG|DECR|DECRBY|DEL|DELEX|DIGEST|DISCARD|DUMP|ECHO|EVAL|EVALSHA|EVALSHA_RO|EVAL_RO|EXEC|EXISTS|EXPIRE|EXPIREAT|EXPIRETIME|FAILOVER|FCALL|FCALL_RO|FLUSHALL|FLUSHDB|FUNCTION\s+DELETE|FUNCTION\s+DUMP|FUNCTION\s+FLUSH|FUNCTION\s+HELP|FUNCTION\s+KILL|FUNCTION\s+LIST|FUNCTION\s+LOAD|FUNCTION\s+RESTORE|FUNCTION\s+STATS|FUNCTION|GEOADD|GEODIST|GEOHASH|GEOPOS|GEORADIUS|GEORADIUSBYMEMBER|GEORADIUSBYMEMBER_RO|GEORADIUS_RO|GEOSEARCH|GEOSEARCHSTORE|GET|GETBIT|GETDEL|GETEX|GETRANGE|GETSET|HDEL|HELLO|HEXISTS|HEXPIRE|HEXPIREAT|HEXPIRETIME|HGET|HGETALL|HGETDEL|HGETEX|HIMPORT\s+DISCARD|HIMPORT\s+DISCARDALL|HIMPORT\s+PREPARE|HIMPORT\s+SET|HIMPORT|HINCRBY|HINCRBYFLOAT|HKEYS|HLEN|HMGET|HMSET|HOTKEYS\s+GET|HOTKEYS\s+HELP|HOTKEYS\s+RESET|HOTKEYS\s+START|HOTKEYS\s+STOP|HOTKEYS|HPERSIST|HPEXPIRE|HPEXPIREAT|HPEXPIRETIME|HPTTL|HRANDFIELD|HSCAN|HSET|HSETEX|HSETNX|HSTRLEN|HTTL|HVALS|INCR|INCRBY|INCRBYFLOAT|INCREX|INFO|KEYS|LASTSAVE|LATENCY\s+DOCTOR|LATENCY\s+GRAPH|LATENCY\s+HELP|LATENCY\s+HISTOGRAM|LATENCY\s+HISTORY|LATENCY\s+LATEST|LATENCY\s+RESET|LATENCY|LCS|LINDEX|LINSERT|LLEN|LMOVE|LMOVEM|LMPOP|LOLWUT|LPOP|LPOS|LPUSH|LPUSHX|LRANGE|LREM|LSET|LTRIM|MEMORY\s+DOCTOR|MEMORY\s+HELP|MEMORY\s+MALLOC-STATS|MEMORY\s+PURGE|MEMORY\s+STATS|MEMORY\s+USAGE|MEMORY|MGET|MIGRATE|MODULE\s+HELP|MODULE\s+LIST|MODULE\s+LOAD|MODULE\s+LOADEX|MODULE\s+UNLOAD|MODULE|MONITOR|MOVE|MSET|MSETEX|MSETNX|MULTI|OBJECT\s+ENCODING|OBJECT\s+FREQ|OBJECT\s+HELP|OBJECT\s+IDLETIME|OBJECT\s+REFCOUNT|OBJECT|PERSIST|PEXPIRE|PEXPIREAT|PEXPIRETIME|PFADD|PFCOUNT|PFDEBUG|PFMERGE|PFSELFTEST|PING|PSETEX|PSUBSCRIBE|PSYNC|PTTL|PUBLISH|PUBSUB\s+CHANNELS|PUBSUB\s+HELP|PUBSUB\s+NUMPAT|PUBSUB\s+NUMSUB|PUBSUB\s+SHARDCHANNELS|PUBSUB\s+SHARDNUMSUB|PUBSUB|PUNSUBSCRIBE|QUIT|RANDOMKEY|READONLY|READWRITE|RENAME|RENAMENX|REPLCONF|REPLICAOF|RESET|RESTORE-ASKING|RESTORE|ROLE|RPOP|RPOPLPUSH|RPUSH|RPUSHX|SADD|SAVE|SCAN|SCARD|SCRIPT\s+DEBUG|SCRIPT\s+EXISTS|SCRIPT\s+FLUSH|SCRIPT\s+HELP|SCRIPT\s+KILL|SCRIPT\s+LOAD|SCRIPT|SDIFF|SDIFFCARD|SDIFFSTORE|SELECT|SENTINEL\s+CKQUORUM|SENTINEL\s+CONFIG|SENTINEL\s+DEBUG|SENTINEL\s+FAILOVER|SENTINEL\s+FLUSHCONFIG|SENTINEL\s+GET-MASTER-ADDR-BY-NAME|SENTINEL\s+HELP|SENTINEL\s+INFO-CACHE|SENTINEL\s+IS-MASTER-DOWN-BY-ADDR|SENTINEL\s+MASTER|SENTINEL\s+MASTERS|SENTINEL\s+MONITOR|SENTINEL\s+MYID|SENTINEL\s+PENDING-SCRIPTS|SENTINEL\s+REMOVE|SENTINEL\s+REPLICAS|SENTINEL\s+RESET|SENTINEL\s+SENTINELS|SENTINEL\s+SET|SENTINEL\s+SIMULATE-FAILURE|SENTINEL\s+SLAVES|SENTINEL|SET|SETBIT|SETEX|SETNX|SETRANGE|SFLUSH|SHUTDOWN|SINTER|SINTERCARD|SINTERSTORE|SISMEMBER|SLAVEOF|SLOWLOG\s+GET|SLOWLOG\s+HELP|SLOWLOG\s+LEN|SLOWLOG\s+RESET|SLOWLOG|SMEMBERS|SMISMEMBER|SMOVE|SORT|SORT_RO|SPOP|SPUBLISH|SRANDMEMBER|SREM|SSCAN|SSUBSCRIBE|STRLEN|SUBSCRIBE|SUBSTR|SUNION|SUNIONCARD|SUNIONSTORE|SUNSUBSCRIBE|SWAPDB|SYNC|TIME|TOUCH|TRIMSLOTS|TTL|TYPE|UNLINK|UNSUBSCRIBE|UNWATCH|WAIT|WAITAOF|WATCH|XACK|XACKDEL|XADD|XAUTOCLAIM|XCFGSET|XCLAIM|XDEL|XDELEX|XGROUP\s+CREATE|XGROUP\s+CREATECONSUMER|XGROUP\s+DELCONSUMER|XGROUP\s+DESTROY|XGROUP\s+HELP|XGROUP\s+SETID|XGROUP|XIDMPRECORD|XINFO\s+CONSUMERS|XINFO\s+GROUPS|XINFO\s+HELP|XINFO\s+STREAM|XINFO|XLEN|XNACK|XPENDING|XRANGE|XREAD|XREADGROUP|XREVRANGE|XSETID|XTRIM|ZADD|ZCARD|ZCOUNT|ZDIFF|ZDIFFSTORE|ZINCRBY|ZINTER|ZINTERCARD|ZINTERSTORE|ZLEXCOUNT|ZMPOP|ZMSCORE|ZPOPMAX|ZPOPMIN|ZRANDMEMBER|ZRANGE|ZRANGEBYLEX|ZRANGEBYSCORE|ZRANGESTORE|ZRANK|ZREM|ZREMRANGEBYLEX|ZREMRANGEBYRANK|ZREMRANGEBYSCORE|ZREVRANGE|ZREVRANGEBYLEX|ZREVRANGEBYSCORE|ZREVRANK|ZSCAN|ZSCORE|ZUNION|ZUNIONSTORE)/,
+});
+JS;
+        }
+
         public static function jushAutocomplete(array $tables, $statements)
         {
             return ''; // the commands are not SQL
         }
 
-        public function select($table, $select, $where, $group, $order = [], $limit = 1, $page = 0, $print = false)
+        public function select($table, array $select, array $where, array $group, array $order = [], $limit = 1, $page = 0, $print = false)
         {
             $next         = $_GET['next'];
             $_GET['next'] = ''; // there is no following page unless SCAN returns a cursor
@@ -482,30 +479,27 @@ if (isset($_GET['redis']))
             return new Result($return);
         }
 
-        /** @return bool */
         public function hasCStyleEscapes()
         {
             return true;
         }
 
-        /** @return string */
         public function lineComment()
         {
             return '[^\s\S]'; // Redis has no comments
         }
 
-        /** @return mixed[] */
         public function allFields()
         {
             return []; // the parent implementation would send a SQL query
         }
 
-        public function insert($table, $set)
+        public function insert($table, array $set)
         {
             return queries('SET ' . implode(' ', $set)); // the values are quoted by quote()
         }
 
-        public function update($table, $set, $queryWhere, $limit = 0, $separator = "\n")
+        public function update($table, array $set, $queryWhere, $limit = 0, $separator = "\n")
         {
             $args                      = [];
             $where                     = $this->where($queryWhere);
@@ -536,7 +530,7 @@ if (isset($_GET['redis']))
          *
          * @return mixed
          */
-        private function send($args, $print)
+        private function send(array $args, $print)
         {
             $start       = microtime(true);
             $this->query = format_command($args);
@@ -586,7 +580,7 @@ if (isset($_GET['redis']))
         return [];
     }
 
-    function db_collation($db, $collations) {}
+    function db_collation($db, array $collations) {}
 
     function information_schema($db) {}
 
@@ -604,9 +598,9 @@ if (isset($_GET['redis']))
         ];
     }
 
-    function convert_field($field) {}
+    function convert_field(array $field) {}
 
-    function unconvert_field($field, $return)
+    function unconvert_field(array $field, $return)
     {
         return $return;
     }
@@ -614,6 +608,11 @@ if (isset($_GET['redis']))
     function limit($query, $where, $limit, $offset = 0, $separator = ' ')
     {
         return $query;
+    }
+
+    function limit1($table, $query, $where, $separator = "\n")
+    {
+        return limit($query, $where, 1, 0, $separator);
     }
 
     function idf_escape($idf)
@@ -641,7 +640,7 @@ if (isset($_GET['redis']))
         return ['data' => ['Name' => 'data']];
     }
 
-    function count_tables($databases)
+    function count_tables(array $databases)
     {
         return array_fill_keys($databases, 1);
     }
@@ -652,24 +651,23 @@ if (isset($_GET['redis']))
     }
 
     // SELECT is a Redis command so this is called from SQL command
-    function explain($connection, $query) {}
+    function explain(Db $connection, $query) {}
 
-    function is_view($table_status)
+    function is_view(array $table_status)
     {
         return false;
     }
 
-    function found_rows($table_status, $where)
+    function found_rows(array $table_status, array $where)
     {
         return null;
     }
 
-    function fk_support($table_status)
+    function fk_support(array $table_status)
     {
         return false;
     }
 
-    /** @return string */
     function last_id($result)
     {
         return '';

@@ -9,7 +9,7 @@ namespace Adminer;
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
-class AdminerEditForeign
+class AdminerEditForeign extends Plugin
 {
     protected $limit;
 
@@ -55,8 +55,8 @@ class AdminerEditForeign
                         $column = "HEX({$column})";
                     }
                     $options = ['' => ''] + get_vals("SELECT {$column} FROM "
-                        . (empty($foreignKey['ns']) ? '' : idf_escape($foreignKey['ns']) . '.') . idf_escape($target)
-                        . ' ORDER BY 1' . ($this->limit ? ' LIMIT ' . ($this->limit + 1) : ''));
+                            . (empty($foreignKey['ns']) ? '' : idf_escape($foreignKey['ns']) . '.') . idf_escape($target)
+                            . ' ORDER BY 1' . ($this->limit ? ' LIMIT ' . ($this->limit + 1) : ''));
 
                     if ($this->limit && count($options) - 1 > $this->limit)
                     {

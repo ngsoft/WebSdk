@@ -5,7 +5,7 @@ namespace Adminer;
 /**
  * Use Bootstrap Select component.
  */
-class AdminerBootstrapSelect
+class AdminerBootstrapSelect extends Plugin
 {
     public static $enabled = true;
     public static $loaded  = false;

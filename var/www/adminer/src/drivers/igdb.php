@@ -22,8 +22,7 @@ if (isset($_GET['igdb']))
         private $username;
         private $password;
 
-        /** @return string */
-        public function attach($server, $username, $password)
+        public function attach(array $server, $username, $password)
         {
             $this->username = $username;
             $this->password = $password;
@@ -113,13 +112,11 @@ if (isset($_GET['igdb']))
             return $this->multi;
         }
 
-        /** @return bool */
         public function next_result()
         {
             return $this->multi && next($this->multi->results);
         }
 
-        /** @return string */
         public function quote($string)
         {
             return $string;
@@ -134,7 +131,7 @@ if (isset($_GET['igdb']))
         private $result;
         private $fields;
 
-        public function __construct($result)
+        public function __construct(array $result)
         {
             $keys           = [];
 
@@ -173,7 +170,6 @@ if (isset($_GET['igdb']))
             return $row ? array_values($row) : false;
         }
 
-        /** @return \stdClass */
         public function fetch_field()
         {
             $field = current($this->fields);
@@ -188,15 +184,13 @@ if (isset($_GET['igdb']))
         public static $jush       = 'igdb';
 
         public $delimiter         = ';;';
-        public $operators         = ['=', '<', '>', '<=', '>=', '!=', '~'];
-
         public $tables            = [];
         public $links             = [];
         public $fields            = [];
         public $foreignKeys       = [];
         public $foundRows         = null;
 
-        public function __construct($connection)
+        public function __construct(Db $connection)
         {
             parent::__construct($connection);
             libxml_use_internal_errors(true);
@@ -315,17 +309,29 @@ if (isset($_GET['igdb']))
             ];
         }
 
-        /** Get the JUSH module inlined in the released driver by the release script.
-         * @return string
-         */
-        public static function jushModule()
+        public function operators($tableStatus)
         {
-            return ''; // the repository and the source archive load adminer/static/jush/modules/jush-igdb.js
+            return ['=', '<', '>', '<=', '>=', '!=', '~'];
         }
 
-        /** @param null|array $statements
-         * @return string
-         */
+        /** Get the JUSH module inlined in the released driver by the release script */
+        public static function jushModule()
+        {
+            return <<<'JS'
+jush.tr.igdb = { quo: /"/ };
+
+jush.build_links2('igdb', 'https://api-docs.igdb.com/#$key', /(\b)/, /(\b)/gi, {
+	'endpoints': /(POST|GET|DELETE)/,
+	'$1': /(fields|exclude)/,
+	'filters': /(where)/,
+	'sorting': /(sort)/,
+	'search-1': /(search)/,
+	'pagination': /(limit|offset)/,
+	'multi-query': /(query)/,
+});
+JS;
+        }
+
         public static function jushAutocomplete(array $tables, $statements)
         {
             return ''; // the queries are not SQL
@@ -350,14 +356,19 @@ if (isset($_GET['igdb']))
             return parent::connect($server, $username, $password);
         }
 
-        public function select($table, $select, $where, $group, $order = [], $limit = 1, $page = 0, $print = false)
+        public function fulltextSql($name, array $index, $query, $boolean)
+        {
+            return 'search "' . addcslashes($query, '\"') . '"';
+        }
+
+        public function select($table, array $select, array $where, array $group, array $order = [], $limit = 1, $page = 0, $print = false)
         {
             $query           = '';
-            $search          = preg_match('~^MATCH \(search\) AGAINST \((.+)\)$~', $where[0], $match);
+            $search          = preg_match('~^search "~', $where[0]); // the condition built by fulltextSql()
 
             if ($search)
             {
-                $query = 'search "' . addcslashes($match[1], '\"') . "\";\n";
+                $query = "{$where[0]};\n";
                 unset($where[0]);
             }
 
@@ -411,7 +422,7 @@ if (isset($_GET['igdb']))
             return new Result($return);
         }
 
-        public function insert($table, $set)
+        public function insert($table, array $set)
         {
             $content = [];
 
@@ -450,10 +461,9 @@ if (isset($_GET['igdb']))
             return true;
         }
 
-        /** @return null|string */
-        public function value($val, $field)
+        public function value($val, array $field)
         {
-            return $val && in_array($field['full_type'], ['Unix Time Stamp', 'datetime']) ? str_replace(' 00:00:00', '', gmdate('Y-m-d H:i:s', $val)) : $val;
+            return $val && in_array($field['full_type'], ['Unix Time Stamp', 'datetime']) ? str_replace(' 00:00:00', '', gmdate('Y-m-d H:i:s', (int) $val)) : $val;
         }
 
         public function tableHelp($name, $is_view = false)
@@ -461,7 +471,6 @@ if (isset($_GET['igdb']))
             return strtolower('https://api-docs.igdb.com/#' . array_search($name, $this->links));
         }
 
-        /** @return string */
         private static function docsFilename()
         {
             return get_temp_dir() . '/adminer-igdb-api.html';
@@ -483,7 +492,7 @@ if (isset($_GET['igdb']))
         return [];
     }
 
-    function db_collation($db, $collations) {}
+    function db_collation($db, array $collations) {}
 
     function information_schema($db) {}
 
@@ -513,9 +522,9 @@ if (isset($_GET['igdb']))
         return $return;
     }
 
-    function convert_field($field) {}
+    function convert_field(array $field) {}
 
-    function unconvert_field($field, $return)
+    function unconvert_field(array $field, $return)
     {
         return $return;
     }
@@ -523,6 +532,11 @@ if (isset($_GET['igdb']))
     function limit($query, $where, $limit, $offset = 0, $separator = ' ')
     {
         return $query;
+    }
+
+    function limit1($table, $query, $where, $separator = "\n")
+    {
+        return limit($query, $where, 1, 0, $separator);
     }
 
     function idf_escape($idf)
@@ -561,7 +575,7 @@ if (isset($_GET['igdb']))
         return '' != $name ? ($tables[$name] ? [$name => $tables[$name]] : []) : $tables;
     }
 
-    function count_tables($databases)
+    function count_tables(array $databases)
     {
         return [reset($databases) => count(tables_list())];
     }
@@ -571,22 +585,23 @@ if (isset($_GET['igdb']))
         return connection()->error;
     }
 
-    function is_view($table_status)
+    function explain(Db $connection, $query) {}
+
+    function is_view(array $table_status)
     {
         return false;
     }
 
-    function found_rows($table_status, $where)
+    function found_rows(array $table_status, array $where)
     {
         return driver()->foundRows;
     }
 
-    function fk_support($table_status)
+    function fk_support(array $table_status)
     {
         return true;
     }
 
-    /** @return string */
     function last_id($result)
     {
         $row = $result->fetch_assoc();

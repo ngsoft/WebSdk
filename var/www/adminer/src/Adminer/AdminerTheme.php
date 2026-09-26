@@ -11,7 +11,7 @@ namespace Adminer;
  * @author Peter Knut
  * @copyright 2014-2018 Pematon, s.r.o. (http://www.pematon.com/)
  */
-class AdminerTheme
+class AdminerTheme extends Plugin
 {
     const CSS_VERSION   = 5;
     const ICONS_VERSION = 3;

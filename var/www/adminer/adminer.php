@@ -9,7 +9,7 @@ require_once __DIR__ . '/src/functions.php';
 function adminer_object()
 {
     init_debug();
-    return new AdminerPlugin((require_once __DIR__ . '/src/plugins.php'));
+    return new AdminerPlugin(load_plugins());
 }
 
 $version = Config::getItem('ADMINER_VERSION');

@@ -9,7 +9,7 @@ namespace Adminer;
  *
  * @author Premysl Karbula, http://www.premyslkarbula.cz
  */
-class AdminerColorFields
+class AdminerColorFields extends Plugin
 {
     public static $template = '<span style="margin-right: 1ex; vertical-align: middle; display: inline-block; width: 1em; height: 1em; border-radius: 50%%; background-color: %s;"></span>%s';
 

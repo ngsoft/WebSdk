@@ -9,7 +9,7 @@ namespace Adminer;
  *
  * @author Tom Higuchi, http://tom-gs.com/
  */
-class AdminerDumpXlsx
+class AdminerDumpXlsx extends Plugin
 {
     /**
      * @var string

@@ -3,7 +3,7 @@
 namespace Adminer;
 
 /** Restore the Modify link in the header of the select result table, moved to a fieldset in Adminer 6.0.0. */
-class AdminerSelectModifyHeader
+class AdminerSelectModifyHeader extends Plugin
 {
     public function head($dark = null)
     {

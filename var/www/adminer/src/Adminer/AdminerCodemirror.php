@@ -10,7 +10,7 @@ namespace Adminer;
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
-class AdminerCodemirror
+class AdminerCodemirror extends Plugin
 {
     protected $translations = [
         'cs' => ['' => 'Použít CodeMirror 5 pro zvýrazňování syntaxe a <textarea> včetně našeptávání klíčových slov a tabulek'],

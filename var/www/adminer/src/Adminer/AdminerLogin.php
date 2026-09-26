@@ -11,7 +11,7 @@ use ReflectionClass;
  * @license https://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
-class AdminerLogin
+class AdminerLogin extends Plugin
 {
     protected static $driverList   = [
         'server' => 'MySQL/MariaDB',

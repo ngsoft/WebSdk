@@ -9,7 +9,6 @@ call "%~dp0..\loadenv.bat"
 @REM Create PHP OPCache storage
 md "%WEB_SDK%tmp\opcache" > NUL 2>&1
 md "%WEB_SDK%tmp\opcache\8.2" > NUL 2>&1
-md "%WEB_SDK%tmp\opcache\8.3" > NUL 2>&1
 md "%WEB_SDK%tmp\opcache\8.4" > NUL 2>&1
 md "%WEB_SDK%tmp\opcache\8.5" > NUL 2>&1
 

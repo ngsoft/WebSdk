@@ -1,9 +1,9 @@
 This snapshot was automatically generated on
-Tue, 25 Aug 2026 18:44:33 +0000
+Tue, 20 Oct 2026 04:25:33 +0000
 
-Version: 8.4.25
+Version: 8.4.27
 Branch: HEAD
-Build: C:\Users\runneradmin\AppData\Local\Temp\php-905c67e3-a116-4fb2-ac5b-8f5ce68a6aed\config\vs17\x64\obj\Release_TS
+Build: D:\a\_temp\temporary-runner-ccepchq4\_work\_temp\private-php-source\obj\Release_TS
 
 Built-in Extensions
 ===========================

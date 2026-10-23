@@ -19,7 +19,7 @@ Serveurs et bases de données :
 
 Langages et outils :
 
-- [Php](https://www.php.net/) 5.6 / 7.4 / 8.1 / 8.2 / 8.3 / 8.4 / 8.5
+- [Php](https://www.php.net/) 5.6 / 7.4 / 8.2 / 8.4 / 8.5
 
 - [PEAR / PECL](https://pear.php.net/) (exécutés dans un environnement php5.6)
 
@@ -110,9 +110,7 @@ le terminal:
 ```shell
 php5.6 -v
 php7.4 -v
-php8.1 -v
 php8.2 -v
-php8.3 -v
 php8.4 -v
 php8.5 -v
 ```
@@ -142,9 +140,7 @@ Composer à aussi des commandes liées à la version de php
 composer # va exécuter composer avec la version de php par défaut
 composer5.6 # va exécuter la version LTS de composer (php5.6)
 composer7.4 # va exécuter composer dans un environnement 7.4
-composer8.1
 composer8.2
-composer8.3
 composer8.4
 composer8.5
 ```
@@ -166,7 +162,6 @@ Phan est aussi fourni pour faire une analyse du code :
 ```shell
 phan
 phan7.4
-phan8.1
 phan8.2
 phan8.3
 phan8.4
@@ -202,7 +197,7 @@ e / e.        # ouvre l'explorateur de fichiers
 
 ## Win32 API
 
-l'extension `win32std` à été compilée et intégrée aux versions php `8.2`, `8.3` et `8.4`
+l'extension `win32std` à été compilée et intégrée aux versions php `8.2` et `8.4`
 En attandant que des stubs soient générés, une documentation est disponible à l'adresse suivante: [win32std - Windows binding for PHP](http://wildphp.free.fr/wiki/doku.php?id=win32std:index)
 
 ## Démarrer et arrêter les services

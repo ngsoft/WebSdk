@@ -19,9 +19,7 @@ set "httpd=%lib%httpd\bin\"
 @REM Redis
 set "redis=%lib%redis\"
 @REM php
-set "php81=%lib%php\8.1\"
 set "php82=%lib%php\8.2\"
-set "php83=%lib%php\8.3\"
 set "php84=%lib%php\8.4\"
 set "php85=%lib%php\8.5\"
 set "php74=%lib%php\7.4\"

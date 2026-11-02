@@ -34,10 +34,10 @@ class AdminerTheme extends Plugin
     public function __construct($defaultTheme = 'default-orange', $fix = false, $lang = true)
     {
         define('PMTN_ADMINER_THEME', true);
-        AdminerBootstrapSelect::$enabled = false;
-        $this->fix                       = $fix;
-        $this->lang                      = $lang;
-        $this->themeName                 = $defaultTheme;
+        AdminerBootstrapSelect::$active = false;
+        $this->fix                      = $fix;
+        $this->lang                     = $lang;
+        $this->themeName                = $defaultTheme;
     }
 
     /**

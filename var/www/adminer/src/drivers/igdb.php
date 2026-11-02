@@ -4,7 +4,7 @@
  * @see https://demo.adminer.org/igdb/?igdb=IGDB&db=api
  * username: your Client-ID
  * password: your Client Secret from https://dev.twitch.tv/console/apps
- * @see https://www.adminer.org/static/plugins/igdb.png
+ * @see https://www.adminer.org/static/plugins/igdb.webp
  */
 
 namespace Adminer;
@@ -15,199 +15,198 @@ if (isset($_GET['igdb']))
 {
     define('Adminer\DRIVER', 'igdb');
 
-    class Db extends SqlDb
+    if (extension_loaded('dom') && ini_bool('allow_url_fopen') && in_array('https', stream_get_wrappers()))
     {
-        public $extension   = 'json';
-        public $server_info = 'v4';
-        private $username;
-        private $token;
-
-        public function attach(array $server, $username, $password)
+        class Db extends SqlDb
         {
-            $this->username = $username;
-            $key            = $_COOKIE['adminer_key'];
-            $hash           = md5($password); // the cached token must not be used with a different secret, otherwise any password would be accepted
-            $cache          = get_session('igdb_token'); // hash of the secret, expiration, token encrypted the same way as the password
+            public $extension   = 'JSON';
+            public $server_info = 'v4';
+            private $username;
+            private $token;
 
-            if (idx($cache, 0) === $hash && $cache[1] > time())
+            public function attach(array $server, $username, $password)
             {
-                $this->token = ($key ? decrypt_string($cache[2], $key) : $cache[2]);
-            }
+                $this->username = $username;
+                $key            = $_COOKIE['adminer_key'];
+                $hash           = md5($password); // the cached token must not be used with a different secret, otherwise any password would be accepted
+                $cache          = get_session('igdb_token'); // hash of the secret, expiration, token encrypted the same way as the password
 
-            if ( ! $this->token)
-            {
-                $url                               = 'https://id.twitch.tv/oauth2/token';
-                $context                           = stream_context_create(['http' => [
-                    'method'        => 'POST',
-                    'header'        => 'Content-Type: application/x-www-form-urlencoded',
-                    'content'       => http_build_query(['client_id' => $username, 'client_secret' => $password, 'grant_type' => 'client_credentials']),
-                    'ignore_errors' => true,
-                ]]);
-                list($response, $status, , $error) = get_url($url, $context);
-                $json                              = (array) json_decode($response, true); // idx() requires an array
-                $this->token                       = $json['access_token'];
+                if (idx($cache, 0) === $hash && $cache[1] > time())
+                {
+                    $this->token = ($key ? decrypt_string($cache[2], $key) : $cache[2]);
+                }
 
                 if ( ! $this->token)
                 {
-                    return "{$url}: " . ($error ?: idx($json, 'message', "HTTP {$status}")); // the URL is a constant so displaying the response doesn't disclose anything
-                }
-                set_session('igdb_token', [$hash, time() + $json['expires_in'], $key ? encrypt_string($this->token, $key) : $this->token]);
-            }
-            return '';
-        }
+                    $url                               = 'https://id.twitch.tv/oauth2/token';
+                    $context                           = stream_context_create(['http' => [
+                        'method'        => 'POST',
+                        'header'        => 'Content-Type: application/x-www-form-urlencoded',
+                        'content'       => http_build_query(['client_id' => $username, 'client_secret' => $password, 'grant_type' => 'client_credentials']),
+                        'ignore_errors' => true,
+                    ]]);
+                    list($response, $status, , $error) = get_url($url, $context);
+                    $json                              = (array) json_decode($response, true); // idx() requires an array
+                    $this->token                       = $json['access_token'];
 
-        public function select_db($database)
-        {
-            return 'api' == $database;
-        }
-
-        public function request($endpoint, $query, $method = 'POST')
-        {
-            $context                 = stream_context_create(['http' => [
-                'method'        => $method,
-                'header'        => [
-                    'Content-Type: text/plain',
-                    "Client-ID: {$this->username}",
-                    "Authorization: Bearer {$this->token}",
-                ],
-                'content'       => $query,
-                'ignore_errors' => true,
-            ]]);
-            list($response, $status) = get_url("https://api.igdb.com/v4/{$endpoint}", $context);
-            $return                  = json_decode($response, true);
-
-            if (200 != $status)
-            {
-                if (is_array($return))
-                {
-                    foreach (is_array($return[0]) ? $return : [$return] as $rows)
+                    if ( ! $this->token)
                     {
-                        foreach ($rows as $key => $val)
-                        {
-                            $this->error .= '<b>' . h($key) . ':</b> ' . (is_url($val) ? '<a href="' . h($val) . '"' . target_blank() . '>' . h($val) . '</a>' : h($val)) . '<br>';
-                        }
+                        return "{$url}: " . ($error ?: idx($json, 'message', "HTTP {$status}")); // the URL is a constant so displaying the response doesn't disclose anything
                     }
-                } else
-                {
-                    $this->error = htmlspecialchars(strip_tags($response), 0, null, false);
+                    set_session('igdb_token', [$hash, time() + $json['expires_in'], $key ? encrypt_string($this->token, $key) : $this->token]);
                 }
-                return false;
-            }
-            return $return;
-        }
-
-        public function query($query, $unbuffered = false)
-        {
-            if (preg_match('~^SELECT COUNT\(\*\) FROM (\w+)( WHERE ((MATCH \(search\) AGAINST \((.+)\))|.+))?$~', $query, $match))
-            {
-                return new Result(['dumps' == $match[1] ? ['count' => 50] : $this->request("{$match[1]}/count", $match[5] ? 'search "' . addcslashes($match[5], '\"') . '";'
-                    : (
-                        $match[3] ? 'where ' . str_replace(' AND ', ' & ', $match[3]) . ';'
-                    : ''
-                    ))]);
+                return '';
             }
 
-            if (preg_match('~^\s*(GET|POST|DELETE)\s+([\w/?=]+)\s*;\s*(.*)$~s', $query, $match))
+            public function select_db($database)
             {
-                $endpoint      = $match[2];
-                $response      = $this->request($endpoint, $match[3], $match[1]);
+                return 'api' == $database;
+            }
 
-                if (false === $response)
-                {
-                    return $response;
-                }
-                $return        = new Result(is_array($response[0]) ? $response : [$response]);
-                $return->table = $endpoint;
+            public function request($endpoint, $query, $method = 'POST')
+            {
+                $context                 = stream_context_create(['http' => [
+                    'method'        => $method,
+                    'header'        => [
+                        'Content-Type: text/plain',
+                        "Client-ID: {$this->username}",
+                        "Authorization: Bearer {$this->token}",
+                    ],
+                    'content'       => $query,
+                    'ignore_errors' => true,
+                ]]);
+                list($response, $status) = get_url("https://api.igdb.com/v4/{$endpoint}", $context);
+                $return                  = json_decode($response, true);
 
-                if ('multiquery' == $endpoint)
+                if (200 != $status)
                 {
-                    $return->results = $response;
+                    if (is_array($return))
+                    {
+                        foreach (is_array($return[0]) ? $return : [$return] as $rows)
+                        {
+                            foreach ($rows as $key => $val)
+                            {
+                                $this->error .= '<b>' . h($key) . ':</b> ' . (is_url($val) ? '<a href="' . h($val) . '"' . target_blank() . '>' . h($val) . '</a>' : h($val)) . '<br>';
+                            }
+                        }
+                    } else
+                    {
+                        $this->error = htmlspecialchars(strip_tags($response), 0, null, false);
+                    }
+                    return false;
                 }
                 return $return;
             }
-            $this->error = 'Syntax:<br>POST &lt;endpoint>; fields ...;';
-            return false;
-        }
 
-        public function store_result()
-        {
-            if ($this->multi && ($result = current($this->multi->results)))
+            public function query($query, $unbuffered = false)
             {
-                echo '<h3>' . h($result['name']) . "</h3>\n";
-                $this->multi->__construct($result['count'] ? [['count' => $result['count']]] : $result['result']);
-            }
-            return $this->multi;
-        }
+                if (preg_match('~^SELECT COUNT\(\*\) FROM (\w+)(?: WHERE (search "(?:[^"\\\]|\\\.)*")?(?:(?: AND )?(.+))?)?$~s', $query, $match)) // search "..." is built by fulltextSql()
+                {$where = (isset($match[3]) ? 'where ' . str_replace(' AND ', ' & ', $match[3]) . ';' : '');
+                    return new Result(['dumps' == $match[1] ? ['count' => 50] : $this->request("{$match[1]}/count", ($match[2] ? "{$match[2]};" : '') . $where)]);
+                }
 
-        public function next_result()
-        {
-            return $this->multi && next($this->multi->results);
-        }
-
-        public function quote($string)
-        {
-            return $string;
-        }
-    }
-
-    class Result
-    {
-        public $num_rows;
-        public $table;
-        public $results = [];
-        private $result;
-        private $fields;
-
-        public function __construct(array $result)
-        {
-            $keys           = [];
-
-            foreach ($result as $i => $row)
-            {
-                foreach ($row as $key => $val)
+                if (preg_match('~^\s*(GET|POST|DELETE)\s+([\w/?=]+)\s*;\s*(.*)$~s', $query, $match))
                 {
-                    $keys[$key] = null;
+                    $endpoint      = $match[2];
+                    $response      = $this->request($endpoint, $match[3], $match[1]);
 
-                    if (is_array($val) && is_int($val[0]))
+                    if (false === $response)
                     {
-                        $result[$i][$key] = '(' . implode(',', $val) . ')';
+                        return $response;
+                    }
+                    $return        = new Result(is_array($response[0]) ? $response : [$response]);
+                    $return->table = $endpoint;
+
+                    if ('multiquery' == $endpoint)
+                    {
+                        $return->results = $response;
+                    }
+                    return $return;
+                }
+                $this->error = 'Syntax:<br>POST &lt;endpoint>; fields ...;';
+                return false;
+            }
+
+            public function store_result()
+            {
+                if ($this->multi && ($result = current($this->multi->results)))
+                {
+                    echo '<h3>' . h($result['name']) . "</h3>\n";
+                    $this->multi->__construct($result['count'] ? [['count' => $result['count']]] : $result['result']);
+                }
+                return $this->multi;
+            }
+
+            public function next_result()
+            {
+                return $this->multi && next($this->multi->results);
+            }
+
+            public function quote($string)
+            {
+                return $string;
+            }
+        }
+
+        class Result
+        {
+            public $num_rows;
+            public $table;
+            public $results = [];
+            private $result;
+            private $fields;
+
+            public function __construct(array $result)
+            {
+                $keys           = [];
+
+                foreach ($result as $i => $row)
+                {
+                    foreach ($row as $key => $val)
+                    {
+                        $keys[$key] = null;
+
+                        if (is_array($val) && is_int($val[0]))
+                        {
+                            $result[$i][$key] = '(' . implode(',', $val) . ')';
+                        }
                     }
                 }
+
+                foreach ($result as $i => $row)
+                {
+                    $result[$i] = array_merge($keys, $row);
+                }
+                $this->result   = $result;
+                $this->num_rows = count($result);
+                $this->fields   = array_keys(idx($result, 0, []));
             }
 
-            foreach ($result as $i => $row)
+            public function fetch_assoc()
             {
-                $result[$i] = array_merge($keys, $row);
+                $row = current($this->result);
+                next($this->result);
+                return $row;
             }
-            $this->result   = $result;
-            $this->num_rows = count($result);
-            $this->fields   = array_keys(idx($result, 0, []));
-        }
 
-        public function fetch_assoc()
-        {
-            $row = current($this->result);
-            next($this->result);
-            return $row;
-        }
+            public function fetch_row()
+            {
+                $row = $this->fetch_assoc();
+                return $row ? array_values($row) : false;
+            }
 
-        public function fetch_row()
-        {
-            $row = $this->fetch_assoc();
-            return $row ? array_values($row) : false;
-        }
-
-        public function fetch_field()
-        {
-            $field = current($this->fields);
-            next($this->fields);
-            return (object) ('' != $field ? ['name' => $field, 'orgtable' => $this->table] : []);
+            public function fetch_field()
+            {
+                $field = current($this->fields);
+                next($this->fields);
+                return (object) ('' != $field ? ['name' => $field, 'orgtable' => $this->table] : []);
+            }
         }
     }
 
     class Driver extends SqlDriver
     {
-        public static $extensions = ['json'];
+        public static $extensions = ['DOM + OpenSSL + allow_url_fopen'];
         public static $jush       = 'igdb';
 
         public $delimiter         = ';;';
@@ -253,7 +252,7 @@ if (isset($_GET['igdb']))
                         $field   = $tds[0]->nodeValue;
                         $comment = $tds[2]->nodeValue;
 
-                        if ('checksum' != $field && 'content_descriptions' != $field && ! preg_match('~^DEPRECATED!~', $comment))
+                        if ( ! in_array($field, ['checksum', 'content_descriptions', 'test_dummy']) && ! preg_match('~^DEPRECATED!~', $comment))
                         {
                             $this->fields[$table][$field] = [
                                 'full_type' => str_replace('  ', ' ', $tds[1]->nodeValue),
@@ -261,9 +260,20 @@ if (isset($_GET['igdb']))
                             ];
                             $ref                          = $xpath->query('a/@href', $tds[1]);
 
-                            if (count($ref) && ! in_array($ref[0]->value, ['#game-version-feature-enums', '#tag-numbers']))
+                            if ('image_id' == $field)
                             {
-                                $this->foreignKeys[$table][$field] = substr($ref[0]->value, 1);
+                                $this->fields[$table][$field]['doc'] = 'https://api-docs.igdb.com/#images';
+                            }
+
+                            if (count($ref))
+                            {
+                                if (preg_match('~^#(tag-numbers|.*-enums)$~', $ref[0]->value))
+                                {
+                                    $this->fields[$table][$field]['doc'] = 'https://api-docs.igdb.com/' . $ref[0]->value;
+                                } else
+                                {
+                                    $this->foreignKeys[$table][$field] = substr($ref[0]->value, 1);
+                                }
                             } elseif ('game_id' === $field) // game_time_to_beats, popularity_primitives
                             {$this->foreignKeys[$table][$field] = 'game';
                             }
@@ -368,7 +378,7 @@ JS;
         {
             $filename = self::docsFilename();
 
-            if ( ! file_exists($filename))
+            if ( ! file_exists($filename) || filemtime($filename) < time() - 7 * 24 * 60 * 60)
             {
                 list($contents, $status) = get_url('https://api-docs.igdb.com/', stream_context_create(['http' => ['ignore_errors' => true]]));
 
@@ -409,6 +419,16 @@ JS;
             $columns         = ($select != ['*'] ? $select : array_keys($this->fields[$table]));
             $common          = ($where ? "\nwhere " . implode(' & ', $where) . ';' : '');
             $method          = ('webhooks' == $table || 'dumps' == $table ? 'GET' : 'POST');
+            $endpoint        = $table;
+
+            if ('GET' == $method && $where) // the GET endpoints accept only a single row by its primary key, the edit page passes 'id = 1', export of a checked row '((id = 1))'
+            {if ( ! preg_match('~^\(*(?:id|endpoint) = (\w+)\)*$~', implode(' & ', $where), $match))
+            {
+                $this->conn->error = 'Only a single row can be selected by its primary key.';
+                return false;
+            }
+                $endpoint .= "/{$match[1]}";
+            }
 
             if ('POST' == $method)
             {
@@ -420,12 +440,12 @@ JS;
                     . ($page ? "\noffset " . ($page * $limit) . ';' : '');
             }
             $start           = microtime(true);
-            $multi           = ( ! $search && 'POST' == $method && array_key_exists($table, driver()->tables));
+            $multi           = ( ! $search && 'POST' == $method && array_key_exists($table, driver()->tables) && 'search' != $table); // multiquery rejects the search endpoint
             $realQuery       = str_replace("*;\nexclude checksum", implode(',', $columns), $query); // exclude deprecated columns
             $return          = (
                 $multi
                 ? $this->conn->request('multiquery', "query {$table} \"result\" { {$realQuery} };\nquery {$table}/count \"count\" { {$common} };")
-                : $this->conn->request('GET' == $method && $where ? "{$table}/" . reset($_GET['where']) : $table, $realQuery, $method)
+                : $this->conn->request($endpoint, $realQuery, $method)
             );
             $this->query     = "{$method} {$table};\n{$query}";
 
@@ -529,7 +549,7 @@ JS;
     {
         $return = [['type' => 'PRIMARY', 'columns' => ['dumps' == $table ? 'endpoint' : 'id']]];
 
-        if (in_array($table, ['characters', 'collections', 'games', 'platforms', 'themes'])) // https://api-docs.igdb.com/#search-1
+        if (in_array($table, ['characters', 'collections', 'games', 'platforms', 'search', 'themes'])) // https://api-docs.igdb.com/#search-1
         {$return[] = ['type' => 'FULLTEXT', 'columns' => ['search']];
         }
         return $return;

@@ -406,7 +406,7 @@ if (isset($_GET['mongo']))
 
     class Driver extends SqlDriver
     {
-        public static $extensions = ['mongodb'];
+        public static $extensions = ['MongoDB'];
         public static $jush       = 'mongo';
 
         public $insertFunctions   = ['json'];

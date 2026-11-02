@@ -14,10 +14,12 @@ class AdminerVersionNoverify extends Plugin
     protected $translations = [
         'cs' => ['' => 'Zakáže kontrolu nových verzí'],
         'de' => ['' => 'Deaktivieren Sie die Versionsprüfung'],
+        'hr' => ['' => 'Onemogućuje provjeru novih verzija'],
+        'ja' => ['' => 'バージョンチェックを無効化'],
         'pl' => ['' => 'Wyłącz sprawdzanie wersji'],
         'ro' => ['' => 'Dezactivați verificatorul de versiuni'],
-        'ja' => ['' => 'バージョンチェックを無効化'],
-        'hr' => ['' => 'Onemogućuje provjeru novih verzija'],
+        'sk' => ['' => 'Zakáže kontrolu nových verzií'],
+        'zh' => ['' => '禁用版本检查'],
     ];
 
     public function verifyVersion()

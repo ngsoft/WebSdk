@@ -2,6 +2,12 @@
 
 namespace Adminer;
 
+/**
+ * Local key/value settings store for this fork (setItem/getItem).
+ *
+ * Not the upstream Adminer plugin AdminerConfig (plugins/config.php),
+ * which exposes headers/pluginsConfig/css hooks — do not confuse the two.
+ */
 class Config
 {
     private static $config = [];

@@ -4,7 +4,7 @@ use Adminer\AdminerCustomDriver;
 use Adminer\Config;
 
 Config::setItem('ADMINER_DEV', false);
-Config::setItem('ADMINER_VERSION', '6.1.2');
+Config::setItem('ADMINER_VERSION', '6.2.0');
 Config::setItem('HIDE_DATABASES', ['sys', 'mysql', 'information_schema', 'performance_schema']);
 Config::setItem('ADMINER_ACL', ['127.0', '192.168', '::1']);
 Config::setItem('ADMINER_TRUSTED_PROXY', []);
@@ -31,11 +31,13 @@ Config::setItem('ADMINER_PHP_INFO', true);
 Config::setItem('ADMINER_ADMIN_PAGE', true);
 Config::setItem('ADMINER_ENUM_OPTIONS', false);
 Config::setItem('ADMINER_ENUM_FOREIGN_LIMIT', 20); // 0 => unlimited
+Config::setItem('ADMINER_ENUM_FOREIGN_MODE', 'id');
 Config::setItem('ADMINER_FOREIGN_LINKS', true);
 Config::setItem('ADMINER_AUTOCOMPLETE_QUERY', true);
 Config::setItem('ADMINER_VERSION_GITHUB', false);
 Config::setItem('ADMINER_VERSION_CHECK', false);
 Config::setItem('ADMINER_SELECT_MODIFY_HEADER', true);
+Config::setItem('ADMINER_SELECT_EXPRESSION', false);
 Config::setItem('ADMINER_CUSTOM_DRIVERS', [
     new AdminerCustomDriver('redis', 'Redis/KeyDB', __DIR__ . '/drivers/redis.php'),
     new AdminerCustomDriver('imap', 'IMAP', __DIR__ . '/drivers/imap.php', function ()
@@ -52,9 +54,14 @@ Config::setItem('ADMINER_CUSTOM_DRIVERS', [
     }),
     new AdminerCustomDriver('firebird', 'Firebird', __DIR__ . '/drivers/firebird.php', function ()
     {
-        return extension_loaded('interbase');
+        return extension_loaded('pdo_firebird');
     }),
-    new AdminerCustomDriver('igdb', 'IGDB API', __DIR__ . '/drivers/igdb.php'),
+    new AdminerCustomDriver('igdb', 'IGDB API', __DIR__ . '/drivers/igdb.php', function ()
+    {
+        return extension_loaded('dom')
+            && ini_get_bool('allow_url_fopen')
+            && in_array('https', stream_get_wrappers(), true);
+    }),
     new AdminerCustomDriver('mongo', 'MongoDB', __DIR__ . '/drivers/mongo.php', function ()
     {
         return class_exists('MongoDB\Driver\Manager');

@@ -14,9 +14,12 @@ class AdminerVersionGithub extends Plugin
     protected $translations = [
         'cs' => ['' => 'Kontrola nových verzí z GitHubu'],
         'de' => ['' => 'Neue Versionen von GitHub verifizieren'],
-        'ja' => ['' => 'GitHub の新版を管理'],
-        'pl' => ['' => 'Weryfikuj nowe wersje z GitHuba'],
         'hr' => ['' => 'Provjera novih verzija s GitHuba'],
+        'ja' => ['' => 'GitHub で新しいバージョンを確認'],
+        'pl' => ['' => 'Weryfikuj nowe wersje z GitHuba'],
+        'ro' => ['' => 'Verifică versiunile noi de pe GitHub'],
+        'sk' => ['' => 'Kontrola nových verzií z GitHubu'],
+        'zh' => ['' => '在 GitHub 上检查新版本'],
     ];
 
     public function head($dark = null)

@@ -7,14 +7,15 @@ namespace Adminer;
  */
 class AdminerBootstrapSelect extends Plugin
 {
-    public static $enabled = true;
-    public static $loaded  = false;
+    /** Toggle Bootstrap Select independently of Plugin::$enabled (6.2+) */
+    public static $active = true;
+    public static $loaded = false;
 
     protected $dark;
     protected $fix;
     protected $select;
     protected $lang;
-    protected $theme       = '';
+    protected $theme      = '';
 
     public function __construct($theme = '', $dark = false, $fix = false, $select = true, $lang = true)
     {
@@ -28,7 +29,7 @@ class AdminerBootstrapSelect extends Plugin
 
     public function head()
     {
-        if ( ! self::$enabled)
+        if ( ! self::$active)
         {
             return;
         } ?>

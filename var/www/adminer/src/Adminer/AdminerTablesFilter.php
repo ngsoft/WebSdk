@@ -18,16 +18,25 @@ class AdminerTablesFilter extends Plugin
         ],
         'de' => ['' => 'Filtern Sie Namen in der Tabellenliste'],
         'pl' => ['' => 'Filtruj nazwy na liście tabel'],
-        'ro' => ['' => 'Nume de filtre în lista de tabele'],
+        'ro' => ['' => 'Filtrează numele în lista de tabele'],
         'ja' => ['' => 'テーブル一覧をテーブル名でフィルタリング'],
         'hr' => [
             ''       => 'Filtriranje tablice prema imenu',
             'Filter' => 'Filtar',
         ],
+        'sk' => ['' => 'Filtruje názvy v zozname tabuliek'],
+        'zh' => [
+            ''       => '过滤表列表中的名称',
+            'Filter' => '过滤',
+        ],
     ];
 
     public function tablesPrint($tables)
     {
+        if (support('single_table'))
+        {
+            return; // there is nothing to filter
+        }
         ?>
         <script<?= nonce(); ?>>
             let tablesFilterTimeout = null;
@@ -75,16 +84,14 @@ class AdminerTablesFilter extends Plugin
             }
 
             sessionStorage && document.addEventListener('DOMContentLoaded', () => {
-                let db = qs('#dbs').querySelector('select');
-                db = db.options[db.selectedIndex].text;
+                let select = qs('#dbs') && qs('#dbs').querySelector('select'); // there is no select in drivers with a single database
+                let db = (select ? select.options[select.selectedIndex].text : '');
                 if (db == sessionStorage.getItem('adminer_tables_filter_db') && sessionStorage.getItem('adminer_tables_filter')) {
                     qs('#filter-field').value = sessionStorage.getItem('adminer_tables_filter');
                     tablesFilter();
                 }
                 sessionStorage.setItem('adminer_tables_filter_db', db);
             });
-
-
         </script>
         <style <?= nonce(); ?>>
             /* jsonly is hidden by the core without JavaScript, tables-filter carries the layout - it must not leak to the other jsonly elements */
@@ -105,7 +112,8 @@ class AdminerTablesFilter extends Plugin
         <p class="jsonly tables-filter">
             <label for="filter-field"></label>
             <input placeholder="Search table" value="" id="filter-field" autocomplete="off"
-                   type="search"></p>
-        <?php echo script("qs('#filter-field').oninput = tablesFilterInput;");
+                   type="search"<?= on('input', 'tablesFilterInput'); ?>>
+        </p>
+        <?php
     }
 }

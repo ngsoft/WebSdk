@@ -5,7 +5,7 @@
  *
  * @author Aymeric Anger
  *
- * @version 26.09.2 build on 2026-09-21
+ * @version 26.11 build on 2026-11-01
  *
  * @noinspection ALL
  */
@@ -1339,7 +1339,24 @@ namespace {
          */
         function str_convert_encoding($str, $encoding = 'UTF-8')
         {
-            static $types = null;
+            /**
+             * Encodings excluded from mb_detect_encoding:
+             * - transfer / non-text (base64, 7bit, …)
+             * - mbstring internals listed before UTF-8 on 5.6/7.4 (pass, auto, wchar, byte2/4*)
+             * - wide / alternate unicode that mis-map byte strings (ucs, utf-16/32/7, utf7-imap)
+             * - CJK families that accept latin/utf-8 bytes (sjis, euc-jp, iso-2022-jp, gb18030, …)
+             * - single-byte encodings that beat UTF-8 heuristics on multibyte sequences (cp866, windows-1251)
+             * - carrier-specific aliases (*mobile*)
+             */
+            static $types = null, $ignore = [
+                'base64', 'uuencode', 'html-entities', 'quoted-printable', '7bit', '8bit',
+                'pass', 'auto', 'wchar', 'byte2', 'byte4',
+                'ucs', 'utf-16', 'utf-32', 'utf-7', 'utf7',
+                'sjis', 'jis', 'euc-jp', 'eucjp', 'iso-2022-jp', 'cp932', 'cp51932', 'cp5022',
+                'gb18030', 'euc-cn', 'euc-tw', 'euc-kr', 'cp936', 'cp950', 'big-5', 'uhc', 'iso-2022-kr', 'hz',
+                'cp866', 'windows-1251',
+                'mobile',
+            ];
 
             if (null === $types)
             {
@@ -1349,8 +1366,7 @@ namespace {
                 {
                     $normalized         = strtolower($real);
 
-                    // BUG: UTF-8 strings detected as UTF-16 subset and japanese conversion
-                    if (strstr($normalized, 'ucs') || strstr($normalized, 'utf-16'))
+                    if (str_contains_list($normalized, $ignore))
                     {
                         continue;
                     }
@@ -1367,12 +1383,129 @@ namespace {
 
             $toEncoding   = $types[$normalized];
 
+            // Already valid UTF-8 when targeting UTF-8: skip detect/convert (heuristics can pick CP866 etc.)
+            if ('UTF-8' === $toEncoding && mb_check_encoding($str, 'UTF-8'))
+            {
+                return $str;
+            }
+
             if (($currentEncoding = mb_detect_encoding($str, $types, true)) && $currentEncoding !== $toEncoding)
             {
                 $str = mb_convert_encoding($str, $toEncoding, $currentEncoding);
             }
 
             return $str;
+        }
+    }
+
+    if ( ! function_exists('str_starts_with_list'))
+    {
+        /**
+         * Checks whether the haystack starts with any of the given needles.
+         *
+         * @param string   $haystack
+         * @param string[] $needles
+         * @param bool     $case_sensitive when false, both values are lowercased before comparison
+         *
+         * @return bool
+         */
+        function str_starts_with_list($haystack, array $needles, $case_sensitive = true)
+        {
+            $haystack = (string) $haystack;
+
+            if ( ! $case_sensitive)
+            {
+                $haystack = strtolower($haystack);
+            }
+
+            foreach ($needles as $needle)
+            {
+                if ( ! is_string($needle))
+                {
+                    continue;
+                }
+
+                if (str_starts_with($haystack, ! $case_sensitive ? strtolower($needle) : $needle))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    if ( ! function_exists('str_ends_with_list'))
+    {
+        /**
+         * Checks whether the haystack ends with any of the given needles.
+         *
+         * @param string   $haystack
+         * @param string[] $needles
+         * @param bool     $case_sensitive when false, both values are lowercased before comparison
+         *
+         * @return bool
+         */
+        function str_ends_with_list($haystack, array $needles, $case_sensitive = true)
+        {
+            $haystack = (string) $haystack;
+
+            if ( ! $case_sensitive)
+            {
+                $haystack = strtolower($haystack);
+            }
+
+            foreach ($needles as $needle)
+            {
+                if ( ! is_string($needle))
+                {
+                    continue;
+                }
+
+                if (str_ends_with($haystack, ! $case_sensitive ? strtolower($needle) : $needle))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    if ( ! function_exists('str_contains_list'))
+    {
+        /**
+         * Checks whether the haystack contains any of the given needles.
+         *
+         * @param string   $haystack
+         * @param string[] $needles
+         * @param bool     $case_sensitive when false, both values are lowercased before comparison
+         *
+         * @return bool
+         */
+        function str_contains_list($haystack, array $needles, $case_sensitive = true)
+        {
+            $haystack = (string) $haystack;
+
+            if ( ! $case_sensitive)
+            {
+                $haystack = strtolower($haystack);
+            }
+
+            foreach ($needles as $needle)
+            {
+                if ( ! is_string($needle))
+                {
+                    continue;
+                }
+
+                if (str_contains($haystack, ! $case_sensitive ? strtolower($needle) : $needle))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

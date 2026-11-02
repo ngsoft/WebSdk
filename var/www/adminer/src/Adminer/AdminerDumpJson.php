@@ -16,10 +16,12 @@ class AdminerDumpJson extends Plugin
     protected $translations = [
         'cs' => ['' => 'Export do formátu JSON'],
         'de' => ['' => 'Export im JSON-Format'],
+        'hr' => ['' => 'Izvoz u JSON format'],
+        'ja' => ['' => 'JSON 形式でエクスポート'],
         'pl' => ['' => 'Zrzuć do formatu JSON'],
         'ro' => ['' => 'Dump în format JSON'],
-        'ja' => ['' => 'JSON 形式でエクスポート'],
-        'hr' => ['' => 'Izvoz u JSON format'],
+        'sk' => ['' => 'Export do formátu JSON'],
+        'zh' => ['' => '导出为 JSON 格式'],
     ];
 
     public function dumpFormat()

@@ -14,10 +14,12 @@ class AdminerDumpDate extends Plugin
     protected $translations = [
         'cs' => ['' => 'Do názvu souboru s exportem přidá aktuální datum a čas'],
         'de' => ['' => 'Aktuelles Datum und die aktuelle Uhrzeit in den Namen der Exportdatei einfügen'],
+        'hr' => ['' => 'Dodaje trenutni datum i vrijeme u naziv datoteke izvoza'],
+        'ja' => ['' => 'エクスポートファイル名に現在日時を含める'],
         'pl' => ['' => 'Dołącz bieżącą datę i godzinę do nazwy pliku eksportu'],
         'ro' => ['' => 'Includeți data și ora curentă în numele fișierului de export'],
-        'ja' => ['' => 'エクスポートファイル名に現在日時を含める'],
-        'hr' => ['' => 'Dodaje trenutni datum i vrijeme u naziv datoteke izvoza'],
+        'sk' => ['' => 'Do názvu súboru s exportom pridá aktuálny dátum a čas'],
+        'zh' => ['' => '在导出文件名中包含当前日期和时间'],
     ];
 
     public function dumpFilename($identifier)

@@ -29,12 +29,19 @@ class AdminerEnumOption extends Plugin
             'original' => 'original',
         ],
         'ja' => [
-            ''         => '列挙型の編集に <input type="radio"> ではなく <select><option> を使用',
+            ''         => 'enum の編集に <input type="radio"> ではなく <select><option> を使用',
             'original' => '元',
         ],
         'hr' => [
             ''         => 'Koristi <select><option> za uređivanje enum polja umjesto <input type="radio">',
             'original' => 'original',
+        ],
+        'sk' => [
+            '' => 'Použije <select><option> na editáciu enum namiesto <input type="radio">',
+        ],
+        'zh' => [
+            ''         => '编辑 enum 时使用 <select><option> 而不是 <input type="radio">',
+            'original' => '原始',
         ],
     ];
 
@@ -43,32 +50,27 @@ class AdminerEnumOption extends Plugin
         if ('enum' == $field['type'])
         {
             $options  = [];
-            $selected = "val-{$value}";
+            // the value is an array when re-printing the form after a failed save, false means the original value
+            $selected = (
+                is_array($value)
+                ? reset($value)
+                : (false === $value ? 'orig' : (null === $value ? 'null' : "val-{$value}"))
+            );
 
             if (isset($_GET['select']))
             {
-                $options['orig'] = lang('original');
-
-                if (null === $value)
-                {
-                    $selected = 'orig';
-                }
+                $options['orig'] = $this->lang('original');
             }
 
             if ($field['null'])
             {
                 $options['null'] = 'NULL';
-
-                if (null === $value)
-                {
-                    $selected = 'null';
-                }
             }
-            preg_match_all("~'((?:[^']|'')*)'~", $field['length'], $matches);
+            preg_match_all("~'(?:[^']|'')*'~", $field['length'], $matches);
 
-            foreach ($matches[1] as $val)
+            foreach ($matches[0] as $val)
             {
-                $val                   = stripcslashes(str_replace("''", "'", $val));
+                $val                   = stripcslashes(idf_unescape($val));
                 $options["val-{$val}"] = $val;
             }
             return "<select{$attrs}>" . optionlist($options, $selected, 1) . '</select>'; // 1 - use keys

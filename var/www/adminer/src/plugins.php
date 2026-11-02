@@ -1,5 +1,6 @@
 <?php
 
+use Adminer\AdminerAuthLogin;
 use Adminer\AdminerBackwardKeys;
 use Adminer\AdminerCodemirror;
 use Adminer\AdminerColorFields;
@@ -13,9 +14,9 @@ use Adminer\AdminerDumpXlsx;
 use Adminer\AdminerEditForeign;
 use Adminer\AdminerEnumOption;
 use Adminer\AdminerJsonColumn;
-use Adminer\AdminerLogin;
 use Adminer\AdminerLoginIp;
 use Adminer\AdminerPrettyJsonColumn;
+use Adminer\AdminerSelectExpression;
 use Adminer\AdminerSelectModifyHeader;
 use Adminer\AdminerTablesFilter;
 use Adminer\AdminerVersionGithub;
@@ -47,7 +48,10 @@ return function ()
 
     if ( ! in_array(Config::getItem('ADMINER_ENUM_FOREIGN_LIMIT'), [false, -1], true))
     {
-        $plugins[] = new AdminerEditForeign(Config::getItem('ADMINER_ENUM_FOREIGN_LIMIT', 0));
+        $plugins[] = new AdminerEditForeign(
+            Config::getItem('ADMINER_ENUM_FOREIGN_LIMIT', 0),
+            Config::getItem('ADMINER_ENUM_FOREIGN_MODE', 'id')
+        );
     }
 
     if (Config::getItem('ADMINER_FOREIGN_LINKS'))
@@ -115,12 +119,17 @@ return function ()
         $plugins[] = new AdminerSelectModifyHeader();
     }
 
+    if (Config::getItem('ADMINER_SELECT_EXPRESSION'))
+    {
+        $plugins[] = new AdminerSelectExpression();
+    }
+
     $plugins[]      = new AdminerDatabaseHide(Config::getItem('HIDE_DATABASES', []));
     $plugins[]      = new AdminerLoginIp(
         Config::getItem('ADMINER_ACL', []),
         Config::getItem('ADMINER_TRUSTED_PROXY', [])
     );
-    $plugins[]      = new AdminerLogin(
+    $plugins[]      = new AdminerAuthLogin(
         Config::getItem('ADMINER_SERVERS', []),
         Config::getItem('ADMINER_DRIVERS', 'server'),
         Config::getItem('ADMINER_SAVEFILE', false),

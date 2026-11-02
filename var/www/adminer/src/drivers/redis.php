@@ -253,6 +253,7 @@ if (isset($_GET['redis']))
                     $cmd .= '$' . strlen($arg) . "\r\n{$arg}\r\n";
                 }
             }
+            error_clear_last(); // readError() reports only the errors of this command
             fwrite($this->fp, $cmd);
             $return = [];
             $count  = count($commands);
@@ -270,7 +271,7 @@ if (isset($_GET['redis']))
 
             if (false === $line)
             {
-                $this->error = error_get_last()['message'];
+                $this->error = $this->readError();
                 return false;
             }
             $type    = $line[0];
@@ -297,9 +298,8 @@ if (isset($_GET['redis']))
                     {
                         $block = fread($this->fp, $len - strlen($data));
 
-                        if (false === $block)
-                        {
-                            $this->error = error_get_last()['message'];
+                        if ('' == $block) // false for an error, "" for a closed connection or a timeout
+                        {$this->error = $this->readError();
                             return false;
                         }
                         $data .= $block;
@@ -324,6 +324,15 @@ if (isset($_GET['redis']))
                     $this->error = "Unknown response type: {$type}";
                     return false;
             }
+        }
+
+        /** Get the error of a failed read */
+        private function readError()
+        {
+            $error = error_get_last();
+            return $error // a closed connection or a timeout emits no PHP error
+                ? php_error_text($error['message'])
+                : (stream_get_meta_data($this->fp)['timed_out'] ? 'Connection timed out' : 'Connection closed');
         }
     }
 
@@ -489,11 +498,6 @@ JS;
             return '[^\s\S]'; // Redis has no comments
         }
 
-        public function allFields()
-        {
-            return []; // the parent implementation would send a SQL query
-        }
-
         public function insert($table, array $set)
         {
             return queries('SET ' . implode(' ', $set)); // the values are quoted by quote()
@@ -596,7 +600,11 @@ JS;
     {
         return [
             'key'   => ['field' => 'key', 'privileges' => ['select' => 1, 'where' => 1, 'insert' => 1]],
-            'type'  => ['field' => 'type', 'privileges' => ['select' => 1]], // the type is determined by the command creating the key
+            'type'  => [
+                'field'      => 'type',
+                'privileges' => ['select' => 1], // the type is determined by the command creating the key
+                'doc'        => 'https://redis.io/docs/latest/develop/data-types/',
+            ],
             'value' => ['field' => 'value', 'privileges' => ['select' => 1, 'insert' => 1, 'update' => 1]],
         ];
     }

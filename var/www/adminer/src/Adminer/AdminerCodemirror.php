@@ -14,11 +14,16 @@ class AdminerCodemirror extends Plugin
 {
     protected $translations = [
         'cs' => ['' => 'Použít CodeMirror 5 pro zvýrazňování syntaxe a <textarea> včetně našeptávání klíčových slov a tabulek'],
-        'de' => ['' => 'CodeMirror 5 verwenden für die Syntaxhervorhebung und <textarea> einschließlich der Überschrift von Schlüsselwörtern und Tabellen'],
-        'ja' => ['' => 'CodeMirror 5 を用い、キーワードやテーブルを含む構文や <textarea> を強調表示'],
-        'pl' => ['' => 'Użyj CodeMirror 5 do podświetlania składni i <textarea>, uwzględniając wcześniejsze wpisywanie słów kluczowych i tabel'],
+        'de' => ['' => 'CodeMirror 5 verwenden für die Syntaxhervorhebung und <textarea> einschließlich Autovervollständigung von Schlüsselwörtern und Tabellen'],
         'hr' => ['' => 'Koristi CodeMirror 5 za isticanje sintakse i <textarea>, uključujući dovršavanje ključnih riječi i tablica'],
+        'ja' => ['' => 'CodeMirror 5 を用い、キーワードやテーブル名の補完を含む構文強調表示と <textarea> を提供'],
+        'pl' => ['' => 'Użyj CodeMirror 5 do podświetlania składni i <textarea>, wraz z podpowiadaniem słów kluczowych i nazw tabel'],
+        'ro' => ['' => 'Folosiți CodeMirror 5 pentru evidențierea sintaxei și <textarea>, inclusiv sugestii pentru cuvinte cheie și tabele'],
+        'sk' => ['' => 'Použije CodeMirror 5 na zvýrazňovanie syntaxe a <textarea> vrátane napovedania kľúčových slov a tabuliek'],
+        'zh' => ['' => '使用 CodeMirror 5 实现语法高亮和 <textarea>，包含关键字和表名的输入提示'],
     ];
+
+    /** Local bundled assets (not CDN). */
     private $root           = 'codemirror5';
 
     public function syntaxHighlighting($tableStatuses)
@@ -33,6 +38,10 @@ class AdminerCodemirror extends Plugin
                 border: 1px inset #ccc;
                 resize: both;
             }
+
+            .adminer-error-line {
+                background: #fc05;
+            }
         </style>
         <?php
         echo script_src(asset("{$this->root}/lib/codemirror.js"));
@@ -40,7 +49,15 @@ class AdminerCodemirror extends Plugin
         echo script_src(asset("{$this->root}/addon/hint/show-hint.js"));
         echo script_src(asset("{$this->root}/mode/javascript/javascript.js"));
 
-        $tables     = array_fill_keys(array_keys($tableStatuses), []);
+        $tables     = [];
+
+        foreach ($tableStatuses as $table => $status)
+        {
+            if ( ! idx($status, 'dependent'))
+            {
+                $tables[$table] = [];
+            }
+        }
 
         if (support('sql'))
         {
@@ -90,6 +107,7 @@ class AdminerCodemirror extends Plugin
                     if (mode) {
                         const width = el.clientWidth;
                         const height = el.clientHeight;
+                        // Custom: no autocomplete on JSON editors
                         const isJson = mode === 'application/json';
                         const cm = CodeMirror.fromTextArea(el, {
                             mode: mode,
@@ -99,11 +117,11 @@ class AdminerCodemirror extends Plugin
                             hintOptions: {
                                 completeSingle: false,
                                 tables: <?= json_encode($tables); ?>,
-                                defaultTable: <?= json_encode($_GET['trigger'] ? $_GET['trigger'] : ($_GET['check'] ? $_GET['check'] : null)); ?>
+                                defaultTable: <?= json_encode($_GET['trigger'] ?: ($_GET['check'] ?: null)); ?>
                             }
                         });
                         cm.setSize(width, height);
-                        // Keep the underlying textarea in sync: Adminer ajaxForm
+                        // Custom: keep the underlying textarea in sync — Adminer ajaxForm
                         // serializes fields without firing the form "submit" event
                         // that CodeMirror.fromTextArea normally hooks.
                         cm.on('changes', () => cm.save());
@@ -117,11 +135,26 @@ class AdminerCodemirror extends Plugin
                         }
                         setupSubmitHighlightInput(cm.getWrapperElement());
                         el.onchange = () => cm.setValue(el.value);
+                        const errorLine = el.dataset.errorLine - 1; // NaN without the attribute
+                        if (errorLine >= 0) {
+                            cm.addLineClass(errorLine, 'background', 'adminer-error-line');
+                            cm.scrollIntoView({ line: errorLine, ch: 0 }, height / 3);
+                            const unmark = () => {
+                                cm.removeLineClass(errorLine, 'background', 'adminer-error-line');
+                                cm.off('change', unmark);
+                            };
+                            cm.on('change', unmark);
+                        }
                     }
                 }
             });
         </script>
         <?php
         return true;
+    }
+
+    public function screenshot()
+    {
+        return 'https://www.adminer.org/static/plugins/codemirror.gif';
     }
 }

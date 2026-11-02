@@ -3,10 +3,19 @@
 namespace Adminer;
 
 /**
- * Manages adminer themes.
+ * Local theme manager for this fork (download / switch / backup designs).
+ *
+ * Used as a plugin instance (head() injects menu links) and via static helpers
+ * from theme-switcher.php / CLI (runCommand). Persist settings in config/adminer.json.
+ *
+ * Not the upstream Adminer plugin AdminerDarkSwitcher (plugins/dark-switcher.php),
+ * which only toggles light/dark CSS — do not confuse or replace with that plugin.
+ *
+ * @see https://www.adminer.org/plugins/#use AdminerDarkSwitcher (upstream, different)
  */
 class ThemeSwitcher
 {
+    // Paths / GitHub raw URLs for official designs (vrana/adminer designs/)
     const THEMES_LOCATION          = '%s/themes/';
     const BACKUP_LOCATION          = '%s/themes/backup/';
     const GH_THEME_LIST            = 'https://api.github.com/repos/%s/contents/designs';
@@ -14,6 +23,7 @@ class ThemeSwitcher
     const GH_THEME_DOWNLOAD_ALT    = 'https://raw.githubusercontent.com/%s/master/designs/%s/adminer-dark.css';
 
     const PROMPT                   = 'Type the number of the theme you want to use: ';
+    // Applied theme files at the Adminer install root
     const THEME_FILE               = 'adminer.css';
     const THEME_FILE_DARK          = 'adminer-dark.css';
 
@@ -46,9 +56,9 @@ class ThemeSwitcher
     private $admin                 = true;
 
     /**
-     * @param bool  $switch Display switch
-     * @param bool  $info   Display php info
-     * @param mixed $admin
+     * @param bool  $switch Show “Switch theme” link in the menu (plugin head)
+     * @param bool  $info   Show “PHP Info” link in the menu
+     * @param mixed $admin  Reserved / admin page flag (wired from plugins.php)
      */
     public function __construct($switch = true, $info = true, $admin = true)
     {
@@ -57,16 +67,12 @@ class ThemeSwitcher
         $this->admin  = $admin;
     }
 
+    /**
+     * Plugin hook: inject theme-switch / php-info icons next to the menu title.
+     * Links go to theme-switcher.php and info.php (CSRF via session token).
+     */
     public function head()
     {
-        /* `<a title="Switch theme" class="theme-switcher-link" href="./theme-switcher.php?action=select-theme&token=<?= $token ?>&product=${product}"><?=self::$icons[0] ?></a>`, */
-        /* `<a title="PHP Info" class="theme-switcher-link" href="./info.php?token=<?= $token ?>"><?=self::$icons[1] ?></a>` */
-
-        // [
-        /* `<a title="Switch theme" class="theme-switcher-link" href="./theme-switcher.php?action=select-theme&token=<?= $token ?>&product=${product}"><?=self::$icons[0] ?></a>`, */
-        /* `<a title="PHP Info" class="theme-switcher-link" href="./info.php?token=<?= $token ?>"><?=self::$icons[1] ?></a>` */
-        // ].join('');
-
         $token = '';
 
         if (isset($_SESSION['token']))
@@ -150,6 +156,9 @@ class ThemeSwitcher
         <?php
     }
 
+    /**
+     * Align PHP session with Adminer’s adminer_sid cookie (needed outside index.php).
+     */
     public static function startAdminerSession()
     {
         static $ok = false;
@@ -187,6 +196,9 @@ class ThemeSwitcher
         }
     }
 
+    /**
+     * Gate theme UI / actions: valid token or short-lived connectedAdminer session flag.
+     */
     public static function isLoggedInAdminer()
     {
         self::startAdminerSession();
@@ -302,9 +314,11 @@ class ThemeSwitcher
     }
 
     /**
+     * Read persisted theme preferences from config/adminer.json (local fork settings).
+     *
      * @param $file
      *
-     * @return array{theme:string, type:"adminer"|"custom"|"none", select:bool, dark:bool,fix:bool,lang:bool}
+     * @return array{theme:string, type:"adminer"|"custom"|"none", select:bool, dark:bool, fix:bool,lang:bool}
      */
     public static function loadJsonData($file = 'config/adminer.json')
     {
@@ -362,6 +376,8 @@ class ThemeSwitcher
     }
 
     /**
+     * List theme folder names: GitHub designs/ + local themes/*.css (cached in session).
+     *
      * @return string[]
      */
     public static function getThemeList()
@@ -555,6 +571,11 @@ class ThemeSwitcher
         return self::$selectedDark;
     }
 
+    /**
+     * Backup current CSS, fetch design from local cache or GitHub, write adminer.css / adminer-dark.css.
+     *
+     * @param null|mixed $index
+     */
     public static function downloadTheme($index = null)
     {
         if ( ! isset($index))
@@ -816,6 +837,9 @@ class ThemeSwitcher
         return self::$theme;
     }
 
+    /**
+     * CLI entry point: list themes, prompt for index, download & apply.
+     */
     public static function runCommand()
     {
         self::startAdminerSession();

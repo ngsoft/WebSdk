@@ -6,6 +6,7 @@ use Adminer\AdminerCodemirror;
 use Adminer\AdminerColorFields;
 use Adminer\AdminerDatabaseFilter;
 use Adminer\AdminerDatabaseHide;
+use Adminer\AdminerDonation;
 use Adminer\AdminerDumpDate;
 use Adminer\AdminerDumpJson;
 use Adminer\AdminerDumpMarkdown;
@@ -122,6 +123,11 @@ return function ()
     if (Config::getItem('ADMINER_SELECT_EXPRESSION'))
     {
         $plugins[] = new AdminerSelectExpression();
+    }
+
+    if ( ! Config::getItem('ADMINER_DONATION_LINK'))
+    {
+        $plugins[] = new AdminerDonation();
     }
 
     $plugins[]      = new AdminerDatabaseHide(Config::getItem('HIDE_DATABASES', []));

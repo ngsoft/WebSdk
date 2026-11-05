@@ -17,7 +17,8 @@
 
 [data-fix] #content .plugins,
 [data-fix] .logout > span,
-[data-fix] form .footer + p {
+[data-fix] form .footer + p,
+[data-fix] #breadcrumb #jump {
     display: none;
 }
 
